@@ -28,6 +28,7 @@ def main():
                 continue
 
             log_proximity_event(can_id, event_code)
+            print(can_id)
     finally:
         try:
             bus.shutdown()
