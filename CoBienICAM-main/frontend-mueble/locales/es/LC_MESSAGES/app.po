@@ -1,0 +1,546 @@
+# Spanish translations for CoBien project.
+# Copyright (C) 2025
+# This file is distributed under the same license as the CoBien project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: CoBien 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-01-09 12:00+0000\n"
+"PO-Revision-Date: 2025-01-09 12:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# ==================== VOCAL ASSISTANT ====================
+msgid "Hola, ¿en qué puedo ayudarte"
+msgstr "Hola, ¿en qué puedo ayudarte"
+
+msgid "De acuerdo"
+msgstr "De acuerdo"
+
+msgid "No he reconocido el comando"
+msgstr "No he reconocido el comando"
+
+msgid "Lo siento, ha ocurrido un error"
+msgstr "Lo siento, ha ocurrido un error"
+
+# ==================== MAIN SCREEN ====================
+msgid "Hola"
+msgstr "Hola"
+
+msgid "Acceso Rápido"
+msgstr "Acceso Rápido"
+
+msgid "Contactos"
+msgstr "Contactos"
+
+msgid "Eventos"
+msgstr "Eventos"
+
+msgid "Pizarra"
+msgstr "Pizarra"
+
+msgid "Configuración"
+msgstr "Configuración"
+
+msgid "Próximos eventos"
+msgstr "Próximos eventos"
+
+# ==================== MONTHS ====================
+msgid "enero"
+msgstr "enero"
+
+msgid "febrero"
+msgstr "febrero"
+
+msgid "marzo"
+msgstr "marzo"
+
+msgid "abril"
+msgstr "abril"
+
+msgid "mayo"
+msgstr "mayo"
+
+msgid "junio"
+msgstr "junio"
+
+msgid "julio"
+msgstr "julio"
+
+msgid "agosto"
+msgstr "agosto"
+
+msgid "septiembre"
+msgstr "septiembre"
+
+msgid "octubre"
+msgstr "octubre"
+
+msgid "noviembre"
+msgstr "noviembre"
+
+msgid "diciembre"
+msgstr "diciembre"
+
+# ==================== DAYS OF WEEK (lowercase) ====================
+msgid "lunes"
+msgstr "lunes"
+
+msgid "martes"
+msgstr "martes"
+
+msgid "miércoles"
+msgstr "miércoles"
+
+msgid "jueves"
+msgstr "jueves"
+
+msgid "viernes"
+msgstr "viernes"
+
+msgid "sábado"
+msgstr "sábado"
+
+msgid "domingo"
+msgstr "domingo"
+
+# ==================== DAYS OF WEEK (capitalized) ====================
+msgid "Lunes"
+msgstr "Lunes"
+
+msgid "Martes"
+msgstr "Martes"
+
+msgid "Miércoles"
+msgstr "Miércoles"
+
+msgid "Jueves"
+msgstr "Jueves"
+
+msgid "Viernes"
+msgstr "Viernes"
+
+msgid "Sábado"
+msgstr "Sábado"
+
+msgid "Domingo"
+msgstr "Domingo"
+
+# ==================== COMMON ====================
+msgid "de"
+msgstr "de"
+
+msgid "y"
+msgstr "y"
+
+msgid "Min"
+msgstr "Min"
+
+msgid "Max"
+msgstr "Max"
+
+msgid "De"
+msgstr "De"
+
+msgid "Error"
+msgstr "Error"
+
+# ==================== LANGUAGE SCREEN ====================
+msgid "Seleccionar Idioma"
+msgstr "Seleccionar Idioma"
+
+msgid "Español"
+msgstr "Español"
+
+msgid "Français"
+msgstr "Français"
+
+msgid "Sauvegarder Configuration"
+msgstr "Guardar Configuración"
+
+msgid "Configuration sauvegardée !"
+msgstr "¡Configuración guardada!"
+
+# ==================== SETTINGS SCREEN ====================
+msgid "Idioma"
+msgstr "Idioma"
+
+msgid "Ciudades"
+msgstr "Ciudades"
+
+msgid "Colores Botones"
+msgstr "Colores Botones"
+
+msgid "Notificaciones"
+msgstr "Notificaciones"
+
+msgid "Tarjetas RFID"
+msgstr "Tarjetas RFID"
+
+msgid "Cancelar"
+msgstr "Cancelar"
+
+msgid "Confirmar"
+msgstr "Confirmar"
+
+msgid "Seleccione el contacto:"
+msgstr "Seleccione el contacto:"
+
+# ==================== WEATHER CHOICE SCREEN ====================
+msgid "Ciudades Meteorología"
+msgstr "Ciudades Meteorología"
+
+msgid "Seleccione las ciudades a mostrar en la rotación de meteorología"
+msgstr "Seleccione las ciudades a mostrar en la rotación de meteorología"
+
+msgid "Activa"
+msgstr "Activa"
+
+msgid "Activar"
+msgstr "Activar"
+
+# ==================== BUTTON COLORS SCREEN ====================
+msgid "Configuración Colores Botones"
+msgstr "Configuración Colores Botones"
+
+msgid "Seleccione el color para cada botón capacitivo del dispositivo."
+msgstr "Seleccione el color para cada botón capacitivo del dispositivo."
+
+msgid "Botón PIC1"
+msgstr "Botón PIC1"
+
+msgid "Botón PIC2"
+msgstr "Botón PIC2"
+
+msgid "Actualizar Configuración"
+msgstr "Actualizar Configuración"
+
+msgid "Configuración actualizada"
+msgstr "Configuración actualizada"
+
+msgid "Actualizar PIC1"
+msgstr "Actualizar PIC1"
+
+msgid "Actualizar PIC2"
+msgstr "Actualizar PIC2"
+
+msgid "Actualizar Todo"
+msgstr "Actualizar Todo"
+
+msgid "Intensidad:"
+msgstr "Intensidad:"
+
+msgid "Forma:"
+msgstr "Forma:"
+
+msgid "Modo:"
+msgstr "Modo:"
+
+msgid "Seleccionar Forma"
+msgstr "Seleccionar Forma"
+
+msgid "Seleccionar Modo"
+msgstr "Seleccionar Modo"
+
+# ==================== NOTIFICATIONS SCREEN ====================
+msgid "Configuración notificaciones"
+msgstr "Configuración notificaciones"
+
+msgid "Color:"
+msgstr "Color:"
+
+msgid "Tono de llamada:"
+msgstr "Tono de llamada:"
+
+msgid "Encendido"
+msgstr "Encendido"
+
+msgid "Apagado"
+msgstr "Apagado"
+
+msgid "Parpadeo"
+msgstr "Parpadeo"
+
+msgid "Parpadeo Gradual"
+msgstr "Parpadeo Gradual"
+
+msgid "Ninguna"
+msgstr "Ninguna"
+
+msgid "Videollamada"
+msgstr "Videollamada"
+
+msgid "Nuevo Evento"
+msgstr "Nuevo Evento"
+
+msgid "Nueva Foto"
+msgstr "Nueva Foto"
+
+# ==================== RFID ACTIONS SCREEN ====================
+msgid "Configuración Tarjetas RFID"
+msgstr "Configuración Tarjetas RFID"
+
+msgid "Presione 'Iniciar Configuración' y luego presente una tarjeta RFID para asignarle una acción."
+msgstr "Presione 'Iniciar Configuración' y luego presente una tarjeta RFID para asignarle una acción."
+
+msgid "🔧 Iniciar Configuración"
+msgstr "🔧 Iniciar Configuración"
+
+msgid "ID Tarjeta"
+msgstr "ID Tarjeta"
+
+msgid "Acción"
+msgstr "Acción"
+
+msgid "Ciudad"
+msgstr "Ciudad"
+
+msgid "Contacto"
+msgstr "Contacto"
+
+msgid "Eliminar"
+msgstr "Eliminar"
+
+msgid "Eventos del Día"
+msgstr "Eventos del Día"
+
+msgid "Tiempo"
+msgstr "Tiempo"
+
+msgid "Modo Configuración Activado\n\nPresente una tarjeta RFID..."
+msgstr "Modo Configuración Activado\n\nPresente una tarjeta RFID..."
+
+msgid "Esperando tarjeta RFID"
+msgstr "Esperando tarjeta RFID"
+
+msgid "¿A qué acción quiere asignar esta tarjeta?"
+msgstr "¿A qué acción quiere asignar esta tarjeta?"
+
+msgid "Seleccionar Acción"
+msgstr "Seleccionar Acción"
+
+msgid "Seleccione la ciudad:"
+msgstr "Seleccione la ciudad:"
+
+msgid "Configuración Tiempo"
+msgstr "Configuración Tiempo"
+
+msgid "Indique el nombre del contacto:"
+msgstr "Indique el nombre del contacto:"
+
+msgid "Ej: Abuela, Marie, Jean..."
+msgstr "Ej: Abuela, Marie, Jean..."
+
+msgid "Configuración Videollamada"
+msgstr "Configuración Videollamada"
+
+msgid "Tarjeta"
+msgstr "Tarjeta"
+
+msgid "configurada con éxito"
+msgstr "configurada con éxito"
+
+msgid "Configuración Exitosa"
+msgstr "Configuración Exitosa"
+
+msgid "⚠️ No hay ciudades disponibles en config_weather.txt"
+msgstr "⚠️ No hay ciudades disponibles en config_weather.txt"
+
+# ==================== WEATHER SCREEN ====================
+msgid "Cargando…"
+msgstr "Cargando…"
+
+msgid "Temperatura actual"
+msgstr "Temperatura actual"
+
+msgid "grados"
+msgstr "grados"
+
+msgid "a.m."
+msgstr "a.m."
+
+msgid "p.m."
+msgstr "p.m."
+
+msgid "Aucune correspondance pour la ville"
+msgstr "No se encontró coincidencia para la ciudad"
+
+msgid "Erreur géocodage"
+msgstr "Error de geocodificación"
+
+# ==================== EVENTS SCREEN ====================
+msgid "Calendario"
+msgstr "Calendario"
+
+msgid "Público"
+msgstr "Público"
+
+msgid "Personal"
+msgstr "Personal"
+
+# ==================== DAY EVENTS SCREEN ====================
+msgid "Añadir evento personal (voz)"
+msgstr "Añadir evento personal (voz)"
+
+msgid "Di el título del evento personal"
+msgstr "Di el título del evento personal"
+
+msgid "Di la descripción del evento"
+msgstr "Di la descripción del evento"
+
+msgid "No he entendido el título."
+msgstr "No he entendido el título."
+
+msgid "Sin descripción"
+msgstr "Sin descripción"
+
+msgid "Evento añadido."
+msgstr "Evento añadido."
+
+msgid "Ha ocurrido un error al añadir el evento."
+msgstr "Ha ocurrido un error al añadir el evento."
+
+msgid "Evento eliminado."
+msgstr "Evento eliminado."
+
+msgid "No he podido eliminar el evento."
+msgstr "No he podido eliminar el evento."
+
+msgid "Error al refrescar pantallas"
+msgstr "Error al refrescar pantallas"
+
+msgid "Sin título"
+msgstr "Sin título"
+
+msgid "Error cargando modelo"
+msgstr "Error cargando modelo"
+
+msgid "Modelo no encontrado."
+msgstr "Modelo no encontrado."
+
+msgid "Error escucha"
+msgstr "Error escucha"
+
+# ==================== BOARD SCREEN ====================
+msgid "No hay mensajes por ahora."
+msgstr "No hay mensajes por ahora."
+
+# ==================== MAIN SCREEN - BOUTONS ====================
+msgid "Llamame"
+msgstr "Llamame"
+
+msgid "Chiste del día"
+msgstr "Chiste del día"
+
+msgid "Sin eventos próximos"
+msgstr "Sin eventos próximos"
+
+msgid "Hoy"
+msgstr "Hoy"
+
+msgid "Configuración de Idioma"
+msgstr "Configuración de Idioma"
+
+msgid "Guardar Configuración"
+msgstr "Guardar Configuración"
+
+# ==================== NOTIFICATION POPUPS - TEXTES ====================
+msgid "Videollamada entrante"
+msgstr "Videollamada entrante"
+
+msgid "te está llamando"
+msgstr "te está llamando"
+
+msgid "Rechazar"
+msgstr "Rechazar"
+
+msgid "Aceptar"
+msgstr "Aceptar"
+
+msgid "Desconocido"
+msgstr "Desconocido"
+
+msgid "Nuevo evento"
+msgstr "Nuevo evento"
+
+msgid "Cerrar"
+msgstr "Cerrar"
+
+msgid "Ver calendario"
+msgstr "Ver calendario"
+
+msgid "Nuevo mensaje"
+msgstr "Nuevo mensaje"
+
+msgid "una foto"
+msgstr "una foto"
+
+msgid "un mensaje"
+msgstr "un mensaje"
+
+msgid " y "
+msgstr " y "
+
+msgid "te ha enviado"
+msgstr "te ha enviado"
+
+msgid "Más tarde"
+msgstr "Más tarde"
+
+msgid "Ver"
+msgstr "Ver"
+
+msgid "Otro chiste"
+msgstr "Otro chiste"
+
+msgid "Cargando chiste..."
+msgstr "Cargando chiste..."
+
+msgid "No hay chistes disponibles"
+msgstr "No hay chistes disponibles"
+
+msgid "Categoría de Chistes"
+msgstr "Categoría de Chistes"
+
+msgid "Categoría de Frases"
+msgstr "Categoría de Frases"
+
+msgid "General"
+msgstr "General"
+
+msgid "Deportes"
+msgstr "Deportes"
+
+msgid "Naturaleza"
+msgstr "Naturaleza"
+
+msgid "Animales"
+msgstr "Animales"
+
+msgid "Comida"
+msgstr "Comida"
+
+msgid "Juegos"
+msgstr "Juegos"
+
+# ================== Pop up contacts ================
+msgid "Notificación enviada"
+msgstr "Notificación enviada"
+
+msgid "recibirá tu llamada"
+msgstr "recibirá tu llamada"
+
+# ==================== APPELS MANQUÉS ====================
+msgid "Llamada perdida"
+msgstr "Llamada perdida"
+
+msgid "intentó llamarte"
+msgstr "intentó llamarte"
+
+msgid "a las"
+msgstr "a las"

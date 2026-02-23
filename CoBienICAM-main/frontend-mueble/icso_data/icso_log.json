@@ -1,0 +1,52 @@
+{
+    "page_views": {
+        "weather": 26,
+        "events": 3,
+        "day_events": 3,
+        "contacts": 1,
+        "board": 0
+    },
+    "navigation_inputs": {
+        "touchscreen": 27,
+        "home_button": 5,
+        "vocal_assistant": 5,
+        "rfid_cards": 9
+    },
+    "imu": {
+        "state": "idle",
+        "movements": 0
+    },
+    "video_calls": {
+        "call_requests": 3,
+        "calls_made": 0,
+        "last_duration_sec": 0,
+        "total_duration_sec": 0
+    },
+    "board": {
+        "received_photos": 1
+    },
+    "events": {
+        "added_events": 0
+    },
+    "screen_wakeup": {
+        "wakeups": 38
+    },
+    "proximity": {
+        "north": {
+            "motion_detected": 251,
+            "approach_detected": 43
+        },
+        "south": {
+            "motion_detected": 215,
+            "approach_detected": 33
+        },
+        "east": {
+            "motion_detected": 203,
+            "approach_detected": 9
+        },
+        "west": {
+            "motion_detected": 265,
+            "approach_detected": 50
+        }
+    }
+}

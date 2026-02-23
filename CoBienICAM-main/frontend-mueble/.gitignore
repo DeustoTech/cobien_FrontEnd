@@ -1,0 +1,3 @@
+virtual_assistant/roberta_model/model.safetensors
+frontend-mueble/virtual_assistant/roberta_model/model.safetensors
+*pyc

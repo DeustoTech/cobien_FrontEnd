@@ -1,0 +1,746 @@
+# events/eventsScreen.py
+from datetime import datetime, date, timedelta
+import calendar
+from collections import defaultdict
+
+from kivy.uix.screenmanager import Screen
+from kivy.lang import Builder
+from kivy.clock import Clock
+from kivy.properties import ListProperty, StringProperty
+from kivy.uix.widget import Widget
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.factory import Factory
+from kivy.metrics import dp, sp
+from kivy.app import App
+
+from icso_data.navigation_logger import log_navigation
+
+from translation import _
+
+from events.loadEvents import fetch_events_from_mongo, cargar_eventos_locales
+from events.event_bus import event_bus
+
+from app_config import AppConfig
+
+import paho.mqtt.client as mqtt
+import json
+
+# ---------- Widgets ----------
+class LegendDot(Widget):
+    rgba = ListProperty([0.15, 0.55, 0.95, 1.0])
+
+
+class IconBadge(ButtonBehavior, AnchorLayout):
+    icon_source = StringProperty("")
+
+
+class ImageButton(ButtonBehavior, AnchorLayout):
+    src = StringProperty("")
+
+
+# ---------- Datos ----------
+class EventStore:
+    """Índice por (fecha, localización). El loader ya filtra por Bilbao/maria en fetch."""
+    def __init__(self):
+        self.reload()
+
+    def reload(self):
+        """Recarga desde Mongo (o cache local) y reconstruye el índice."""
+        try:
+            raw = fetch_events_from_mongo() or []
+            if not raw:
+                raise RuntimeError("Mongo vacío")
+        except Exception:
+            raw = cargar_eventos_locales() or []
+        self.events = self._normalize(raw)
+        self.index = self._build_index(self.events)
+
+    @staticmethod
+    def _normalize(raw):
+        out = []
+        for e in raw:
+            d_str = (e.get("date") or "").strip()
+            try:
+                d = datetime.strptime(d_str, "%d-%m-%Y").date()
+            except Exception:
+                continue
+            loc = (e.get("location") or "Desconocido").strip()
+            _id = str(e.get("id") or "")
+            out.append({**e, "id": _id, "date": d, "location": loc, "_loc_key": loc.casefold()})
+        return out
+
+    @staticmethod
+    def _build_index(events):
+        idx = defaultdict(list)
+        for e in events:
+            idx[(e["date"], e["_loc_key"])].append(e)
+        return idx
+
+    def events_on(self, day: date, location_text: str):
+        return self.index.get((day, location_text.strip().casefold()), [])
+
+    def get_upcoming(self, n=2):
+        today = date.today()
+        upcoming = [e for e in self.events if e["date"] >= today]
+        upcoming.sort(key=lambda x: x["date"])
+        out = []
+        for e in upcoming[:n]:
+            out.append({
+                "title": e.get("title", "Sin título"),
+                "dt": datetime.combine(e["date"], datetime.min.time())
+            })
+        return out
+
+
+# ---------- KV ----------
+KV = r"""
+#:import dp kivy.metrics.dp
+#:import sp kivy.metrics.sp
+
+#:set C_BLACK 0,0,0,1
+#:set C_BORDER 0,0,0,0.85
+#:set C_BLUE 0.15,0.55,0.95,1
+#:set C_RED 1,0.23,0.18,1
+#:set R_CARD dp(20)
+#:set R_CELL dp(16)
+#:set R_BTN dp(16)
+#:set H_HEADER dp(110)
+#:set H_WEEK dp(44)
+#:set COL_W dp(180)
+#:set ROW_H dp(120)
+#:set SP_X dp(22)
+#:set SP_Y dp(20)
+#:set PAD_X dp(8)
+#:set LEGEND_FONT sp(20)
+#:set LEGEND_DOT dp(22)
+#:set DAY_NUM_FONT sp(22)
+#:set DAY_DOT dp(28)
+#:set GAP_Y dp(18)
+
+<IconBadge>:
+    size_hint: None, None
+    size: dp(80), dp(80)
+    padding: dp(6)
+    canvas.before:
+        Color:
+            rgba: 1,1,1,1
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [R_BTN,]
+        Color:
+            rgba: C_BORDER
+        Line:
+            width: 2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, R_BTN)
+    Image:
+        source: root.icon_source
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+        size_hint: None, None
+        size: dp(56), dp(56)
+
+<ImageButton>:
+    size_hint: None, None
+    size: dp(72), dp(72)
+    padding: dp(6)
+    canvas.before:
+        Color:
+            rgba: 1,1,1,1
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [R_BTN,]
+        Color:
+            rgba: C_BORDER
+        Line:
+            width: 2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, R_BTN)
+    Image:
+        source: root.src
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+        size_hint: None, None
+        size: dp(42), dp(42)
+
+<LegendDot>:
+    size_hint: None, None
+    size: LEGEND_DOT, LEGEND_DOT
+    canvas:
+        Color:
+            rgba: self.rgba
+        Ellipse:
+            pos: self.pos
+            size: self.size
+
+<DayCell@ButtonBehavior+BoxLayout>:
+    day_num: 0
+    selected: False
+    orientation: "vertical"
+    padding: dp(6)
+    spacing: dp(6)
+    size_hint: None, None
+    size: COL_W, ROW_H
+    canvas.before:
+        Color:
+            rgba: (0,0,0,1) if self.selected else (1,1,1,1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [R_CELL,]
+        Color:
+            rgba: C_BORDER
+        Line:
+            width: 2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, R_CELL)
+    AnchorLayout:
+        size_hint: 1, 1
+        BoxLayout:
+            orientation: "vertical"
+            size_hint: 1, None
+            height: dp(30) + dp(8) + DAY_DOT
+            spacing: dp(8)
+            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+            Label:
+                id: lbl_day
+                text: str(root.day_num) if root.day_num else ""
+                font_size: DAY_NUM_FONT
+                color: (1,1,1,1) if root.selected else (0,0,0,1)
+                size_hint_x: 1
+                size_hint_y: None
+                height: dp(30)
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+            AnchorLayout:
+                size_hint_y: None
+                height: DAY_DOT
+                anchor_x: "center"
+                anchor_y: "center"
+                BoxLayout:
+                    id: dots_box
+                    size_hint: None, None
+                    height: DAY_DOT
+                    width: self.minimum_width
+                    spacing: dp(8)
+
+<EventsRoot@FloatLayout>:
+    canvas.before:
+        Color:
+            rgba: 1,1,1,1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+            source: app.bg_image if app.has_bg_image else ""
+
+    BoxLayout:
+        orientation: "vertical"
+        size_hint: 0.94, 0.94
+        pos_hint: {"center_x": 0.5, "center_y": 0.5}
+        padding: [0, GAP_Y, 0, GAP_Y]
+        spacing: GAP_Y
+
+        # ---------- CABECERA ----------
+        BoxLayout:
+            size_hint_y: None
+            height: H_HEADER
+            padding: dp(22), dp(14)
+            spacing: dp(18)
+            canvas.before:
+                Color:
+                    rgba: 1,1,1,0.85
+                RoundedRectangle:
+                    size: self.size
+                    pos: self.pos
+                    radius: [R_CARD,]
+
+            Label:
+                id: lbl_calendar_title
+                text: ""
+                font_size: sp(40)
+                bold: True
+                color: C_BLACK
+                size_hint_x: None
+                width: dp(290)
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+
+            Label:
+                text: "|"
+                font_size: sp(40)
+                color: C_BLACK
+                size_hint_x: None
+                width: dp(14)
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+
+            BoxLayout:
+                orientation: "vertical"
+                size_hint_x: None
+                width: dp(520)
+                Label:
+                    id: lbl_today
+                    text: ""
+                    font_size: sp(26)
+                    color: C_BLACK
+                    halign: "left"
+                    valign: "bottom"
+                    text_size: self.size
+                Label:
+                    id: lbl_time
+                    text: ""
+                    font_size: sp(18)
+                    color: C_BLACK
+                    halign: "left"
+                    valign: "top"
+                    text_size: self.size
+
+            Label:
+                text: "|"
+                font_size: sp(40)
+                color: C_BLACK
+                size_hint_x: None
+                width: dp(14)
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+
+            AnchorLayout:
+                size_hint_x: None
+                width: dp(380)
+                anchor_x: "center"
+                anchor_y: "center"
+                BoxLayout:
+                    orientation: "horizontal"
+                    size_hint: 1, None
+                    height: LEGEND_DOT
+                    spacing: dp(18)
+                    padding: [0, 0, 0, 0]
+                    BoxLayout:
+                        orientation: "horizontal"
+                        size_hint_x: None
+                        width: dp(170)
+                        height: LEGEND_DOT
+                        spacing: dp(10)
+                        LegendDot:
+                            rgba: C_BLUE
+                        Label:
+                            id: lbl_public
+                            text: ""
+                            font_size: LEGEND_FONT
+                            color: C_BLACK
+                            size_hint_y: None
+                            height: LEGEND_DOT
+                            valign: "middle"
+                            halign: "left"
+                            text_size: self.size
+                    BoxLayout:
+                        orientation: "horizontal"
+                        size_hint_x: None
+                        width: dp(170)
+                        height: LEGEND_DOT
+                        spacing: dp(10)
+                        LegendDot:
+                            rgba: C_RED
+                        Label:
+                            id: lbl_personal
+                            text: ""
+                            font_size: LEGEND_FONT
+                            color: C_BLACK
+                            size_hint_y: None
+                            height: LEGEND_DOT
+                            valign: "middle"
+                            halign: "left"
+                            text_size: self.size
+
+            Widget:
+
+            BoxLayout:
+                orientation: "horizontal"
+                size_hint_x: None
+                width: self.minimum_width
+                spacing: dp(12)
+                padding: [0, 0, dp(22), 0]
+                IconBadge:
+                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+                    on_release: app.root.current = "main"
+                IconBadge:
+                    icon_source: app.mic_icon if hasattr(app, 'mic_icon') else ""
+                    on_release: app.start_assistant()
+
+        # ---------- TARJETA CALENDARIO ----------
+        AnchorLayout:
+            size_hint: 1, 1
+            canvas.before:
+                Color:
+                    rgba: 1,1,1,0.85
+                RoundedRectangle:
+                    size: self.size
+                    pos: self.pos
+                    radius: [R_CARD,]
+
+            BoxLayout:
+                orientation: "horizontal"
+                size_hint: 0.98, 0.94
+                spacing: dp(16)
+                padding: [dp(8), 0, dp(8), 0]
+
+                AnchorLayout:
+                    anchor_x: "left"
+                    anchor_y: "center"
+                    size_hint: None, 1
+                    width: dp(84)
+                    ImageButton:
+                        src: "images/arrowback.png"
+                        size_hint: None, None
+                        size: dp(72), dp(72)
+                        on_release: app.root.get_screen('events').goto_prev()
+
+                AnchorLayout:
+                    anchor_x: "center"
+                    anchor_y: "center"
+                    pos_hint: {"center_y": 0.40}
+                    size_hint_x: 1
+                    BoxLayout:
+                        orientation: "vertical"
+                        size_hint: None, None
+                        width: COL_W*7 + SP_X*6 + PAD_X*2
+                        height: dp(56) + dp(24) + H_WEEK + ROW_H*6 + SP_Y*5 + PAD_X*2
+                        spacing: dp(24)
+                        Label:
+                            id: lbl_month
+                            text: ""
+                            font_size: sp(46)
+                            bold: True
+                            color: C_BLACK
+                            size_hint_y: None
+                            height: dp(56)
+                            halign: "center"
+                            valign: "middle"
+                            text_size: self.size
+                        GridLayout:
+                            id: weekday_header
+                            cols: 7
+                            size_hint: None, None
+                            width: COL_W*7 + SP_X*6 + PAD_X*2
+                            height: H_WEEK
+                            spacing: SP_X, 0
+                            padding: [PAD_X, 0, PAD_X, 0]
+                        GridLayout:
+                            id: grid
+                            cols: 7
+                            rows: 5
+                            size_hint: None, None
+                            width: COL_W*7 + SP_X*6 + PAD_X*2
+                            height: ROW_H*6 + SP_Y*5 + PAD_X*2
+                            row_default_height: ROW_H
+                            row_force_default: True
+                            col_default_width: COL_W
+                            col_force_default: True
+                            spacing: SP_X, SP_Y
+                            padding: [PAD_X, PAD_X, PAD_X, PAD_X]
+
+                AnchorLayout:
+                    anchor_x: "right"
+                    anchor_y: "center"
+                    size_hint: None, 1
+                    width: dp(84)
+                    ImageButton:
+                        src: "images/arrowforward.png"
+                        size_hint: None, None
+                        size: dp(72), dp(72)
+                        on_release: app.root.get_screen('events').goto_next()
+"""
+
+
+# ---------- Pantalla ----------
+class EventsScreen(Screen):
+    def __init__(self, sm, **kwargs):
+        super().__init__(**kwargs)
+        self.sm = sm
+        Builder.load_string(KV)
+
+        self.cfg = AppConfig()
+        self.DEFAULT_LOCATION = self.cfg.get_device_location()
+
+        self.store = EventStore()
+        self.today = date.today()
+        self.current = date(self.today.year, self.today.month, 1)
+        self.root_view = Factory.EventsRoot()
+        self.add_widget(self.root_view)
+        
+        event_bus.bind(on_events_changed=lambda *_: self.refresh_calendar())
+
+        Clock.schedule_once(lambda *_: self._refresh_header(), 0)
+        Clock.schedule_once(lambda *_: self._build_calendar(), 0)
+        Clock.schedule_interval(lambda *_: self._refresh_header(), 60)
+
+        self.setup_mqtt_listener()
+
+    def update_labels(self):
+        """✅ Met à jour UNIQUEMENT les labels traduits"""
+        self._refresh_header()
+        self._update_weekday_header()
+
+    def _get_day_events_widget(self):
+        try:
+            cont = self.sm.get_screen('day_events')
+        except Exception:
+            return None
+        if hasattr(cont, 'set_store') and hasattr(cont, 'show_day'):
+            return cont
+        stack = list(getattr(cont, 'children', []))
+        while stack:
+            w = stack.pop()
+            if hasattr(w, 'set_store') and hasattr(w, 'show_day'):
+                return w
+            stack.extend(getattr(w, 'children', []))
+        return None
+
+    def _have_ids(self, *names):
+        ids = getattr(self.root_view, "ids", None)
+        if not ids:
+            return False
+        try:
+            return all(name in ids for name in names)
+        except Exception:
+            return False
+
+    def _refresh_header(self):
+        if not self._have_ids("lbl_today", "lbl_time", "lbl_month", "lbl_calendar_title", "lbl_public", "lbl_personal"):
+            return
+        
+        now = datetime.now()
+        meses = [
+            _("enero"), _("febrero"), _("marzo"), _("abril"), _("mayo"), _("junio"),
+            _("julio"), _("agosto"), _("septiembre"), _("octubre"), _("noviembre"), _("diciembre")
+        ]
+
+        dias = [
+            _("lunes"), _("martes"), _("miércoles"),
+            _("jueves"), _("viernes"), _("sábado"), _("domingo")
+        ]
+
+        ids = self.root_view.ids
+        
+        # ✅ Titre "Calendario"
+        ids.lbl_calendar_title.text = _("Calendario")
+        
+        # ✅ Date du jour
+        ids.lbl_today.text = f"{dias[now.weekday()].capitalize()}, {now.day} {_('de')} {meses[now.month-1]} {_('de')} {now.year}"
+        ids.lbl_time.text = now.strftime("%H:%M")
+        
+        # ✅ Mois du calendrier affiché
+        ids.lbl_month.text = f"{meses[self.current.month-1].capitalize()} {self.current.year}"
+        
+        # ✅ Légende Público / Personal
+        ids.lbl_public.text = _("Público")
+        ids.lbl_personal.text = _("Personal")
+
+    def _update_weekday_header(self):
+        """✅ Met à jour les en-têtes des jours de la semaine"""
+        if not self._have_ids("weekday_header"):
+            return
+        
+        weekday_header = self.root_view.ids.weekday_header
+        weekday_header.clear_widgets()
+        
+        # ✅ Jours de la semaine traduits
+        dias = [
+            _("Lunes"), _("Martes"), _("Miércoles"),
+            _("Jueves"), _("Viernes"), _("Sábado"), _("Domingo")
+        ]
+        
+        from kivy.uix.label import Label
+        for day_name in dias:
+            weekday_header.add_widget(Label(
+                text=day_name,
+                font_size=sp(28),
+                color=(0, 0, 0, 1)
+            ))
+
+    def goto_prev(self):
+        y, m = self.current.year, self.current.month
+        m -= 1
+        if m < 1:
+            y -= 1
+            m = 12
+        self.current = date(y, m, 1)
+        self._build_calendar()
+
+    def goto_next(self):
+        y, m = self.current.year, self.current.month
+        m += 1
+        if m > 12:
+            y += 1
+            m = 1
+        self.current = date(y, m, 1)
+        self._build_calendar()
+
+    def _build_calendar(self):
+        if not self._have_ids("grid", "lbl_month"):
+            return
+        
+        # ✅ Mettre à jour les en-têtes des jours
+        self._update_weekday_header()
+        
+        grid = self.root_view.ids.grid
+        grid.clear_widgets()
+        y, m = self.current.year, self.current.month
+        first_wd, ndays = calendar.monthrange(y, m)
+
+        MAX_CELLS = 35
+
+        prev_y, prev_m = (y - 1, 12) if m == 1 else (y, m - 1)
+        _, prev_ndays = calendar.monthrange(prev_y, prev_m)
+        leading_days = list(range(prev_ndays - first_wd + 1, prev_ndays + 1))
+
+        current_days = list(range(1, ndays + 1))
+
+        next_days_needed = MAX_CELLS - (len(leading_days) + len(current_days))
+        next_days = list(range(1, next_days_needed + 1))
+
+        all_days = [
+            (prev_y, prev_m, d, "prev") for d in leading_days
+        ] + [
+            (y, m, d, "current") for d in current_days
+        ] + [
+            ((y + 1 if m == 12 else y), (1 if m == 12 else m + 1), d, "next")
+            for d in next_days
+        ]
+
+        for yy, mm, d, month_type in all_days:
+            day_date = date(yy, mm, d)
+            evs = self.store.events_on(day_date, self.DEFAULT_LOCATION)
+            cell = Factory.DayCell()
+            cell.day_num = d
+
+            if month_type == "current":
+                cell.opacity = 1.0
+            else:
+                cell.opacity = 0.4
+
+            cell.selected = (day_date == self.today)
+
+            if evs:
+                audiences = {(e.get("audience") or "").lower().strip() for e in evs}
+                if "all" in audiences:
+                    dot = LegendDot()
+                    dot.size = (dp(28), dp(28))
+                    dot.rgba = [0.15, 0.55, 0.95, 1]
+                    cell.ids.dots_box.add_widget(dot)
+                if "device" in audiences:
+                    dot = LegendDot()
+                    dot.size = (dp(28), dp(28))
+                    dot.rgba = [1, 0.23, 0.18, 1]
+                    cell.ids.dots_box.add_widget(dot)
+
+            def _open_day(_inst, _d=day_date):
+                day_screen = self._get_day_events_widget()
+                if day_screen is None:
+                    print("[EVENTS] No se encontró DayEventsScreen dentro de 'day_events'.")
+                    return
+                day_screen.set_store(self.store)
+                day_screen.show_day(_d, self.DEFAULT_LOCATION)
+                log_navigation("touchscreen", "day_events")
+                self.sm.current = 'day_events'
+
+            cell.bind(on_release=_open_day)
+            if len(grid.children) < 35:
+                grid.add_widget(cell)
+
+        self._refresh_header()
+
+    def get_upcoming_events(self, n=2):
+        return self.store.get_upcoming(n=n)
+
+    def on_enter(self, *args):
+        """✅ APPELÉ À CHAQUE OUVERTURE - Revient toujours au mois actuel"""
+        print("[EVENTS] 🔄 on_enter: retour au mois actuel")
+        
+        # ✅ FIX : Toujours revenir au mois actuel
+        self.today = date.today()
+        self.current = date(self.today.year, self.today.month, 1)
+        
+        try:
+            self.store.reload()
+            print(f"[EVENTS] ✅ Store rechargé: {len(self.store.events)} événements")
+        except Exception as e:
+            print(f"[EVENTS] ❌ Error recargando store: {e}")
+        
+        print(f"[EVENTS] 📅 Mois actuel: {self.current.strftime('%B %Y')}")
+        
+        self.update_labels()
+        self._build_calendar()
+        print("[EVENTS] ✅ on_enter terminé")
+
+    def on_pre_enter(self, *args):
+        """✅ Rechargement complet avant affichage"""
+        print("[EVENTS] 🔄 on_pre_enter: rechargement données et affichage")
+        
+        try:
+            self.store.reload()
+            print(f"[EVENTS] ✅ Store rechargé: {len(self.store.events)} événements")
+        except Exception as e:
+            print(f"[EVENTS] ❌ Error recargando store: {e}")
+        
+        self.update_labels()
+        self._build_calendar()
+        print("[EVENTS] ✅ on_pre_enter terminé")
+
+    def refresh_calendar(self):
+        """✅ Appelé par le signal MQTT"""
+        print("[EVENTS] ========================================")
+        print("[EVENTS] 🔄 refresh_calendar() APPELÉ")
+        
+        try:
+            old_count = len(self.store.events)
+            self.store.reload()
+            new_count = len(self.store.events)
+            
+            print(f"[EVENTS] ✅ Store rechargé")
+            print(f"[EVENTS]    Avant: {old_count} événements")
+            print(f"[EVENTS]    Après: {new_count} événements")
+            
+            if new_count > old_count:
+                print(f"[EVENTS] 🎉 {new_count - old_count} nouveaux événements!")
+        except Exception as e:
+            print(f"[EVENTS] ❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        Clock.schedule_once(lambda *_: self._build_calendar(), 0)
+        print("[EVENTS] ✅ Calendrier planifié")
+        print("[EVENTS] ========================================")
+    
+    def setup_mqtt_listener(self):
+        """
+        Configure MQTT listener to receive reload requests
+        """
+        try:
+            def on_message(client, userdata, msg):
+                if msg.topic == "app/nav":
+                    try:
+                        payload = json.loads(msg.payload.decode("utf-8"))
+                        
+                        if payload.get("target") == "events" and payload.get("type") == "reload":
+                            print(f"[EVENTS] 📥 Reload request received via MQTT")
+                            Clock.schedule_once(lambda dt: self.refresh_calendar(), 0)
+                    
+                    except Exception as e:
+                        print(f"[EVENTS] MQTT error: {e}")
+            
+            self.mqtt_client = mqtt.Client(client_id="events_screen_client")
+            self.mqtt_client.on_message = on_message
+            self.mqtt_client.connect("localhost", 1883, 60)
+            self.mqtt_client.subscribe("app/nav")
+            self.mqtt_client.loop_start()
+            print("[EVENTS] ✅ MQTT listener activated")
+        
+        except Exception as e:
+            print(f"[EVENTS] ⚠️ MQTT setup error: {e}")

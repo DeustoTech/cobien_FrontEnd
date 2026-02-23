@@ -1,0 +1,57 @@
+[
+  {
+    "id": "6968fc3467167b53d0e67f0f",
+    "date": "16-01-2026",
+    "title": "Capuuuu",
+    "description": "La tete de capuuuu",
+    "location": "Bilbao",
+    "audience": "all",
+    "color": "#1E90FF",
+    "target_device": "",
+    "created_by": "julespr"
+  },
+  {
+    "id": "696a098767167b53d0e67f17",
+    "date": "21-01-2026",
+    "title": "Test",
+    "description": "Test",
+    "location": "Bilbao",
+    "audience": "all",
+    "color": "#1E90FF",
+    "target_device": "",
+    "created_by": "julespr"
+  },
+  {
+    "id": "696a09bf67167b53d0e67f18",
+    "date": "20-01-2026",
+    "title": "Test",
+    "description": "Sin descripción",
+    "location": "Bilbao",
+    "audience": "all",
+    "color": "#1E90FF",
+    "target_device": "",
+    "created_by": "julespr"
+  },
+  {
+    "id": "696d1753c455fbc169cb0f8d",
+    "date": "07-01-2026",
+    "title": "sus antes",
+    "description": "siete antes",
+    "location": "Bilbao",
+    "audience": "device",
+    "color": "#FF3B30",
+    "target_device": "CoBien1",
+    "created_by": ""
+  },
+  {
+    "id": "696d41374a1c0f98e1881c82",
+    "date": "23-01-2026",
+    "title": "ah oui et ça marche si j'ai fait un taux comment",
+    "description": "c'est un film",
+    "location": "Bilbao",
+    "audience": "device",
+    "color": "#FF3B30",
+    "target_device": "CoBien1",
+    "created_by": ""
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "videollamada": {
+    "group": 1,
+    "intensity": 255,
+    "color": "#00ff00",
+    "mode": "FADING_BLINK",
+    "ringtone": "ringtone2.mp3"
+  },
+  "nuevo_evento": {
+    "group": 2,
+    "intensity": 255,
+    "color": "#ff0000",
+    "mode": "ON",
+    "ringtone": "Ninguna"
+  },
+  "nueva_foto": {
+    "group": 3,
+    "intensity": 255,
+    "color": "#0000ff",
+    "mode": "BLINK",
+    "ringtone": "Ninguna"
+  }
+}

@@ -1,0 +1,7 @@
+# SECTION : VILLES METEO
+# Une ville par ligne
+
+Bilbao
+Toulouse
+# Washington
+Londres

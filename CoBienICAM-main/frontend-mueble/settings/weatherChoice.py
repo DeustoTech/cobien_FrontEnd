@@ -1,0 +1,552 @@
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.scrollview import ScrollView
+from kivy.lang import Builder
+from kivy.metrics import dp, sp
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.properties import StringProperty
+from kivy.app import App
+from kivy.clock import Clock
+import os
+from translation import _
+import json
+from datetime import datetime
+import paho.mqtt.publish as publish
+
+# ----------------- WIDGETS RÉUTILISABLES -----------------
+
+class IconBadge(ButtonBehavior, AnchorLayout):
+    icon_source = StringProperty("")
+
+class CityCard(BoxLayout):
+    def __init__(self, city_name, is_active, callback, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = "horizontal"
+        self.spacing = dp(20)
+        self.padding = [dp(24), dp(20), dp(24), dp(20)]
+        self.size_hint_y = None
+        self.height = dp(120)
+        self.is_active = is_active
+        self.city_name = city_name
+        self.callback = callback
+        
+        # Background - TOUJOURS BLANC
+        from kivy.graphics import Color, RoundedRectangle, Line
+        with self.canvas.before:
+            Color(1, 1, 1, 1)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(16)])
+            Color(0, 0, 0, 0.85)
+            self.border = Line(rounded_rectangle=(self.x, self.y, self.width, self.height, dp(16)), width=2)
+        
+        self.bind(pos=self.update_graphics, size=self.update_graphics)
+        
+        # Label de la ville
+        lbl = Label(
+            text=city_name,
+            font_size=sp(28),
+            bold=is_active,
+            color=(0, 0, 0, 1),
+            halign="left",
+            valign="middle"
+        )
+        lbl.bind(size=lbl.setter('text_size'))
+        self.add_widget(lbl)
+        
+        # Bouton toggle
+        btn_box = BoxLayout(size_hint_x=None, width=dp(200), spacing=dp(10))
+        
+        # ✅ Utiliser traduction
+        self.btn = Button(
+            text=_("Activa") if is_active else _("Activar"),
+            font_size=sp(20),
+            size_hint_x=1,
+            background_color=(0, 0, 0, 0)
+        )
+        
+        self.btn_bg_rect = None
+        with self.btn.canvas.before:
+            if is_active:
+                Color(0.2, 0.7, 0.3, 1)
+            else:
+                Color(0.15, 0.55, 0.95, 1)
+            self.btn_bg_rect = RoundedRectangle(pos=self.btn.pos, size=self.btn.size, radius=[dp(12)])
+        
+        self.btn.bind(pos=self.update_btn_bg, size=self.update_btn_bg)
+        self.btn.bind(on_release=lambda x: callback(city_name))
+        
+        btn_box.add_widget(self.btn)
+        self.add_widget(btn_box)
+    
+    def update_text(self):
+        """✅ Met à jour le texte du bouton selon la langue"""
+        self.btn.text = _("Activa") if self.is_active else _("Activar")
+    
+    def update_graphics(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(16))
+    
+    def update_btn_bg(self, btn, *args):
+        if self.btn_bg_rect:
+            self.btn_bg_rect.pos = btn.pos
+            self.btn_bg_rect.size = btn.size
+
+
+class WeatherChoice(FloatLayout):
+    def __init__(self, sm, cfg, **kwargs):
+        super().__init__(**kwargs)
+        self.cfg = cfg
+        self.sm = sm
+        self.city_list_geo = {}
+        self.available_cities = []
+        # === Watcher du fichier pour auto-refresh ===
+        self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
+        self.last_mtime = os.path.getmtime(self.config_path) if os.path.exists(self.config_path) else 0
+
+        Clock.schedule_interval(self._watch_config_file, 1)   # vérifie toutes les 1 sec
+        
+        print("[WEATHER CHOICE] __init__ appelé")
+
+        # Charger les villes disponibles depuis le fichier
+        self.load_available_cities()
+        
+        print(f"[WEATHER CHOICE] Villes chargées: {self.available_cities}")
+        
+        # ✅ IMPORTANT : Construire l'interface manuellement
+        self.build_ui()
+
+    
+    def update_labels(self):
+        """✅ Met à jour tous les labels traduits"""
+        print("[WEATHER CHOICE] 🔄 Mise à jour labels...")
+        
+        if hasattr(self, 'lbl_title'):
+            self.lbl_title.text = _("Ciudades Meteorología")
+        if hasattr(self, 'lbl_instruction'):
+            self.lbl_instruction.text = _(
+                "Seleccione las ciudades a mostrar en la rotación de meteorología"
+            )
+        
+        # ✅ Mettre à jour les boutons "Activa"/"Activar" de chaque carte
+        if hasattr(self, 'list_cities'):
+            for child in self.list_cities.children:
+                if isinstance(child, CityCard):
+                    child.update_text()
+        
+        print("[WEATHER CHOICE] ✅ Labels mis à jour")
+    
+    def publish_reload_event(self):
+        """Publie un événement MQTT pour demander le rechargement"""
+        try:
+            payload = {
+                "action": "reload",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            publish.single(
+                "weather/reload",
+                payload=json.dumps(payload),
+                hostname="localhost",
+                port=1883
+            )
+            
+            print("[TOGGLE] 📤 Événement MQTT 'weather/reload' publié")
+        
+        except Exception as e:
+            print(f"[TOGGLE] ⚠️ Erreur publication MQTT: {e}")
+
+    def go_back(self):
+        """Retour à l'écran settings"""
+        self.sm.current = "settings"
+    
+    def build_ui(self):
+        """Construit l'interface utilisateur manuellement"""
+        from kivy.graphics import Color as ColorGraphics, Rectangle, RoundedRectangle, Line
+        from kivy.uix.widget import Widget
+        
+        app = App.get_running_app()
+
+        # Background
+        with self.canvas.before:
+            ColorGraphics(1, 1, 1, 1)
+            self.bg = Rectangle(pos=self.pos, size=self.size)
+            if hasattr(app, 'has_bg_image') and app.has_bg_image:
+                self.bg.source = app.bg_image
+        
+        self.bind(pos=self._update_bg, size=self._update_bg)
+        
+        # Container principal
+        main_box = BoxLayout(
+            orientation="vertical",
+            size_hint=(0.94, 0.94),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            padding=[0, dp(18), 0, dp(18)],
+            spacing=dp(18)
+        )
+        
+        # ===== HEADER =====
+        header = BoxLayout(
+            size_hint_y=None,
+            height=dp(110),
+            padding=[dp(22), dp(14), dp(22), dp(14)],
+            spacing=dp(18)
+        )
+        
+        with header.canvas.before:
+            ColorGraphics(1, 1, 1, 0.85)
+            header.bg_rect = RoundedRectangle(pos=header.pos, size=header.size, radius=[dp(20)])
+        
+        header.bind(
+            pos=lambda inst, val: setattr(inst.bg_rect, 'pos', val),
+            size=lambda inst, val: setattr(inst.bg_rect, 'size', val)
+        )
+        
+        # Titre
+        self.lbl_title = Label(
+            text=_("Ciudades Meteorología"),
+            font_size=sp(40),
+            bold=True,
+            color=(0, 0, 0, 1),
+            size_hint_x=None,
+            width=dp(700),
+            halign="left",
+            valign="middle"
+        )
+        self.lbl_title.bind(size=self.lbl_title.setter('text_size'))
+        header.add_widget(self.lbl_title)
+        
+        header.add_widget(Widget())
+        
+        # Bouton retour
+        btn_back_box = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=None,
+            width=dp(90),
+            spacing=dp(6),
+            padding=[0, 0, dp(10), 0]
+        )
+        
+        btn_back = IconBadge()
+        btn_back.icon_source = app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+        btn_back.bind(on_release=lambda x: self.go_back())
+        btn_back_box.add_widget(btn_back)
+        
+        header.add_widget(btn_back_box)
+        main_box.add_widget(header)
+        
+        # ===== CONTENU PRINCIPAL =====
+        content_anchor = AnchorLayout(size_hint=(1, 1))
+        
+        with content_anchor.canvas.before:
+            ColorGraphics(1, 1, 1, 0.85)
+            content_anchor.bg_rect = RoundedRectangle(
+                pos=content_anchor.pos,
+                size=content_anchor.size,
+                radius=[dp(20)]
+            )
+        
+        content_anchor.bind(
+            pos=lambda inst, val: setattr(inst.bg_rect, 'pos', val),
+            size=lambda inst, val: setattr(inst.bg_rect, 'size', val)
+        )
+        
+        content_box = BoxLayout(
+            orientation="vertical",
+            size_hint=(0.96, 0.90),
+            spacing=dp(30),
+            padding=dp(40)
+        )
+        
+        # Espace supérieur
+        content_box.add_widget(Widget(size_hint_y=0.05))
+        
+        # Instruction
+        self.lbl_instruction = Label(
+            text=_("Seleccione las ciudades a mostrar en la rotación de meteorología"),
+            font_size=sp(20),
+            color=(0, 0, 0, 0.7),
+            size_hint_y=None,
+            height=dp(40),
+            halign="center",
+            valign="middle"
+        )
+        self.lbl_instruction.bind(size=self.lbl_instruction.setter('text_size'))
+        content_box.add_widget(self.lbl_instruction)
+        
+        # ScrollView avec liste des villes
+        scroll = ScrollView(
+            size_hint_y=None,
+            height=dp(500),
+            do_scroll_x=False,
+            bar_width=dp(12)
+        )
+        
+        self.list_cities = GridLayout(
+            cols=1,
+            spacing=dp(20),
+            padding=dp(10),
+            size_hint_y=None
+        )
+        self.list_cities.bind(minimum_height=self.list_cities.setter('height'))
+        
+        scroll.add_widget(self.list_cities)
+        content_box.add_widget(scroll)
+        
+        # Espace inférieur
+        content_box.add_widget(Widget(size_hint_y=0.15))
+        
+        content_anchor.add_widget(content_box)
+        main_box.add_widget(content_anchor)
+        
+        self.add_widget(main_box)
+        
+        print("[WEATHER CHOICE] UI construite")
+        
+        # Charger les villes après un court délai
+        Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
+    
+    def _update_bg(self, *args):
+        """Met à jour le background"""
+        if hasattr(self, 'bg'):
+            self.bg.pos = self.pos
+            self.bg.size = self.size
+
+    def load_available_cities(self):
+        """Charge la liste des villes disponibles depuis config/config_weather.txt"""
+        config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
+        
+        print(f"[WEATHER CHOICE] Chemin config: {config_path}")
+        print(f"[WEATHER CHOICE] Fichier existe? {os.path.exists(config_path)}")
+        
+        self.available_cities = []
+        self.active_cities = []
+        
+        if not os.path.exists(config_path):
+            print(f"[WEATHER CHOICE] Fichier non trouvé, création...")
+            self.create_default_config(config_path)
+            return
+        
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                print(f"[WEATHER CHOICE] {len(lines)} lignes lues")
+                
+                for line in lines:
+                    stripped = line.strip()
+                    
+                    if not stripped:
+                        continue
+                    
+                    if stripped.startswith("#"):
+                        city = stripped[1:].strip()
+                        
+                        if city and not any(word in city.lower() for word in ['liste', 'list', 'una', 'ville', 'ciudad', 'disponible', 'ligne', 'line']):
+                            self.available_cities.append(city)
+                            print(f"[WEATHER CHOICE] Ville désactivée: {city}")
+                    
+                    else:
+                        self.available_cities.append(stripped)
+                        self.active_cities.append(stripped)
+                        print(f"[WEATHER CHOICE] Ville active: {stripped}")
+            
+            print(f"[WEATHER CHOICE] Total: {len(self.available_cities)} villes ({len(self.active_cities)} actives)")
+        
+        except Exception as e:
+            print(f"[WEATHER CHOICE] Erreur lors du chargement: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def create_default_config(self, config_path):
+        """Crée un fichier de configuration par défaut avec quelques villes"""
+        try:
+            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+            
+            default_cities = [
+                "# Liste des villes disponibles pour la météo",
+                "# Une ville par ligne",
+                "",
+                "Bilbao",
+                "Madrid",
+                "Barcelona",
+                "Valencia",
+                "Sevilla"
+            ]
+            
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(default_cities))
+            
+            print(f"[WEATHER CHOICE] Fichier de configuration créé: {config_path}")
+            self.load_available_cities()
+        
+        except Exception as e:
+            print(f"[WEATHER CHOICE] Erreur lors de la création du fichier: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def set_city_list(self, city_geo_dict):
+        """Méthode appelée par mainApp.py"""
+        self.city_list_geo = city_geo_dict
+        print(f"[WEATHER CHOICE] Liste geo reçue: {len(city_geo_dict)} villes")
+
+    def refresh_cities(self, *args):
+        """Affiche toutes les villes disponibles"""
+        print(f"\n[DEBUG] ========== REFRESH_CITIES ==========")
+        print(f"[DEBUG] Nombre de villes: {len(self.available_cities)}")
+        
+        if not hasattr(self, 'list_cities'):
+            print("[DEBUG] ERREUR: list_cities n'existe pas encore!")
+            Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
+            return
+        
+        box = self.list_cities
+        print(f"[DEBUG] ✓ Box trouvée: {box}")
+        box.clear_widgets()
+        
+        # Mettre à jour les labels avant de créer les cartes
+        if hasattr(self, 'lbl_title'):
+            self.lbl_title.text = _("Ciudades Meteorología")
+        if hasattr(self, 'lbl_instruction'):
+            self.lbl_instruction.text = _(
+                "Seleccione las ciudades a mostrar en la rotación de meteorología"
+            )
+
+        active_cities = getattr(self, 'active_cities', [])
+        print(f"[DEBUG] Villes actives: {active_cities}")
+        
+        if not self.available_cities:
+            box.add_widget(Label(
+                text="Aucune ville dans config_weather.txt",
+                font_size=sp(24),
+                color=(1, 0.5, 0, 1),
+                size_hint_y=None,
+                height=dp(60)
+            ))
+            print("[DEBUG] Message d'erreur ajouté")
+            return
+        
+        for city in self.available_cities:
+            is_active = city in active_cities
+            print(f"[DEBUG] Création carte: {city} (active: {is_active})")
+            
+            try:
+                card = CityCard(
+                    city_name=city,
+                    is_active=is_active,
+                    callback=self.toggle_city
+                )
+                box.add_widget(card)
+            except Exception as e:
+                print(f"[DEBUG] Erreur carte {city}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        print(f"[DEBUG] Total widgets: {len(box.children)}")
+        print(f"[DEBUG] ========== FIN REFRESH ==========\n")
+
+    def toggle_city(self, city):
+        """Active ou désactive une ville en modifiant config_weather.txt"""
+        print(f"\n[TOGGLE] ========== DÉBUT TOGGLE ==========")
+        print(f"[TOGGLE] Ville cliquée: '{city}'")
+        
+        config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
+        
+        if not os.path.exists(config_path):
+            print(f"[TOGGLE] Fichier config_weather.txt introuvable: {config_path}")
+            return
+        
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            print(f"[TOGGLE] {len(lines)} lignes lues")
+            
+            city_found = False
+            city_is_active = False
+            city_line_index = -1
+            
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                
+                if stripped.startswith("#"):
+                    city_in_comment = stripped[1:].strip()
+                    if city_in_comment == city:
+                        city_found = True
+                        city_is_active = False
+                        city_line_index = i
+                        print(f"[TOGGLE] Ville trouvée DÉSACTIVÉE à la ligne {i}: '{stripped}'")
+                        break
+                
+                elif stripped == city:
+                    city_found = True
+                    city_is_active = True
+                    city_line_index = i
+                    print(f"[TOGGLE] Ville trouvée ACTIVE à la ligne {i}: '{stripped}'")
+                    break
+            
+            if city_found:
+                old_line = lines[city_line_index].strip()
+                
+                if city_is_active:
+                    lines[city_line_index] = f"# {city}\n"
+                    print(f"[TOGGLE] DÉSACTIVATION: '{old_line}' → '# {city}'")
+                else:
+                    lines[city_line_index] = f"{city}\n"
+                    print(f"[TOGGLE] ACTIVATION: '{old_line}' → '{city}'")
+                
+                with open(config_path, "w", encoding="utf-8") as f:
+                    f.writelines(lines)
+                    self.publish_reload_event()
+                
+                print(f"[TOGGLE] Fichier config_weather.txt sauvegardé")
+                
+                print(f"[TOGGLE] Contenu après modification:")
+                for i, line in enumerate(lines[:10]):
+                    print(f"  Ligne {i}: {line.rstrip()}")
+                
+                print(f"[TOGGLE] Rechargement des villes...")
+                self.load_available_cities()
+                self.refresh_cities()
+                print(f"[TOGGLE] ========== FIN TOGGLE (succès) ==========\n")
+            
+            else:
+                print(f"[TOGGLE] Ville '{city}' NON TROUVÉE dans config_weather.txt")
+                print(f"[TOGGLE] Contenu du fichier:")
+                for i, line in enumerate(lines):
+                    print(f"  Ligne {i}: '{line.rstrip()}'")
+                print(f"[TOGGLE] ========== FIN TOGGLE (échec) ==========\n")
+        
+        except Exception as e:
+            print(f"[TOGGLE] ERREUR lors de la modification: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"[TOGGLE] ========== FIN TOGGLE (erreur) ==========\n")
+    
+    def on_pre_enter(self, *args):
+        """Appelé avant d'afficher l'écran"""
+        print("[WEATHER CHOICE] on_pre_enter")
+        self.update_labels()
+        self.load_available_cities()
+        self.refresh_cities()
+
+    def _watch_config_file(self, dt):
+        """Surveille config_weather.txt et recharge si modifié."""
+        try:
+            if not os.path.exists(self.config_path):
+                return
+            
+            current_mtime = os.path.getmtime(self.config_path)
+            
+            # Le fichier a été modifié → on recharge
+            if current_mtime != self.last_mtime:
+                print("[WEATHER CHOICE] Fichier txt modifié : rechargement automatique")
+                self.last_mtime = current_mtime
+                self.load_available_cities()
+                self.refresh_cities()
+                self.publish_reload_event()
+        
+        except Exception as e:
+            print(f"[WEATHER CHOICE] erreur: {e}")

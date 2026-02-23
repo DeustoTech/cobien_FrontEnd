@@ -1,0 +1,1938 @@
+import os
+import json
+import random
+import subprocess
+import sys
+import signal
+import random
+from glob import glob
+from datetime import date, datetime, timedelta
+
+from kivy.app import App
+from kivy.clock import Clock
+from kivy.core.window import Window
+from kivy.lang import Builder
+from kivy.metrics import dp, sp
+from kivy.properties import StringProperty, BooleanProperty
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.floatlayout import FloatLayout
+
+
+# Voz (si la usas en tu orquestador)
+from vosk import Model, KaldiRecognizer  # noqa
+import pyaudio  # noqa
+import pyttsx3
+import paho.mqtt.client as mqtt
+
+# Pantallas // Ecrans
+from weather.weatherScreen import WeatherScreenWidget
+from events.eventsScreen import EventsScreen
+from events.dayEventsScreen import DayEventsScreen
+#from videocall.videocallScreen import VideoCallScreen
+from board.boardScreen import BoardScreen
+from mqtt_publisher import WEATHER_CITIES_GEO
+from videocall.confirmation_popup import show_call_sent_popup
+from videocall.contactScreen import ContactScreen, list_contact_path
+from settings.settingsScreen import SettingsScreen
+from settings.weatherChoice import WeatherChoice
+from app_config import AppConfig
+from settings.languageScreen import LanguageScreen
+from settings.buttonColorsScreen import ButtonColorsScreen
+from settings.notificationsScreen import NotificationsScreen
+from settings.rfidActionsScreen import RFIDActionsScreen
+from settings.jokeCategoryScreen import JokeCategoryScreen
+from jokes.jokesScreen import JokesScreen
+from settings.pinCodeScreen import PinCodeScreen, PINBACK_BUTTON_KV
+
+# Logs ICSO
+from icso_data.navigation_logger import log_navigation
+from icso_data.videocall_logger import log_call_request
+from icso_data.wakeup_logger import log_wakeup
+
+# Virtual assistant
+from virtual_assistant.actions import ActionExecutor
+from virtual_assistant.recognizer import SpeechRecognizer
+from virtual_assistant.nlp_processor import IntentClassifier
+from virtual_assistant.main_assistant import AssistantOrchestrator
+
+# Sleep screen
+from black_overlay import BlackOverlay
+
+# HTTP
+import requests
+import threading
+
+# ✅ ÉTAPE 7 : Translation
+from translation import _, change_language, get_current_language
+
+# Notifications
+from notifications.notification_manager import NotificationManager
+
+Builder.load_string(PINBACK_BUTTON_KV)
+
+# Ventana
+Window.fullscreen = 'auto'
+Window.clearcolor = (1, 1, 1, 1)
+
+KV = r"""
+#:import dp kivy.metrics.dp
+#:import sp kivy.metrics.sp
+
+# ====== CONSTANTES ======
+#:set CARD_R dp(24)
+#:set CARD_BORDER 3
+#:set HEADER_ALPHA 0.72
+#:set CARD_ALPHA 0.72
+#:set BUTTON_ALPHA 1
+#:set BORDER_ALPHA 0.28
+#:set SEP_ALPHA 0.28
+#:set ICON_RADIUS dp(18)
+#:set HEADER_ICON_RADIUS dp(14)
+#:set BADGE_ICON_RADIUS dp(8)
+#:set TITLE_H dp(56)
+#:set CONTENT_H dp(170)
+#:set PAD_L dp(16)
+
+# ====== WIDGETS AUXILIARES ======
+<RoundedButtonImage@Image>:
+    canvas.before:
+        StencilPush
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [ICON_RADIUS, ICON_RADIUS, ICON_RADIUS, ICON_RADIUS]
+        StencilUse
+    canvas.after:
+        StencilUnUse
+        StencilPop
+
+<RoundedHeaderImage@Image>:
+    canvas.before:
+        StencilPush
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [HEADER_ICON_RADIUS, HEADER_ICON_RADIUS, HEADER_ICON_RADIUS, HEADER_ICON_RADIUS]
+        StencilUse
+    canvas.after:
+        StencilUnUse
+        StencilPop
+
+<RoundedBadgeImage@Image>:
+    canvas.before:
+        StencilPush
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [BADGE_ICON_RADIUS, BADGE_ICON_RADIUS, BADGE_ICON_RADIUS, BADGE_ICON_RADIUS]
+        StencilUse
+    canvas.after:
+        StencilUnUse
+        StencilPop
+
+<VSeparator@Widget>:
+    size_hint_x: None
+    width: dp(2)
+    canvas:
+        Color:
+            rgba: 0, 0, 0, SEP_ALPHA
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+<RoundCardNoBorder@BoxLayout>:
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, CARD_ALPHA
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [CARD_R, CARD_R, CARD_R, CARD_R]
+
+<PanelOutlined@BoxLayout>:
+    padding: dp(16)
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(20), dp(20), dp(20), dp(20)]
+        Color:
+            rgba: 0, 0, 0, BORDER_ALPHA
+        Line:
+            width: 2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(20))
+
+<NavButton@ButtonBehavior+BoxLayout>:
+    padding: dp(32)
+    spacing: dp(20)
+    icon_source: ""
+    text: ""
+    on_release: app.on_nav(self.text)
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, BUTTON_ALPHA
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [CARD_R, CARD_R, CARD_R, CARD_R]
+        Color:
+            rgba: 0, 0, 0, BORDER_ALPHA
+        Line:
+            width: CARD_BORDER
+            rounded_rectangle: (self.x, self.y, self.width, self.height, CARD_R)
+    BoxLayout:
+        size_hint_x: None
+        width: dp(70)
+        padding: dp(2)
+        RoundedButtonImage:
+            source: root.icon_source if root.icon_source else app.placeholder_icon
+            allow_stretch: True
+            keep_ratio: True
+            mipmap: True
+            size_hint: None, None
+            width: dp(200)
+            height: dp(200)
+    Label:
+        text: root.text
+        font_size: sp(70)
+        color: 0, 0, 0, 1
+        halign: "center"
+        valign: "middle"
+        text_size: self.size
+
+<HeaderCard@BoxLayout>:
+    padding: [dp(24), dp(12), dp(24), dp(12)]
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, HEADER_ALPHA
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(28), dp(28), dp(28), dp(28)]
+
+<VoiceBadge@ButtonBehavior+BoxLayout>:
+    size_hint: None, None
+    size: dp(100), dp(100)
+    padding: dp(6)
+    on_release: app.start_assistant()
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, BUTTON_ALPHA
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(16), dp(16), dp(16), dp(16)]
+        Color:
+            rgba: 0, 0, 0, BORDER_ALPHA
+        Line:
+            width: 2.2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
+    RoundedBadgeImage:
+        source: app.mic_icon
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+
+<SettingsBadge@ButtonBehavior+BoxLayout>:
+    size_hint: None, None
+    size: dp(100), dp(100)
+    padding: dp(6)
+    on_release: app.root.current = "pin_code"
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, BUTTON_ALPHA
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(16), dp(16), dp(16), dp(16)]
+        Color:
+            rgba: 0, 0, 0, BORDER_ALPHA
+        Line:
+            width: 2.2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
+    RoundedBadgeImage:
+        source: app.settings_icon
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+
+# ====== PANTALLA PRINCIPAL ======
+<MainScreen>:
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+            source: app.bg_image if app.has_bg_image else ""
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: [dp(20), 0, dp(20), 0]
+        spacing: 0
+
+        Widget:
+            size_hint_y: 1
+
+        HeaderCard:
+            size_hint_y: None
+            height: dp(300)
+
+            BoxLayout:
+                orientation: "vertical"
+
+                Widget:
+                    size_hint_y: 1
+
+                GridLayout:
+                    cols: 5
+                    size_hint_y: None
+                    height: TITLE_H
+                    spacing: 0
+                    padding: 0
+
+                    Label:
+                        id: lbl_fecha
+                        text: root.fecha_texto
+                        markup: True
+                        bold: True
+                        font_size: sp(40)
+                        color: 0, 0, 0, 1
+                        halign: "left"
+                        valign: "middle"
+                        text_size: self.width, None
+                        size_hint_x: 1.30
+                    VSeparator:
+
+                    BoxLayout:
+                        size_hint_x: 1.00
+                        padding: [PAD_L, 0, 0, 0]
+                        Label:
+                            text: root.condicion_texto
+                            markup: True
+                            bold: True
+                            font_size: sp(34)
+                            color: 0, 0, 0, 1
+                            halign: "left"
+                            valign: "middle"
+                            text_size: self.size
+                    VSeparator:
+
+                    BoxLayout:
+                        size_hint_x: 1.45
+                        padding: [PAD_L, 0, 0, 0]
+                        Label:
+                            id: lbl_proximos_eventos
+                            text: root.proximos_eventos_texto
+                            markup: True
+                            bold: True
+                            font_size: sp(34)
+                            color: 0, 0, 0, 1
+                            halign: "left"
+                            valign: "top"
+                            text_size: self.size
+
+                GridLayout:
+                    cols: 5
+                    size_hint_y: None
+                    height: CONTENT_H
+                    spacing: 0
+                    padding: 0
+
+                    AnchorLayout:
+                        size_hint_x: 1.30
+                        anchor_x: "left"
+                        anchor_y: "center"
+                        Label:
+                            text: root.hora_texto
+                            font_size: sp(160)
+                            color: 0, 0, 0, 1
+                            halign: "left"
+                            valign: "middle"
+                            size_hint_y: None
+                            height: self.texture_size[1]
+                            text_size: self.width, None
+                    VSeparator:
+
+                    BoxLayout:
+                        size_hint_x: 1.00
+                        padding: [PAD_L, 0, 0, 0]
+                        AnchorLayout:
+                            anchor_y: "center"
+                            BoxLayout:
+                                orientation: "horizontal"
+                                size_hint_y: None
+                                height: self.minimum_height
+                                spacing: dp(14)
+                                RoundedHeaderImage:
+                                    source: app.weather_icon
+                                    size_hint: None, None
+                                    size: dp(110), dp(110)
+                                    allow_stretch: True
+                                    keep_ratio: True
+                                    mipmap: True
+                                BoxLayout:
+                                    orientation: "vertical"
+                                    size_hint_y: None
+                                    height: self.minimum_height
+                                    Label:
+                                        text: root.temp_texto
+                                        font_size: sp(60)
+                                        bold: True
+                                        color: 0, 0, 0, 1
+                                        halign: "left"
+                                        valign: "middle"
+                                        size_hint_y: None
+                                        height: self.texture_size[1]
+                                        text_size: self.width, None
+                                    Label:
+                                        text: root.minmax_texto
+                                        font_size: sp(30)
+                                        color: 0, 0, 0, 1
+                                        halign: "left"
+                                        valign: "middle"
+                                        size_hint_y: None
+                                        height: self.texture_size[1]
+                                        text_size: self.width, None
+                    VSeparator:
+
+                    BoxLayout:
+                        size_hint_x: 1.45
+                        padding: [PAD_L, 0, 0, 0]
+                        RelativeLayout:
+                            BoxLayout:
+                                orientation: "vertical"
+                                size_hint: 1, None
+                                height: self.minimum_height
+                                pos_hint: {"top": 1}
+                                spacing: dp(8)
+                                Label:
+                                    text: root.evento_1
+                                    font_size: sp(30)
+                                    color: 0, 0, 0, 1
+                                    halign: "left"
+                                    valign: "middle"
+                                    size_hint_y: None
+                                    height: self.texture_size[1]
+                                    text_size: self.width, None
+
+                                Label:
+                                    id: lbl_joke_title
+                                    text: root.joke_title
+                                    bold: True
+                                    font_size: sp(34)
+                                    color: 0, 0, 0, 1
+                                    halign: "left"
+                                    valign: "middle"
+                                    size_hint_y: None
+                                    height: dp(48)
+                                    text_size: self.size
+
+                                ScrollView:
+                                    do_scroll_x: False
+                                    bar_width: dp(6)
+                                    size_hint_y: None
+                                    height: dp(120)
+                                    BoxLayout:
+                                        orientation: "vertical"
+                                        size_hint_y: None
+                                        height: self.minimum_height
+                                        Label:
+                                            text: root.joke_text
+                                            font_size: sp(30)
+                                            color: 0, 0, 0, 1
+                                            halign: "left"
+                                            valign: "top"
+                                            text_size: self.width, None
+                                            size_hint_y: None
+                                            height: self.texture_size[1]
+
+                            BoxLayout:
+                                size_hint: None, None
+                                size: dp(180), dp(100)
+                                pos_hint: {"right": 0.95, "top": 1.4}
+                                spacing: dp(10)
+
+                                SettingsBadge:
+                                VoiceBadge:
+
+                Widget:
+                    size_hint_y: 1
+
+        Widget:
+            size_hint_y: 0.2
+
+        RoundCardNoBorder:
+            size_hint_y: None
+            height: dp(650)
+            padding: [dp(22), dp(18), dp(22), dp(18)]
+
+            GridLayout:
+                cols: 2
+                spacing: dp(20)
+                padding: [0, 0, 0, 0]
+
+                GridLayout:
+                    cols: 2
+                    spacing: dp(20)
+                    size_hint_x: 1.15
+                    row_default_height: dp(290)
+                    row_force_default: True
+                    padding: [dp(15), 0, 0, 0]
+
+                    NavButton:
+                        id: btn_tiempo
+                        icon_source: app.icon_weather
+                        text: root.btn_tiempo_texto
+                    NavButton:
+                        id: btn_eventos
+                        icon_source: app.icon_calendar
+                        text: root.btn_eventos_texto
+                    NavButton:
+                        id: btn_pizarra
+                        icon_source: app.icon_board
+                        text: root.btn_pizarra_texto
+                    NavButton:
+                        id: btn_llamame
+                        icon_source: app.icon_videocall
+                        text: root.btn_llamame_texto
+
+        Widget:
+            size_hint_y: 1
+"""
+
+#----------------------- CONTACT NAME --------------------------
+
+def resolve_display_name(username):
+    try:
+        from videocall.contactScreen import list_contact_path
+        with open(list_contact_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if "=" in line:
+                    display, user = map(str.strip, line.split("=", 1))
+                    if user == username:
+                        return display
+    except Exception as e:
+        print(f"[CONTACT] Erreur résolution nom: {e}")
+    return username  # fallback propre
+
+# -------------------------- LÓGICA --------------------------
+class MainScreen(Screen):
+    fecha_texto = StringProperty("")
+    hora_texto = StringProperty("")
+    # ✅ FIX 1 : Valeurs par défaut vides (pas de fausses données)
+    condicion_texto = StringProperty("")
+    temp_texto = StringProperty("—°")
+    minmax_texto = StringProperty("—")
+    evento_1 = StringProperty("")
+    evento_2 = StringProperty("")
+    estado_texto = StringProperty("Bienvenido a la aplicación")
+    joke_title = StringProperty("Frase del día")
+    joke_text = StringProperty("Cargando…")
+    
+    # ✅ ÉTAPE 7 : Properties pour les labels traduits
+    proximos_eventos_texto = StringProperty("Próximos eventos")
+    btn_tiempo_texto = StringProperty("Tiempo")
+    btn_eventos_texto = StringProperty("Eventos")
+    btn_pizarra_texto = StringProperty("Pizarra")
+    btn_llamame_texto = StringProperty("Llamame")
+
+    def __init__(self, sm, **kwargs):
+        super().__init__(**kwargs)
+        self.sm = sm
+        self.cfg = AppConfig()
+
+        # ✅ CHARGER IDENTITÉ DU MEUBLE DEPUIS settings.json
+        self.DEVICE_ID = self.cfg.get_device_id()
+        self.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
+        self.DEVICE_LOCATION = self.cfg.get_device_location()
+        
+        print(f"[MAIN] ========================================")
+        print(f"[MAIN] 🏠 Configuration du meuble (depuis settings.json):")
+        print(f"[MAIN]    Device ID: '{self.DEVICE_ID}' (case-sensitive)")
+        print(f"[MAIN]    Videocall Room: '{self.VIDEOCALL_ROOM}' (case-sensitive)")
+        print(f"[MAIN]    Location: '{self.DEVICE_LOCATION}'")
+        print(f"[MAIN] ========================================")
+        
+        # ✅ ÉTAPE 7 : Charger traduction au démarrage
+        
+        self.action_executor = None
+        #self.recognizer = SpeechRecognizer()
+        self.classifier = IntentClassifier()
+        self.tts_engine = pyttsx3.init()
+        self.tts_engine.setProperty("rate", 150)
+        self.tts_engine.setProperty("volume", 0.9)
+
+        # ========== MQTT LOCAL (pour les capteurs du meuble) ==========
+        random_id = "kivy_local_client"
+        self.mqtt_client_local = mqtt.Client(client_id=random_id, clean_session=True)
+        
+        self.mqtt_broker_local = "localhost"
+        self.mqtt_client_local.on_connect = self.on_connect_local
+        self.mqtt_client_local.on_message = self.on_message_local
+        self._subscribed_local = False
+        self._processing_mqtt = False
+        self.mqtt_topic_nav = "app/nav"
+
+        try:
+            self.mqtt_client_local.connect(self.mqtt_broker_local, 1883, 60)
+            self.mqtt_client_local.loop_start()
+            print(f"[MQTT LOCAL] ✓ Connecté à localhost (ID: {random_id})")
+        except Exception as e:
+            print(f"[MQTT LOCAL] ✗ Erreur connexion: {e}")
+
+        # ========== MQTT BACKEND (pour les notifications du site web) ==========
+        self.mqtt_client_backend = mqtt.Client(client_id="kivy_backend_client")
+        self.mqtt_broker_backend = "broker.hivemq.com"
+        self.mqtt_client_backend.on_connect = self.on_connect_backend
+        self.mqtt_client_backend.on_message = self.on_message_backend
+
+        self.mqtt_topic_general = "tarjeta"
+
+        try:
+            self.mqtt_client_backend.connect(self.mqtt_broker_backend, 1883, 60)
+            self.mqtt_client_backend.loop_start()
+            print("[MQTT BACKEND] ✓ Connecté à broker.hivemq.com pour notifications")
+        except Exception as e:
+            print(f"[MQTT BACKEND] ✗ Erreur connexion: {e}")
+
+        # Gestionnaire de notifications
+        self.notification_manager = NotificationManager(sm, self)
+
+        # Reloj
+        Clock.schedule_interval(self._update_datetime, 1)
+
+        # ====== Clima ====== 
+        # ✅ FIX 2 : Charger première ville de la liste
+        self.cache_dir = os.path.join(os.path.dirname(__file__), "weather")
+        os.makedirs(self.cache_dir, exist_ok=True)
+        self.cache_path = os.path.join(self.cache_dir, "weather_today.json")
+
+        # ✅ Charger première ville
+        if WEATHER_CITIES_GEO:
+            first_city = WEATHER_CITIES_GEO[0]
+            self.weather_city = first_city["name"]
+            self.weather_lat = first_city["lat"]
+            self.weather_lon = first_city["lon"]
+            print(f"[MAIN] 🌤 Météo principale: {self.weather_city}")
+        else:
+            # Fallback si liste vide
+            self.weather_city = "Bilbao"
+            self.weather_lat = 43.263
+            self.weather_lon = -2.935
+            print(f"[MAIN] ⚠️ Pas de villes configurées, fallback: {self.weather_city}")
+
+        self.owm_api_key = "6128e2f97c533ad711be849699cb4d47"
+
+        Clock.schedule_once(lambda dt: self._update_weather_async(), 0)
+        Clock.schedule_interval(lambda dt: self._update_weather_async(), 600)
+
+        # ==== Chistes ====
+        self._last_joke_date = None
+        self._last_joke_change_time = None  # ✅ NOUVEAU : Pour éviter changements multiples
+        self._current_joke_category = self.cfg.data.get("joke_category", "general")
+        self._current_joke_language = get_current_language()
+
+        # ⏰ HEURE DE CHANGEMENT DE LA BLAGUE (modifiez ici)
+        self.JOKE_CHANGE_HOUR = 7    # ✅ Heure (0-23)
+        self.JOKE_CHANGE_MINUTE = 0  # ✅ Minute (0-59)
+
+        # Charger blagues au démarrage
+        self.jokes = self._load_jokes()
+
+        # Rafraîchir immédiatement
+        Clock.schedule_once(lambda dt: self._maybe_refresh_joke(force=True), 0)
+
+        # ✅ MODIFIÉ : Vérifier toutes les 30 secondes si l'heure est atteinte
+        Clock.schedule_interval(lambda dt: self._check_joke_time(), 30)
+        
+        # ✅ ÉTAPE 7 : Mettre à jour les labels traduits
+        self.update_labels()
+
+       
+    def _maybe_refresh_joke(self, force=False):
+        """✅ Rafraîchir blague si jour, langue OU catégorie changent"""
+        today = datetime.now().date().isoformat()
+        current_lang = get_current_language()
+        current_category = self.cfg.data.get("joke_category", "general")
+        
+        # ✅ Vérifier si langue ou catégorie ont changé
+        language_changed = self._current_joke_language != current_lang
+        category_changed = self._current_joke_category != current_category
+        day_changed = getattr(self, "_last_joke_date", None) != today
+        
+        if force or day_changed or language_changed or category_changed:
+            # ✅ Recharger blagues si langue ou catégorie ont changé
+            if language_changed or category_changed:
+                print(f"[JOKES] 🔄 Rechargement blagues (lang={current_lang}, cat={current_category})")
+                self.jokes = self._load_jokes()
+            
+            # ✅ Afficher nouvelle blague
+            self._last_joke_date = today
+            if self.jokes:
+                self.joke_text = random.choice(self.jokes)
+                print(f"[JOKES] 🎭 Nouvelle blague affichée: {self.joke_text[:50]}...")
+            else:
+                self.joke_text = "..."
+
+    def _check_joke_time(self):
+        """✅ Vérifie si l'heure de changement est atteinte (ex: 10h25)"""
+        now = datetime.now()
+        today = now.date().isoformat()
+        current_hour = now.hour
+        current_minute = now.minute
+        
+        # Clé unique pour aujourd'hui + cette heure précise
+        time_key = f"{today}_{self.JOKE_CHANGE_HOUR:02d}:{self.JOKE_CHANGE_MINUTE:02d}"
+        
+        # Si déjà changé à cette heure aujourd'hui, ne rien faire
+        if self._last_joke_change_time == time_key:
+            return
+        
+        # Si l'heure actuelle correspond exactement à l'heure configurée
+        if current_hour == self.JOKE_CHANGE_HOUR and current_minute == self.JOKE_CHANGE_MINUTE:
+            print(f"[JOKES] ⏰ Changement automatique à {self.JOKE_CHANGE_HOUR:02d}:{self.JOKE_CHANGE_MINUTE:02d}")
+            self._last_joke_change_time = time_key
+            
+            # Recharger blagues (au cas où catégorie/langue auraient changé)
+            self.jokes = self._load_jokes()
+            
+            # Forcer nouvelle blague
+            self.reload_joke()
+
+    def reload_joke(self):
+        """✅ AMÉLIORÉ : Force le rechargement IMMÉDIAT d'une nouvelle blague"""
+        print("[JOKES] 🔄 Rechargement forcé...")
+        
+        # 1. Sauvegarder l'ancienne blague
+        old_joke = getattr(self, 'joke_text', None)
+        
+        # 2. Recharger les blagues avec la configuration actuelle
+        self.jokes = self._load_jokes()
+        
+        # 3. Afficher immédiatement une nouvelle blague différente
+        if self.jokes:
+            # ✅ FORCER une blague différente (pas juste éviter, mais GARANTIR)
+            if len(self.jokes) > 1 and old_joke:
+                # Filtrer l'ancienne blague
+                available = [j for j in self.jokes if j != old_joke]
+                if available:
+                    new_joke = random.choice(available)
+                else:
+                    # Si toutes les blagues sont identiques (impossible), prendre la première
+                    new_joke = self.jokes[0]
+            else:
+                # Pas assez de blagues ou première fois
+                new_joke = random.choice(self.jokes)
+            
+            self.joke_text = new_joke
+            print(f"[JOKES] ✅ Nouvelle blague affichée")
+            print(f"[JOKES]    Ancienne: {old_joke[:30] if old_joke else 'Aucune'}...")
+            print(f"[JOKES]    Nouvelle: {new_joke[:30]}...")
+            print(f"[JOKES]    Catégorie: {self.cfg.data.get('joke_category', 'general')}")
+        else:
+            self.joke_text = "..."
+            print("[JOKES] ⚠️ Aucune blague disponible")
+
+    def update_labels(self):
+        """✅ Met à jour tous les labels traduits"""
+        
+        # Mettre à jour labels
+        self.proximos_eventos_texto = _("Próximos eventos")
+        self.btn_tiempo_texto = _("Tiempo")
+        self.btn_eventos_texto = _("Eventos")
+        self.btn_pizarra_texto = _("Pizarra")
+        self.btn_llamame_texto = _("Llamame")
+        self.joke_title = _("Frase del día")
+        
+        # Forcer mise à jour date/heure
+        self._update_datetime(0)
+        
+        # Recharger événements
+        self._refresh_events()
+        
+        # Recharger météo
+        self._update_weather_async()
+        
+        # ✅ NOUVEAU : Recharger blague si langue a changé
+        self._maybe_refresh_joke(force=True)
+        
+        print("[MAIN] ✅ Labels mis à jour")
+
+
+    # ========== Callbacks MQTT LOCAL (capteurs/boutons du meuble) ==========
+    def on_connect_local(self, client, userdata, flags, rc):
+        print(f"[DEBUG] on_connect_local appelé - rc={rc}, flags={flags}")
+        print(f"[DEBUG] _subscribed_local = {getattr(self, '_subscribed_local', 'NON DÉFINI')}")
+        
+        if rc == 0:
+            if self._subscribed_local:
+                return
+            
+            result = client.subscribe(self.mqtt_topic_nav, qos=0)
+            self._subscribed_local = True
+
+    def on_message_local(self, client, userdata, msg):
+        if self._processing_mqtt:
+            return
+
+        self._processing_mqtt = True
+        """Traite les messages des capteurs locaux"""
+        message = msg.payload.decode()
+        topic = msg.topic
+        print(f"[MQTT LOCAL] 📩 Reçu sur {topic}: {message[:50]}...")
+        Clock.schedule_once(lambda dt: self._process_safe(message, topic))
+
+    def _process_safe (self, message, topic):
+        self.process_mqtt_message(message, topic)
+        self._processing_mqtt = False
+
+    # ========== Callbacks MQTT BACKEND (notifications du site web) ==========
+    def on_connect_backend(self, client, userdata, flags, rc):
+        """Connexion au broker backend pour les notifications"""
+        if rc == 0:
+            print("[MQTT BACKEND] ✓ Abonnement à 'videollamada' et 'tarjeta'")
+            client.subscribe(self.mqtt_topic_general)
+        else:
+            print(f"[MQTT BACKEND] ✗ Échec connexion, code: {rc}")
+
+    def on_message_backend(self, client, userdata, msg):
+        """Traite les notifications du backend"""
+        message = msg.payload.decode()
+        topic = msg.topic
+        print(f"[MQTT BACKEND] 📩 Reçu sur {topic}: {message}")
+        Clock.schedule_once(lambda dt: self.process_backend_notification(message, topic))
+
+    # ---------------- Fecha/Hora ----------------
+    def on_pre_enter(self, *args):
+        """✅ ÉTAPE 7 : Appelé avant d'afficher l'écran"""
+        self.update_labels()
+        self._update_datetime(0)
+
+    def _update_datetime(self, dt):
+        now = datetime.now()
+        meses = [
+            _("enero"), _("febrero"), _("marzo"), _("abril"), _("mayo"), _("junio"),
+            _("julio"), _("agosto"), _("septiembre"), _("octubre"), _("noviembre"), _("diciembre")
+        ]
+        dias = [
+            _("lunes"), _("martes"), _("miércoles"), _("jueves"), _("viernes"), _("sábado"), _("domingo")
+        ]
+        self.fecha_texto = f"{dias[now.weekday()].capitalize()}, {now.day} {_('de')} {meses[now.month-1]}, {now.year}"
+        self.hora_texto = now.strftime("%H:%M")
+
+    #  ================ CHISTES - NOUVEAU CODE ================
+    def _load_jokes(self):
+        """✅ Charge les blagues selon langue ET catégorie"""
+        try:
+            lang = get_current_language()
+            category = self.cfg.data.get("joke_category", "general")
+            
+            # ✅ Sauvegarder état actuel
+            self._current_joke_language = lang
+            self._current_joke_category = category
+            
+            jokes_file = f"jokes_{'fr' if lang == 'fr' else 'es'}.json"
+            jokes_path = os.path.join(os.path.dirname(__file__), "jokes", jokes_file)
+            
+            print(f"[JOKES] 📖 Chargement: {jokes_file} (cat={category})")
+            
+            if not os.path.exists(jokes_path):
+                print(f"[JOKES] ❌ Fichier introuvable: {jokes_path}")
+                return self._load_jokes_fallback(lang)
+            
+            with open(jokes_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            # Charger catégorie demandée
+            jokes = data.get(category, [])
+            
+            # Si catégorie vide, prendre "general"
+            if not jokes and category != "general":
+                print(f"[JOKES] ⚠️ Catégorie '{category}' vide, fallback 'general'")
+                jokes = data.get("general", [])
+            
+            # Si toujours vide, prendre toutes les blagues
+            if not jokes:
+                print(f"[JOKES] ⚠️ Aucune blague trouvée, chargement complet")
+                jokes = []
+                for cat_jokes in data.values():
+                    if isinstance(cat_jokes, list):
+                        jokes.extend(cat_jokes)
+            
+            # Normaliser format
+            normalized_jokes = []
+            for joke in jokes:
+                if isinstance(joke, str):
+                    normalized_jokes.append(joke.strip())
+                elif isinstance(joke, dict):
+                    if "text" in joke:
+                        normalized_jokes.append(str(joke["text"]).strip())
+                    elif "setup" in joke and "punchline" in joke:
+                        normalized_jokes.append(f"{joke['setup'].strip()} — {joke['punchline'].strip()}")
+            
+            jokes = [j for j in normalized_jokes if j]
+            
+            print(f"[JOKES] ✅ {len(jokes)} blagues chargées ({lang}, {category})")
+            return jokes if jokes else self._load_jokes_fallback(lang)
+        
+        except Exception as e:
+            print(f"[JOKES] ❌ Erreur: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._load_jokes_fallback(lang)
+    
+    def _load_jokes_fallback(self, lang):
+        """Blagues par défaut si le fichier n'existe pas"""
+        if lang == "fr":
+            return [
+                "Qu'est-ce qu'un jardinier dit à un autre ? On se voit quand on peut.",
+                "Pourquoi les oiseaux n'utilisent pas Facebook ? Parce qu'ils ont déjà Twitter.",
+                "Quel est le comble pour un électricien ? Que sa femme s'appelle Ampoule."
+            ]
+        else:
+            return [
+                "¿Qué le dice un jardinero a otro? Nos vemos cuando podamos.",
+                "¿Por qué los pájaros no usan Facebook? Porque ya tienen Twitter.",
+                "¿Cuál es el colmo de un electricista? Que su mujer se llame Luz."
+            ]
+
+    def _maybe_refresh_joke(self, force=False):
+        """✅ Rafraîchir blague si jour, langue OU catégorie changent"""
+        today = datetime.now().date().isoformat()
+        current_lang = get_current_language()
+        current_category = self.cfg.data.get("joke_category", "general")
+        
+        # ✅ Vérifier si langue ou catégorie ont changé
+        language_changed = self._current_joke_language != current_lang
+        category_changed = self._current_joke_category != current_category
+        day_changed = getattr(self, "_last_joke_date", None) != today
+        
+        if force or day_changed or language_changed or category_changed:
+            # ✅ Recharger blagues si langue ou catégorie ont changé
+            if language_changed or category_changed:
+                print(f"[JOKES] 🔄 Rechargement blagues (lang={current_lang}, cat={current_category})")
+                self.jokes = self._load_jokes()
+            
+            # ✅ Afficher nouvelle blague
+            self._last_joke_date = today
+            if self.jokes:
+                self.joke_text = random.choice(self.jokes)
+                print(f"[JOKES] 🎭 Nouvelle blague affichée")
+            else:
+                self.joke_text = "..."
+
+    def reload_joke(self):
+        """✅ Force le rechargement d'une nouvelle blague (appelé depuis settings)"""
+        print("[JOKES] 🔄 Rechargement forcé...")
+    
+        # 1. Sauvegarder l'ancienne blague
+        old_joke = getattr(self, 'joke_text', None)
+        
+        # 2. ✅ FORCER la mise à jour de l'état actuel AVANT de recharger
+        self._current_joke_language = get_current_language()
+        self._current_joke_category = self.cfg.data.get("joke_category", "general")
+        
+        # 3. Recharger les blagues avec la configuration actuelle
+        self.jokes = self._load_jokes()
+        
+        # 4. Afficher immédiatement une nouvelle blague différente
+        if self.jokes:
+            # ✅ FORCER une blague différente
+            if len(self.jokes) > 1 and old_joke:
+                available = [j for j in self.jokes if j != old_joke]
+                if available:
+                    new_joke = random.choice(available)
+                else:
+                    new_joke = self.jokes[0]
+            else:
+                new_joke = random.choice(self.jokes)
+            
+            self.joke_text = new_joke
+            print(f"[JOKES] ✅ Nouvelle blague affichée")
+            print(f"[JOKES]    Langue: {self._current_joke_language}")
+            print(f"[JOKES]    Catégorie: {self._current_joke_category}")
+            print(f"[JOKES]    Blague: {new_joke[:30]}...")
+        else:
+            self.joke_text = "..."
+            print("[JOKES] ⚠️ Aucune blague disponible")
+    #  ========== FIN CHISTES ==========
+
+    # ================= EVENTOS =================
+    def _refresh_events_on_day_change(self):
+        today = datetime.now().date().isoformat()
+        if getattr(self, "_last_event_date", None) != today:
+            self._last_event_date = today
+            self._refresh_events()
+
+    def _refresh_events(self):
+        events = self._load_local_events(limit=2)
+        if len(events) < 2:
+            events += self._gather_from_other_sources(limit=4)
+            future = [e for e in events if e.get("dt") and e["dt"] >= datetime.now()]
+            future.sort(key=lambda x: x["dt"])
+            unique, seen = [], set()
+            for e in future:
+                key = (e["title"], e["dt"])
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(e)
+            events = unique[:2]
+
+        if events:
+            def fmt_display(d: datetime, had_time: bool):
+                if d.date() == datetime.now().date():
+                    return d.strftime("%H:%M") if had_time else _("Hoy")
+                return d.strftime("%d/%m %H:%M") if had_time else d.strftime("%d/%m")
+
+            self.evento_1 = f"{events[0]['title']}  -  {fmt_display(events[0]['dt'], events[0]['had_time'])}"
+            self.evento_2 = f"{events[1]['title']}  -  {fmt_display(events[1]['dt'], events[1]['had_time'])}" if len(events) > 1 else ""
+        else:
+            self.evento_1 = _("Sin eventos próximos")
+            self.evento_2 = ""
+
+    def _load_local_events(self, limit=2):
+        base = os.path.join(os.path.dirname(__file__), "events")
+        path = os.path.join(base, "eventos_local.json")
+        if not os.path.exists(path):
+            return []
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception as e:
+            print(f"[EVENTS] Error abriendo eventos_local.json: {e}")
+            return []
+
+        if isinstance(raw, dict):
+            merged = []
+            for k in ("azul", "rojo", "blue", "red", "bleu", "rouge", "eventos", "events", "évènements", "items", "lista", "liste", "data", "all"):
+                v = raw.get(k)
+                if isinstance(v, list):
+                    merged.extend(v)
+            if not merged:
+                for v in raw.values():
+                    if isinstance(v, list):
+                        merged.extend(v)
+            raw = merged
+
+        items = self._normalize_events(raw, 1024)
+        future = [e for e in items if e["dt"] >= datetime.now()]
+        future.sort(key=lambda x: x["dt"])
+        return future[:limit]
+
+    def _gather_from_other_sources(self, limit=4):
+        pool = []
+        pool += self._collect_from_screen('events')
+        pool += self._collect_from_screen('day_events')
+        pool += self._collect_from_events_folder()
+        future = [e for e in pool if e.get("dt") and e["dt"] >= datetime.now() and e.get("title")]
+        future.sort(key=lambda x: x["dt"])
+        return future[:limit]
+
+    def _collect_from_screen(self, screen_name):
+        out = []
+        try:
+            if not self.sm.has_screen(screen_name):
+                return out
+            sw = self.sm.get_screen(screen_name).children[0]
+            if hasattr(sw, "get_upcoming_events"):
+                out += self._normalize_events(sw.get_upcoming_events(n=128), 128)
+            if hasattr(sw, "get_all_events"):
+                out += self._normalize_events(sw.get_all_events(), 512)
+            for attr in ["events_blue", "blue_events", "events_red", "red_events",
+                         "events", "all_events", "data", "items"]:
+                if hasattr(sw, attr):
+                    out += self._normalize_events(getattr(sw, attr), 512)
+        except Exception as e:
+            print(f"[EVENTS] Screen '{screen_name}': {e}")
+        return out
+
+    def _collect_from_events_folder(self):
+        out = []
+        try:
+            base = os.path.join(os.path.dirname(__file__), "events")
+            for p in glob(os.path.join(base, "*.json")):
+                if os.path.basename(p).lower() == "eventos_local.json":
+                    continue
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                out += self._normalize_events(data, 2048)
+        except Exception as e:
+            print(f"[EVENTS] Carpeta events: {e}")
+        return out
+
+    def _normalize_events(self, data, limit):
+        def parse_dt(val_date, val_time=None):
+            if isinstance(val_date, dict):
+                d = val_date.get("dia") or val_date.get("date") or val_date.get("fecha")
+                t = val_date.get("hora") or val_date.get("time")
+                if d:
+                    return parse_dt(d, t)
+            if isinstance(val_date, datetime):
+                return val_date, True
+            if isinstance(val_date, str) and val_time:
+                s = f"{val_date.strip()} {str(val_time).strip()}"
+            else:
+                s = str(val_date).strip() if val_date is not None else ""
+            s = s.replace("T", " ")
+            formats = [
+                "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S",
+                "%Y/%m/%d %H:%M", "%Y/%m/%d %H:%M:%S",
+                "%d/%m/%Y %H:%M", "%d/%m/%Y",
+                "%Y-%m-%d",
+                "%d-%m-%Y %H:%M", "%d-%m-%Y %H:%M:%S",
+                "%d-%m-%Y",
+            ]
+            for fmt in formats:
+                try:
+                    dt = datetime.strptime(s, fmt)
+                    if fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+                        return dt.replace(hour=0, minute=0), False
+                    return dt, True
+                except Exception:
+                    pass
+            try:
+                dt = datetime.fromisoformat(s)
+                return dt, True
+            except Exception:
+                return None, False
+
+        normalized = []
+        for e in (data or []):
+            title, dt, had_time = None, None, False
+            if isinstance(e, dict):
+                title = e.get("title") or e.get("titulo") or e.get("name")
+                if "datetime" in e:
+                    dt, had_time = parse_dt(e["datetime"])
+                elif "start" in e:
+                    dt, had_time = parse_dt(e["start"])
+                elif "dt" in e:
+                    dt, had_time = parse_dt(e["dt"])
+                elif "fecha" in e and "hora" in e:
+                    dt, had_time = parse_dt(e["fecha"], e["hora"])
+                elif "dia" in e and "hora" in e:
+                    dt, had_time = parse_dt(e["dia"], e["hora"])
+                elif "date" in e and ("time" in e or "hora" in e):
+                    dt, had_time = parse_dt(e["date"], e.get("time") or e.get("hora"))
+                elif "date" in e or "fecha" in e:
+                    dt, had_time = parse_dt(e.get("date") or e.get("fecha"))
+                elif isinstance(e.get("fecha"), dict):
+                    dt, had_time = parse_dt(e["fecha"])
+            if title and dt:
+                normalized.append({"title": str(title).strip(), "dt": dt, "had_time": had_time})
+            if len(normalized) >= limit:
+                break
+        return normalized
+
+    # ---------------- CLIMA ----------------
+    # ✅ FIX 4 : Nouvelle méthode _fetch_weather_and_update COMPLÈTE
+    def _update_weather_async(self):
+        threading.Thread(target=self._fetch_weather_and_update, daemon=True).start()
+
+    def _fetch_weather_and_update(self):
+        """✅ Récupère vraie météo depuis OpenWeatherMap"""
+        try:
+            # Obtenir langue actuelle
+            lang = get_current_language()
+            
+            # Appel API OpenWeatherMap
+            url = (
+                f"https://api.openweathermap.org/data/2.5/weather?"
+                f"q={self.weather_city}&appid={self.owm_api_key}&units=metric&lang={lang}"
+            )
+            
+            print(f"[MAIN_WEATHER] 🌐 Fetching {self.weather_city} (lang={lang})")
+            
+            response = requests.get(url, timeout=8)
+            data = response.json()
+            
+            # Parser données
+            temp = round(data["main"]["temp"])
+            temp_min = round(data["main"]["temp_min"])
+            temp_max = round(data["main"]["temp_max"])
+            description = data["weather"][0]["description"].capitalize()
+            weather_id = int(data["weather"][0]["id"])
+            icon_code = data["weather"][0].get("icon", "01d")
+            
+            # Mapper icône
+            icon_path = self._map_weather_icon(weather_id, icon_code)
+            
+            # Mettre à jour l'interface (dans le thread UI)
+            def _update_ui(dt):
+                self.temp_texto = f"{temp}°"
+                self.minmax_texto = f"{_('Min')} {temp_min}°   {_('Max')} {temp_max}°"
+                self.condicion_texto = description
+                
+                # Mettre à jour l'icône
+                app = App.get_running_app()
+                if os.path.exists(icon_path):
+                    app.weather_icon = icon_path
+                
+                print(f"[MAIN_WEATHER] ✅ {temp}°, {description}")
+            
+            Clock.schedule_once(_update_ui, 0)
+            
+            # Sauvegarder en cache
+            cache_data = {
+                "city": self.weather_city,
+                "temp": temp,
+                "temp_min": temp_min,
+                "temp_max": temp_max,
+                "description": description,
+                "icon": icon_path,
+                "timestamp": datetime.now().isoformat()
+            }
+            self._save_day_cache(cache_data)
+            
+        except Exception as e:
+            print(f"[MAIN_WEATHER] ❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+            # Charger depuis cache en cas d'erreur
+            self._load_weather_from_cache()
+
+    # ✅ FIX 5 : Nouvelle méthode _load_weather_from_cache
+    def _load_weather_from_cache(self):
+        """Charge météo depuis cache si API indisponible"""
+        try:
+            cache = self._load_day_cache()
+            if cache and "temp" in cache:
+                def _update_ui(dt):
+                    self.temp_texto = f"{cache['temp']}°"
+                    self.minmax_texto = f"{_('Min')} {cache['temp_min']}°   {_('Max')} {cache['temp_max']}°"
+                    self.condicion_texto = cache.get("description", "")
+                    
+                    app = App.get_running_app()
+                    icon = cache.get("icon", "images/nubes.png")
+                    if os.path.exists(icon):
+                        app.weather_icon = icon
+                    
+                    print(f"[MAIN_WEATHER] 📦 Loaded from cache")
+                
+                Clock.schedule_once(_update_ui, 0)
+        except Exception as e:
+            print(f"[MAIN_WEATHER] ❌ Cache error: {e}")
+
+    def _get_today_minmax_open_meteo(self):
+        return None, None
+
+    def _load_day_cache(self):
+        try:
+            if os.path.exists(self.cache_path):
+                with open(self.cache_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[CLIMA] Error leyendo caché: {e}")
+        return {}
+
+    def _save_day_cache(self, data: dict):
+        try:
+            tmp = self.cache_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+            os.replace(tmp, self.cache_path)
+        except Exception as e:
+            print(f"[CLIMA] Error guardando caché: {e}")
+
+    def _map_weather_icon(self, weather_id: int, icon_code: str) -> str:
+        is_day = icon_code.endswith("d")
+        if weather_id // 100 == 2:
+            return "images/tormenta.png"
+        elif weather_id // 100 == 3:
+            return "images/lluvia.png"
+        elif weather_id // 100 == 5:
+            return "images/lluvia.png"
+        elif weather_id // 100 == 6:
+            return "images/nieve.png"
+        elif weather_id // 100 == 7:
+            return "images/neblina.png"
+        elif weather_id == 800:
+            return "images/sol.png" if is_day else "images/noche.png"
+        elif 801 <= weather_id <= 802:
+            return "images/parcial.png"
+        elif 803 <= weather_id <= 804:
+            return "images/nubes.png"
+        return "images/nubes.png"
+
+    # ---------------- MQTT / navegación ----------------
+    def process_mqtt_message(self, message, topic):
+        """Traite les messages MQTT des capteurs locaux"""
+        
+        # Configuration to wakeup the app if needed
+        app = App.get_running_app()
+        if (
+            app
+            and getattr(app, "black_overlay", None)
+            and app.black_overlay.parent
+        ):
+            print("[WAKEUP] Wakeup via MQTT")
+            app.black_overlay.dismiss()
+            app._on_wakeup()
+
+        if topic == self.mqtt_topic_nav:
+            try:
+                data = json.loads(message)
+                msg_type = data.get("type", "").lower()
+                if msg_type != "nav":
+                    return
+                target = data.get("target", "").lower()
+                source = data.get("source", "unknown")
+                extra = data.get("extra", {})
+
+                if source == "home_button":
+                    log_navigation("home_button", target)
+                    self.sm.current = "main"
+                    return
+
+                elif source == "vocal_assistant":
+                    self.start_assistant()
+                    return
+
+                elif source == "rfid":
+                    log_navigation("rfid_cards", target)
+                
+                if target == "events":
+                    self.sm.current = "events"
+                elif target == "day_events":
+                    try:
+                        day_str = extra.get("day", date.today().isoformat())
+                        day = datetime.fromisoformat(day_str).date()
+                    except Exception:
+                        day = date.today()
+
+                    day_screen = self.sm.get_screen('day_events').children[0]
+                    if hasattr(day_screen, "show_day"):
+                        day_screen.show_day(day)
+
+                    self.sm.current = "day_events"
+
+                elif target == "main":
+                    self.sm.current = "main"
+
+                elif target == "voice_cmd":
+                    self.start_assistant()
+                
+                elif target == "videocall":
+                    to_user = (extra or {}).get("to_user")
+                    if to_user:
+                        print(f"[MQTT] Demande d'appel → {to_user}")
+                        from videocall.request_call import send_pizarra_notification
+                        threading.Thread(
+                            target=send_pizarra_notification,
+                            args=(to_user,),
+                            daemon=True
+                        ).start()
+                        display_name = resolve_display_name(to_user)
+                        show_call_sent_popup(contact_name=display_name)
+                        log_call_request()
+                        print(f"[CONTACT] Notification envoyée à {display_name}")
+                    else:
+                        # fallback: comportement actuel (l'utilisateur choisit manuellement)
+                        self.sm.current = "contacts"
+
+                elif target == "weather":
+                    self.sm.current = "weather"
+                    w = self.sm.get_screen("weather").children[0]
+                    name = extra.get("name")
+                    lat = extra.get("lat")
+                    lon = extra.get("lon")
+                    tz = extra.get("tz")
+                    if name and lat and lon and tz:
+                        print(f"[MQTT] Météo → {name}")
+                        w.set_city_dynamic(name, lat, lon, tz)
+                    else:
+                        print("[MQTT] Données météo invalides :", extra)
+
+                print(f"[MQTT] Navigation vers {target}")
+                return
+
+            except Exception as e:
+                print(f"[MQTT] Erreur générale: {e}")
+
+    def process_backend_notification(self, message, topic):
+        """Traite uniquement les notifications venant du BACKEND"""
+        
+        print(f"[BACKEND_NOTIF] ========================================")
+        print(f"[BACKEND_NOTIF] 📩 Topic: {topic}")
+        print(f"[BACKEND_NOTIF] 📩 Message: {message[:100]}...")
+        
+        # ========== PARSE JSON ==========
+        try:
+            data = json.loads(message)
+            print(f"[BACKEND_NOTIF] ✅ JSON parsé: {data}")
+        except json.JSONDecodeError as e:
+            print(f"[BACKEND_NOTIF] ❌ JSON invalide: {e}")
+            print(f"[BACKEND_NOTIF] ========================================")
+            return
+        
+        # ✅ ============================================================
+        # ✅ IGNORER COMPTES DU MEUBLE (CASE-SENSITIVE)
+        # ✅ ============================================================
+        sender = data.get("from", "")  # ✅ PAS de .lower() !
+        
+        # Liste des comptes à ignorer (EXACTEMENT avec cette casse)
+        ignored_accounts = [
+            self.DEVICE_ID,           # Ex: "CoBien1" (exact)
+            self.VIDEOCALL_ROOM,      # Ex: "CoBien1" (exact)
+            "cobien",                 # Compte portail (exact)
+            "CoBien",                 # Compte portail (exact)
+        ]
+        
+        if sender in ignored_accounts:
+            print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (compte du meuble)")
+            print(f"[BACKEND_NOTIF]    From: '{sender}' (exact match)")
+            print(f"[BACKEND_NOTIF]    Ignored: {ignored_accounts}")
+            print(f"[BACKEND_NOTIF] ========================================")
+            return
+        # ✅ ============================================================
+        
+        # ========== VÉRIFIER LE DESTINATAIRE (CASE-SENSITIVE) ==========
+        recipient = data.get("to") or data.get("target_device") or data.get("recipient")
+
+        if recipient:
+            # ✅ CAS 1 : Message pour "all" → Tout le monde reçoit
+            if recipient == "all":
+                print(f"[BACKEND_NOTIF] ✅ Message pour tous les meubles")
+            
+            # ✅ CAS 2 : Liste de destinataires (CASE-SENSITIVE)
+            elif isinstance(recipient, list):
+                if self.DEVICE_ID not in recipient:  # ✅ Comparaison EXACTE
+                    print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (pas destinataire)")
+                    print(f"[BACKEND_NOTIF]    Pour: {recipient}")
+                    print(f"[BACKEND_NOTIF]    Device: '{self.DEVICE_ID}' (exact)")
+                    print(f"[BACKEND_NOTIF] ========================================")
+                    return
+            
+            # ✅ CAS 3 : Destinataire unique (CASE-SENSITIVE STRICT)
+            else:
+                if recipient != self.DEVICE_ID:  # ✅ Comparaison EXACTE (pas de .lower())
+                    print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (destinataire différent)")
+                    print(f"[BACKEND_NOTIF]    Pour: '{recipient}' (exact)")
+                    print(f"[BACKEND_NOTIF]    Device: '{self.DEVICE_ID}' (exact)")
+                    print(f"[BACKEND_NOTIF]    Match: {recipient == self.DEVICE_ID}")
+                    print(f"[BACKEND_NOTIF] ========================================")
+                    return
+        else:
+            # ⚠️ Pas de destinataire : afficher quand même (rétro-compatibilité)
+            print(f"[BACKEND_NOTIF] ⚠️ Pas de champ 'to' spécifié")
+            print(f"[BACKEND_NOTIF] ⚠️ Affichage par défaut")
+        
+        # ========== TRAITER PAR TYPE ==========
+        notif_type = data.get("type", "").lower()
+        
+        # ✅ ========== APPEL MANQUÉ ==========
+        if notif_type == "missed_call":
+            timestamp = data.get("timestamp", "")
+            caller = data.get("from", "Quelqu'un")
+            
+            # Parser l'heure
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                local_time = dt.astimezone()
+                time_str = local_time.strftime("%H:%M")
+            except:
+                time_str = "récemment"
+            
+            print(f"[BACKEND_NOTIF] 📞 Appel manqué")
+            print(f"[BACKEND_NOTIF]    Caller: {caller}")
+            print(f"[BACKEND_NOTIF]    Time: {time_str}")
+            print(f"[BACKEND_NOTIF] ========================================")
+            
+            # Afficher notification
+            self.notification_manager.show_missed_call_notification(caller, time_str)
+            return
+        # =========================================
+        
+        # ✅ VIDEOCALL (CASE-SENSITIVE STRICT)
+        if notif_type == "videocall":
+            caller = data.get("from", "Inconnu")
+            room = data.get("room", self.VIDEOCALL_ROOM)  # ✅ Depuis settings.json
+            
+            print(f"[BACKEND_NOTIF] 📞 Videocall")
+            print(f"[BACKEND_NOTIF]    From: '{caller}'")
+            print(f"[BACKEND_NOTIF]    Room: '{room}' (case-sensitive)")
+            print(f"[BACKEND_NOTIF] ========================================")
+            
+            self.notification_manager.show_videocall_notification(caller, room)
+            return
+        
+        # ✅ NEW MESSAGE
+        elif notif_type == "new_message":
+            sender_msg = data.get("from", "Inconnu")
+            has_image = bool(data.get("image"))
+            has_text = bool(data.get("text"))
+            
+            print(f"[BACKEND_NOTIF] 💌 Message de {sender_msg}")
+            print(f"[BACKEND_NOTIF]    Image: {has_image}")
+            print(f"[BACKEND_NOTIF]    Texte: {has_text}")
+            print(f"[BACKEND_NOTIF] ========================================")
+            
+            self.notification_manager.show_message_notification(
+                sender_msg, has_image, has_text
+            )
+            return
+        
+        # ✅ NEW EVENT
+        elif notif_type == "new_event":
+            title = data.get("title", "Nouvel événement")
+            date_str = data.get("date", "")
+            location = data.get("location", "")
+            
+            # ✅ FILTRER PAR VILLE (CASE-SENSITIVE)
+            if location:
+                # Normaliser (minuscules, sans espaces superflus)
+                location_normalized = location.lower().strip()
+                configured_normalized = self.DEVICE_LOCATION.lower().strip()
+                
+                # Si l'événement n'est pas pour notre ville, ignorer
+                if location_normalized != configured_normalized:
+                    print(f"[BACKEND_NOTIF] ⚠️ Événement ignoré (mauvaise ville)")
+                    print(f"[BACKEND_NOTIF]    Lieu événement: '{location}'")
+                    print(f"[BACKEND_NOTIF]    Lieu meuble: '{self.DEVICE_LOCATION}'")
+                    print(f"[BACKEND_NOTIF] ========================================")
+                    return
+            
+            print(f"[BACKEND_NOTIF] 📅 Événement: {title}")
+            print(f"[BACKEND_NOTIF]    Date: {date_str}")
+            print(f"[BACKEND_NOTIF]    Lieu: {location}")
+            print(f"[BACKEND_NOTIF] ========================================")
+            
+            self.notification_manager.show_event_notification(title, date_str)
+            return
+        
+        # ❌ TYPE INCONNU
+        else:
+            print(f"[BACKEND_NOTIF] ⚠️ Type inconnu: {notif_type}")
+            print(f"[BACKEND_NOTIF] ========================================")
+
+    def on_nav(self, destino):
+        d = destino.lower()
+        target = None
+        if "tiempo" in d or "météo" in d:
+            target = "weather"
+        elif "eventos" in d or "événements" in d:
+            target = "events"
+        elif "pizarra" in d or "galerie" in d:
+            target = "board"
+        elif "llamame" in d or "appelle" in d:
+            target = "contacts"
+        elif "main" in d or "acceuil" in d:
+            target = "main"
+        if target:
+            log_navigation("touchscreen", target)
+            self.sm.current = target
+    """
+    def start_assistant(self):
+        # Configuration to wakeup the app if needed
+        app = App.get_running_app()
+        if (
+            app
+            and getattr(app, "black_overlay", None)
+            and app.black_overlay.parent
+        ):
+            print("[WAKEUP] Wakeup via MQTT")
+            app.black_overlay.dismiss()
+            app._on_wakeup()
+        log_navigation("vocal_assistant", "assistant_triggered")
+        #AssistantOrchestrator(self).start()
+        self.assistant = AssistantOrchestrator(self)
+        self.assistant.start()
+    """
+    ### SIMONA
+    def start_assistant(self):
+        # Configuration to wakeup the app if needed
+        app = App.get_running_app()
+        if (
+            app
+            and getattr(app, "black_overlay", None)
+            and app.black_overlay.parent
+        ):
+            print("[WAKEUP] Wakeup via MQTT")
+            app.black_overlay.dismiss()
+            app._on_wakeup()
+
+        log_navigation("vocal_assistant", "assistant_triggered")
+
+        # ✅ Créer l'assistant UNE seule fois et le stocker sur l'app
+        if not hasattr(app, "assistant") or app.assistant is None:
+            app.assistant = AssistantOrchestrator(self)
+
+        # ✅ Garder un alias local si tu en as besoin
+        self.assistant = app.assistant
+
+        # ✅ Lancer (start() est déjà protégé contre le double démarrage)
+        self.assistant.start()
+
+    # SIMONA
+    # Méthode relais pour pouvoir appeler la méthode _speak définie dans l'assistant virtuel
+    """
+    def speak(self, text: str):
+        #Relais vers le TTS de l'assistant
+        if hasattr(self, "assistant") and self.assistant:
+            self.assistant._speak(text)
+        else:
+            print("[WARN] Assistant non initialisé, TTS ignoré")
+    """
+    """
+    def speak(self, text: str):
+        #Relais vers le TTS de l'assistant (NON BLOQUANT UI)
+        
+        if not hasattr(self, "assistant") or not self.assistant:
+            print("[WARN] Assistant non initialisé, TTS ignoré")
+            return
+
+        import threading
+        threading.Thread(
+            target=self.assistant._speak,
+            args=(text,),
+            daemon=True
+        ).start()
+    """
+
+    """
+    def speak(self, text: str):
+        #TTS global, toujours disponible si possible
+        try:
+            if not hasattr(self, "assistant") or self.assistant is None:
+                from virtual_assistant.assistant_orchestrator import AssistantOrchestrator
+                self.assistant = AssistantOrchestrator(self)
+
+            import threading
+            threading.Thread(
+                target=self.assistant._speak,
+                args=(text,),
+                daemon=True
+            ).start()
+
+        except Exception as e:
+            print(f"[WARN] Assistant indisponible, TTS ignoré: {e}")
+    """
+
+    def speak(self, text: str):
+        app = App.get_running_app()
+        if hasattr(app, "speak"):
+            app.speak(text)
+
+    
+
+class Root(ScreenManager):
+    pass
+
+
+class MyApp(App):
+    header_bg = StringProperty("assets/gradient_header.png")
+    has_header_bg = BooleanProperty(False)
+    bg_image = StringProperty("images/Cobien_ImagenFondoInterfaz.png")
+    has_bg_image = BooleanProperty(False)
+    placeholder_icon = StringProperty("")
+    icon_weather = StringProperty("images/parcial.png")
+    icon_calendar = StringProperty("images/eventos.png")
+    icon_board = StringProperty("images/pizarra.png")
+    icon_videocall = StringProperty("images/videollamada.png")
+    weather_icon = StringProperty("images/sol.png")
+    mic_icon = StringProperty("images/voice.png")
+    settings_icon = StringProperty("images/settings.png")
+
+    def _start_orchestrator(self):
+        script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")
+        if not os.path.isfile(script):
+            print("[WARN] mqtt_publisher.py introuvable:", script)
+            return
+        if getattr(self, "_orchestrator", None) and self._orchestrator.poll() is None:
+            return
+        print("[Orchestrator] Démarrage…")
+        self._orchestrator = subprocess.Popen([sys.executable, script])
+        print(f"[Orchestrator] PID = {self._orchestrator.pid}")
+
+    def _stop_orchestrator(self):
+        p = getattr(self, "_orchestrator", None)
+        if p and p.poll() is None:
+            try:
+                p.terminate()
+            except Exception:
+                pass
+
+
+    def _start_proximity_logger(self):
+        script_proximity_logger = os.path.join(os.path.dirname(__file__), "proximity_sensors_reader.py")
+        if not os.path.isfile(script_proximity_logger):
+            print("[WARN] proximity_sensor_logger.py introuvable:", script_proximity_logger)
+            return
+        if getattr(self, "_proximity_sensor", None) and self._proximity_sensor.poll() is None:
+            return
+        print("[Proximity Sensor] Démarrage.")
+        self._proximity_sensor = subprocess.Popen([sys.executable, script_proximity_logger])
+        print(f"[Proximity Sensor] PID = {self._proximity_sensor.pid}")
+
+    def _stop_proximity_logger(self):
+        p2 = getattr(self, "_proximity_sensor", None)
+        if p2 and p2.poll() is None:
+            try:
+                p2.terminate()
+            except Exception:
+                pass
+
+    def on_start(self):
+        self._start_orchestrator()
+        self._start_proximity_logger()
+
+    def on_stop(self):
+        self._stop_orchestrator()
+        self._stop_proximity_logger()
+
+    def _reset_idle_timer(self, *args, **kwargs):
+        """
+        Réinitialise le timer de veille.
+        Recharge le timeout depuis settings.json à chaque appel.
+        """
+        # Si l'overlay est déjà affiché, ne rien faire
+        if getattr(self, "black_overlay", None) and self.black_overlay.parent:
+            return
+        
+        # Annuler l'ancien timer
+        if getattr(self, "_idle_event", None):
+            self._idle_event.cancel()
+        
+        # RECHARGER le timeout depuis settings.json
+        timeout = self.cfg.get_idle_timeout()
+        
+        # Logger UNIQUEMENT si le timeout a changé
+        if timeout != getattr(self, '_last_timeout', None):
+            print(f"[APP] ⏱️ Timeout veille mis à jour: {timeout}s")
+            self._last_timeout = timeout
+        
+        from kivy.clock import Clock
+        self._idle_event = Clock.schedule_once(self._show_black_overlay, timeout)
+
+    def _on_first_user_input(self, *args):
+        Window.unbind(
+            on_touch_down=self._on_first_user_input,
+            on_touch_move=self._on_first_user_input,
+            on_key_down=self._on_first_user_input
+        )
+
+        Window.bind(
+            on_touch_down=self._reset_idle_timer,
+            on_touch_move=self._reset_idle_timer,
+            on_key_down=self._reset_idle_timer
+        )
+
+        self._reset_idle_timer()
+
+
+    def _show_black_overlay(self, *args):
+        if not getattr(self, "black_overlay", None):
+            return
+        # Evite double-open
+        if self.black_overlay.parent:
+            return
+        self.black_overlay.open()
+
+    def _on_wakeup(self):
+        Clock.schedule_once(lambda dt: self._reset_idle_timer(), 0)
+        log_wakeup()
+
+
+    def speak(self, text: str):
+        """
+        TTS global, toujours disponible si possible
+        """
+        if not text:
+            return
+
+        try:
+            # Initialiser assistant si nécessaire
+            if not hasattr(self, "assistant") or self.assistant is None:
+                from virtual_assistant.main_assistant import AssistantOrchestrator
+                self.assistant = AssistantOrchestrator(self)
+
+            import threading
+            threading.Thread(
+                target=self.assistant._speak,
+                args=(text,),
+                daemon=True
+            ).start()
+
+        except Exception as e:
+            print(f"[WARN] Assistant indisponible, TTS ignoré: {e}")
+
+
+    def build(self):
+        self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
+        self._idle_event = None
+
+        Window.bind(
+            on_touch_down=self._on_first_user_input,
+            on_touch_move=self._on_first_user_input,
+            on_key_down=self._on_first_user_input
+)
+        # Charger config et traduction
+        self.cfg = AppConfig()
+
+        # Charger timeout depuis settings.json
+        self.IDLE_TIMEOUT_SEC = self.cfg.get_idle_timeout()
+        print(f"[APP] ⏱️ Timeout veille: {self.IDLE_TIMEOUT_SEC}s")
+        
+        # Charger traduction selon config
+        lang = self.cfg.data.get("language", "es")
+        change_language(lang)
+        print(f"[APP] 🌍 Langue chargée: {lang}")
+        
+        self.has_header_bg = os.path.exists(self.header_bg)
+        self.has_bg_image = os.path.exists(self.bg_image)
+        for name in ["icon_weather", "icon_calendar", "icon_board", "icon_videocall",
+                     "weather_icon", "mic_icon"]:
+            p = getattr(self, name)
+            if not os.path.exists(p):
+                setattr(self, name, "")
+        
+        Builder.load_string(KV)
+        sm = Root()
+        
+        # Créer MainScreen avec traduction
+        main_screen_widget = MainScreen(sm)
+        self.action_executor = ActionExecutor(main_screen_widget)
+        main_screen_widget.action_executor = self.action_executor
+        main = Screen(name='main')
+        main.add_widget(main_screen_widget)
+        sm.add_widget(main)
+        
+        # Autres écrans
+        weather_screen_widget = WeatherScreenWidget(sm)
+        # ajout pour faire le lien avec weatherScreen et faire fonctionner la méthode speak de main_assistant
+        weather_screen_widget.main_ref = main_screen_widget
+        weather_screen_widget.set_city_list(WEATHER_CITIES_GEO)
+        weather = Screen(name='weather')
+        weather.add_widget(weather_screen_widget)
+        sm.add_widget(weather)
+        
+        events = EventsScreen(sm, name='events')
+        sm.add_widget(events)
+        
+        day_events = Screen(name='day_events')
+        day_events.add_widget(DayEventsScreen())
+        sm.add_widget(day_events)
+        
+        board = Screen(name='board')
+        board.add_widget(BoardScreen(sm))
+        sm.add_widget(board)
+        
+        contacts_screen = ContactScreen(sm, contacts_file=list_contact_path)
+        contacts_screen.name = 'contacts'  # Important !
+        sm.add_widget(contacts_screen)
+        
+        settings = Screen(name='settings')
+        settings.add_widget(SettingsScreen(sm, self.cfg))
+        sm.add_widget(settings)
+        
+        # Écran langue
+        sm.add_widget(Screen(name='settings_language'))
+        sm.get_screen('settings_language').add_widget(LanguageScreen(sm, self.cfg))
+        
+        # Écran couleurs boutons
+        sm.add_widget(Screen(name='button_colors'))
+        sm.get_screen('button_colors').add_widget(ButtonColorsScreen(sm, self.cfg))
+        
+        sm.add_widget(Screen(name='settings_notifications'))
+        sm.get_screen('settings_notifications').add_widget(NotificationsScreen(sm, self.cfg))
+        sm.add_widget(Screen(name='joke_category'))
+        sm.get_screen('joke_category').add_widget(JokeCategoryScreen(sm, self.cfg))
+        sm.add_widget(Screen(name='jokes'))
+        sm.get_screen('jokes').add_widget(JokesScreen(sm))
+        
+        sm.add_widget(Screen(name='settings_rfid'))
+        sm.get_screen('settings_rfid').add_widget(RFIDActionsScreen(sm, self.cfg))
+        
+        weather_choice_screen = WeatherChoice(sm, self.cfg)
+        weather_choice = Screen(name='weather_choice')
+        weather_choice.add_widget(weather_choice_screen)
+        sm.add_widget(weather_choice)
+
+        pin_screen = PinCodeScreen(sm=sm, cfg=self.cfg, target_screen="settings", name="pin_code")
+        sm.add_widget(pin_screen)
+
+        self.main_ref = main_screen_widget
+        sm.current = 'main'
+        return sm
+    
+
+    def reload_main_screen(self):
+        """Recharge l'écran principal avec les nouvelles traductions"""
+        print("[APP] 🔄 Rechargement écran principal...")
+        
+        try:
+            # 1. Recharger traduction globale
+            lang = self.cfg.data.get("language", "es")
+            change_language(lang) 
+            
+            # 2. Mettre à jour l'écran principal
+            if self.root.has_screen('main'):
+                main_screen = self.root.get_screen('main')
+                if main_screen.children:
+                    main_widget = main_screen.children[0]
+                    
+                    # ✅ Appeler update_labels() du MainScreen
+                    if hasattr(main_widget, 'update_labels'):
+                        main_widget.update_labels()
+                        print("[APP] ✅ MainScreen mis à jour")
+            
+            # 3. ✅ FORCER RECHARGEMENT IMMÉDIAT DES BLAGUES
+            if hasattr(self, 'main_ref') and hasattr(self.main_ref, 'reload_joke'):
+                self.main_ref.reload_joke()
+                print("[APP] ✅ Blague rechargée")
+            
+            # 4. Mettre à jour TOUS les autres écrans
+            self.reload_all_screens()
+            
+        except Exception as e:
+            print(f"[APP] ❌ Erreur reload_main_screen: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def reload_all_screens(self):
+        """Recharge tous les écrans avec les nouvelles traductions"""
+        print("[APP] 🔄 Rechargement tous les écrans...")
+        
+        screens_to_update = [
+            'weather', 'events', 'day_events', 'board', 'contacts',
+            'settings', 'button_colors', 'settings_notifications',
+            'settings_rfid', 'weather_choice', 'joke_category', 'jokes' , 'pin_code'
+        ]
+        
+        for screen_name in screens_to_update:
+            if not self.root.has_screen(screen_name):
+                continue
+            
+            try:
+                screen = self.root.get_screen(screen_name)
+                if not screen.children:
+                    continue
+                
+                widget = screen.children[0]
+                
+                # Essayer update_labels
+                if hasattr(widget, 'update_labels'):
+                    widget.update_labels()
+                    print(f"[APP] ✅ {screen_name}")
+                # Sinon essayer on_pre_enter
+                elif hasattr(widget, 'on_pre_enter'):
+                    widget.on_pre_enter()
+                    print(f"[APP] ✅ {screen_name} (on_pre_enter)")
+            
+            except Exception as e:
+                print(f"[APP] ⚠️ {screen_name}: {e}")
+        
+        print("[APP] ✨ Rechargement terminé")
+
+    def on_nav(self, destino):
+        self.main_ref.on_nav(destino)
+
+    def start_assistant(self):
+        self.main_ref.start_assistant()
+
+
+if __name__ == '__main__':
+    MyApp().run()

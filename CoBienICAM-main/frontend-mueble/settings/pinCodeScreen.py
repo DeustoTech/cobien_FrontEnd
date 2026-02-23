@@ -1,0 +1,352 @@
+"""
+pinCodeScreen.py - Écran de saisie du code PIN pour accéder aux Settings
+Auteur: Assistant Claude
+Date: 15 décembre 2024
+Version: Avec traduction améliorée
+"""
+
+from kivy.uix.screenmanager import Screen
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.metrics import dp, sp
+from kivy.properties import StringProperty, NumericProperty
+from kivy.animation import Animation
+from kivy.clock import Clock
+import os
+
+from translation import _, get_current_language
+
+
+# Configuration du chemin du fichier PIN
+PIN_FILE_PATH = os.path.join(os.path.dirname(__file__), "pin.txt")
+
+
+class PinDisplay(BoxLayout):
+    """Widget d'affichage du code PIN avec points masqués"""
+    
+    pin_value = StringProperty("")
+    max_length = NumericProperty(4)
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'horizontal'
+        self.spacing = dp(10)
+        self.size_hint_y = None
+        self.height = dp(80)
+        self.padding = [dp(20), 0, dp(20), 0]
+        
+        self.dots = []
+        for i in range(self.max_length):
+            dot_box = BoxLayout(size_hint_x=1)
+            with dot_box.canvas.before:
+                Color(0.9, 0.9, 0.9, 1)
+                dot_rect = RoundedRectangle(pos=dot_box.pos, size=dot_box.size, radius=[dp(12),])
+                Color(0.3, 0.3, 0.3, 1)
+                dot_line = Line(rounded_rectangle=(dot_box.pos[0], dot_box.pos[1], 
+                                               dot_box.size[0], dot_box.size[1], dp(12)), 
+                           width=2)
+            
+            dot_label = Label(
+                text="",
+                font_size=sp(40),
+                color=(0.2, 0.2, 0.2, 1),
+                bold=True
+            )
+            
+            dot_box.add_widget(dot_label)
+            dot_box.bind(pos=lambda x, y, r=dot_rect: setattr(r, 'pos', x.pos))
+            dot_box.bind(size=lambda x, y, r=dot_rect: setattr(r, 'size', x.size))
+            dot_box.bind(pos=lambda x, y, l=dot_line: self._update_line(l, x))
+            dot_box.bind(size=lambda x, y, l=dot_line: self._update_line(l, x))
+            
+            self.dots.append((dot_box, dot_label))
+            self.add_widget(dot_box)
+        
+        self.bind(pin_value=self.update_display)
+    
+    def _update_line(self, line, widget):
+        """Met à jour la position du contour"""
+        line.rounded_rectangle = (widget.pos[0], widget.pos[1], 
+                                  widget.size[0], widget.size[1], dp(12))
+    
+    def update_display(self, *args):
+        """Met à jour l'affichage des points"""
+        pin_len = len(self.pin_value)
+        for i, (box, label) in enumerate(self.dots):
+            if i < pin_len:
+                label.text = "●"
+            else:
+                label.text = ""
+    
+    def shake_animation(self):
+        """Animation de tremblement pour code incorrect"""
+        anim = Animation(x=self.x + dp(10), duration=0.05) + \
+               Animation(x=self.x - dp(10), duration=0.05) + \
+               Animation(x=self.x + dp(10), duration=0.05) + \
+               Animation(x=self.x, duration=0.05)
+        anim.start(self)
+
+
+class PinButton(Button):
+    """Bouton personnalisé pour le clavier numérique"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_color = (0, 0, 0, 0)
+        self.font_size = sp(32)
+        self.bold = True
+        self.color = (0.2, 0.2, 0.2, 1)
+        
+        with self.canvas.before:
+            self.bg_color = Color(0.95, 0.95, 0.95, 1)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12),])
+            self.border_color = Color(0.7, 0.7, 0.7, 1)
+            self.border_line = Line(rounded_rectangle=(self.pos[0], self.pos[1], 
+                                                  self.size[0], self.size[1], dp(12)), 
+                              width=2)
+        
+        self.bind(pos=self.update_canvas)
+        self.bind(size=self.update_canvas)
+        self.bind(state=self.on_state_change)
+    
+    def update_canvas(self, *args):
+        """Met à jour les éléments graphiques"""
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.border_line.rounded_rectangle = (self.pos[0], self.pos[1], 
+                                        self.size[0], self.size[1], dp(12))
+    
+    def on_state_change(self, *args):
+        """Change la couleur au clic"""
+        if self.state == 'down':
+            self.bg_color.rgba = (0.85, 0.85, 0.85, 1)
+        else:
+            self.bg_color.rgba = (0.95, 0.95, 0.95, 1)
+
+
+class PinBackButton(Button):
+    """Bouton retour avec icône pour l'écran PIN"""
+    icon_source = StringProperty("")
+
+
+class PinCodeScreen(Screen):
+    """Écran de saisie du code PIN"""
+    
+    def __init__(self, sm, cfg, target_screen="settings", **kwargs):
+        super().__init__(**kwargs)
+        self.sm = sm
+        self.cfg = cfg
+        self.target_screen = target_screen
+        
+        self.correct_pin = self.load_pin()
+        
+        # ✅ Initialiser les widgets comme attributs de classe
+        self.title_label = None
+        self.message_label = None
+        self.pin_display = None
+        
+        self.build_ui()
+        
+        # ✅ Planifier update_labels après initialisation
+        Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
+    
+    def load_pin(self):
+        """Charge le code PIN depuis le fichier txt"""
+        try:
+            settings_dir = os.path.dirname(PIN_FILE_PATH)
+            if not os.path.exists(settings_dir):
+                os.makedirs(settings_dir)
+            
+            if os.path.exists(PIN_FILE_PATH):
+                with open(PIN_FILE_PATH, 'r') as f:
+                    pin = f.read().strip()
+                    if pin:
+                        print(f"[PIN] Code chargé depuis {PIN_FILE_PATH}")
+                        return pin
+            
+            default_pin = "1234"
+            with open(PIN_FILE_PATH, 'w') as f:
+                f.write(default_pin)
+            print(f"[PIN] Code par défaut créé: {default_pin}")
+            return default_pin
+            
+        except Exception as e:
+            print(f"[PIN] Erreur chargement PIN: {e}")
+            return "1234"
+    
+    def update_labels(self):
+        """✅ Met à jour tous les labels traduits"""
+        print("[PIN] 🔄 Mise à jour labels...")
+        
+        if not self.title_label or not self.message_label:
+            print("[PIN] ⚠️ Labels non initialisés")
+            return
+        
+        lang = get_current_language()
+        print(f"[PIN] 🌐 Langue actuelle: {lang}")
+        
+        # ✅ Traduire avec les clés EXACTES des .po
+        # self.title_label.text = _("Código de Seguridad")
+        
+        # Réinitialiser message si pas d'erreur
+        if "✓" not in self.message_label.text and "✗" not in self.message_label.text:
+            # self.message_label.text = _("Ingrese el código PIN")
+            self.message_label.color = (0.4, 0.4, 0.4, 1)
+        
+        print(f"[PIN] ✅ Labels mis à jour: '{self.title_label.text}'")
+    
+    def build_ui(self):
+        """Construit l'interface utilisateur"""
+        root = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(20))
+        
+        # Header
+        header = BoxLayout(size_hint_y=None, height=dp(80), spacing=dp(10))
+        
+        self.title_label = Label(
+            text="",  # ✅ Sera rempli par update_labels()
+            font_size=sp(32),
+            bold=True,
+            color=(0.2, 0.2, 0.2, 1),
+            size_hint_x=0.8,
+            halign="left",
+            valign="middle"
+        )
+        self.title_label.bind(size=self.title_label.setter('text_size'))
+        
+        back_btn = PinBackButton(
+            icon_source="images/back.png",
+            size_hint_x=0.2,
+            size_hint_y=1
+        )
+        back_btn.bind(on_release=self.go_back)
+        
+        header.add_widget(self.title_label)
+        header.add_widget(back_btn)
+        
+        # Message
+        self.message_label = Label(
+            text="",  # ✅ Sera rempli par update_labels()
+            font_size=sp(20),
+            color=(0.4, 0.4, 0.4, 1),
+            size_hint_y=None,
+            height=dp(50)
+        )
+        
+        # PIN Display
+        self.pin_display = PinDisplay(max_length=len(self.correct_pin))
+        
+        # Spacer
+        spacer = BoxLayout(size_hint_y=0.2)
+        
+        # Keyboard
+        keyboard = GridLayout(cols=3, spacing=dp(15), size_hint_y=None, height=dp(400))
+        
+        for i in range(1, 10):
+            btn = PinButton(text=str(i))
+            btn.bind(on_release=lambda x, num=str(i): self.on_number_press(num))
+            keyboard.add_widget(btn)
+        
+        keyboard.add_widget(BoxLayout())
+        
+        btn_0 = PinButton(text="0")
+        btn_0.bind(on_release=lambda x: self.on_number_press("0"))
+        keyboard.add_widget(btn_0)
+        
+        btn_del = PinButton(text="⌫")
+        btn_del.bind(on_release=self.on_delete_press)
+        keyboard.add_widget(btn_del)
+        
+        root.add_widget(header)
+        root.add_widget(self.message_label)
+        root.add_widget(self.pin_display)
+        root.add_widget(spacer)
+        root.add_widget(keyboard)
+        
+        self.add_widget(root)
+    
+    def on_number_press(self, number):
+        """Gère l'appui sur un bouton numérique"""
+        current_pin = self.pin_display.pin_value
+        
+        if len(current_pin) < len(self.correct_pin):
+            self.pin_display.pin_value = current_pin + number
+            
+            if len(self.pin_display.pin_value) == len(self.correct_pin):
+                Clock.schedule_once(lambda dt: self.check_pin(), 0.3)
+    
+    def on_delete_press(self, *args):
+        """Gère l'appui sur le bouton supprimer"""
+        current_pin = self.pin_display.pin_value
+        if len(current_pin) > 0:
+            self.pin_display.pin_value = current_pin[:-1]
+    
+    def check_pin(self):
+        """Vérifie si le PIN est correct"""
+        entered_pin = self.pin_display.pin_value
+        
+        if entered_pin == self.correct_pin:
+            # ✅ Code correct
+            # self.message_label.text = _("✓ Código correcto")
+            self.message_label.color = (0, 0.7, 0, 1)
+            Clock.schedule_once(lambda dt: self.grant_access(), 0.5)
+        else:
+            # ✅ Code incorrect
+            # self.message_label.text = _("✗ Código incorrecto")
+            self.message_label.color = (0.9, 0, 0, 1)
+            self.pin_display.shake_animation()
+            Clock.schedule_once(lambda dt: self.reset_pin(), 1.0)
+    
+    def reset_pin(self):
+        """Réinitialise l'affichage du PIN"""
+        self.pin_display.pin_value = ""
+        # self.message_label.text = _("Ingrese el código PIN")
+        self.message_label.color = (0.4, 0.4, 0.4, 1)
+    
+    def grant_access(self):
+        """Accorde l'accès à l'écran settings"""
+        print(f"[PIN] Accès autorisé - Transition vers {self.target_screen}")
+        self.sm.current = self.target_screen
+        self.reset_pin()
+    
+    def go_back(self, *args):
+        """Retour à l'écran précédent"""
+        self.sm.current = "main"
+    
+    def on_pre_enter(self):
+        """✅ Appelé avant d'entrer sur l'écran - Mise à jour traductions"""
+        print("[PIN] 📺 on_pre_enter() - Mise à jour traductions")
+        self.reset_pin()
+        self.update_labels()
+    
+    def on_enter(self):
+        """✅ Appelé à chaque ouverture de l'écran"""
+        print("[PIN] 🔄 on_enter: réinitialisation du PIN")
+        self.update_labels()
+
+
+# KV String pour PinBackButton
+PINBACK_BUTTON_KV = """
+<PinBackButton>:
+    background_color: 0,0,0,0
+    canvas.before:
+        Color:
+            rgba: 0.95, 0.95, 0.95, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12),]
+        Color:
+            rgba: 0,0,0,0.85
+        Line:
+            rounded_rectangle: (self.pos[0], self.pos[1], self.size[0], self.size[1], dp(12))
+            width: 2
+    Image:
+        source: root.icon_source if root.icon_source else ""
+        pos: root.pos
+        size: root.size
+        allow_stretch: True
+        keep_ratio: True
+"""

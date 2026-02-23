@@ -1,0 +1,19 @@
+# ===============================================
+# CONFIGURATION — Meuble CoBien
+# ===============================================
+
+# -----------------------------------------------
+# SECTION : VILLES METEO
+# (écrire une ville par ligne)
+# -----------------------------------------------
+
+Paris
+Bilbao
+Pretoria
+Toulouse
+Nantes
+
+# -----------------------------------------------
+# SECTION : CARTES RFID
+211 = evenements
+227 = videocall
