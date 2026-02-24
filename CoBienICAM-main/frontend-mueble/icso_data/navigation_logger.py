@@ -4,10 +4,10 @@ from datetime import datetime
 from .log_writer import load_full_state, write_log_json, write_log_txt
 
 
-def log_navigation(source: str, target: str):
+def log_navigation(source: str, target: str, recognized: str = None):
     state = load_full_state()
-    target = target.lower()
-    source = source.lower()
+    target = (target or "").lower()
+    source = (source or "").lower()
 
     if target in state["page_views"]:
         state["page_views"][target] += 1
@@ -16,8 +16,8 @@ def log_navigation(source: str, target: str):
     if source in state["navigation_inputs"]:
         state["navigation_inputs"][source] += 1
 
-    #TXT
-    write_log_txt(source, target)
+    # TXT (now supports recognized words when the source is the vocal assistant)
+    write_log_txt(source, target, recognized)
 
-    #JSON
+    # JSON
     write_log_json(state)

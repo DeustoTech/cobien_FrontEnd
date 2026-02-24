@@ -271,7 +271,7 @@ class AssistantOrchestrator:
             nav_target = match_command(texto)
 
             if nav_target:
-                Clock.schedule_once(lambda dt: self.app.on_nav(nav_target))
+                Clock.schedule_once(lambda dt, t=nav_target, txt=texto: self.app.on_nav(t, source="vocal_assistant", recognized_text=txt))
                 self._speak(_("De acuerdo"))
                 """
                 if language == "es":
@@ -331,7 +331,7 @@ class AssistantOrchestrator:
 
             # Execute action
             if nav_target:
-                Clock.schedule_once(lambda dt: self.app.on_nav(nav_target))
+                Clock.schedule_once(lambda dt, t=nav_target, txt=texto: self.app.on_nav(t, source="vocal_assistant", recognized_text=txt))
                 language = self.app.cfg.data["language"]
                 if language == "es" :
                     self._speak("De acuerdo")

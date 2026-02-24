@@ -87,7 +87,7 @@ def write_log_json(state: dict):
         json.dump(state, f, indent=4, ensure_ascii=False)
 
 
-def write_log_txt(source, target=None):
+def write_log_txt(source, target=None, recognized: str = None):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     label_map = {
@@ -102,8 +102,17 @@ def write_log_txt(source, target=None):
     if source == "rfid_cards" and target == "videocall":
         target = "videocall request"
 
-    if source == "vocal_assistant":
+    # If the vocal assistant was activated (start), keep the old activation line
+    # but when it triggers a navigation we want a specific log with the recognized word.
+    if source == "vocal_assistant" and target in (None, "assistant_triggered"):
         line = f"[{now}] ACTIVATION VOCAL ASSISTANT"
+    elif source == "vocal_assistant" and target is not None:
+        # Log that the vocal assistant navigated directly and include recognized words
+        recog_text = (recognized or "").strip()
+        if recog_text:
+            line = f"[{now}] VOCAL ASSISTANT → {target} (recognized: {recog_text})"
+        else:
+            line = f"[{now}] VOCAL ASSISTANT → {target}"
     elif target is not None:
         line = f"[{now}] VIA {label} → {target}"
     else:

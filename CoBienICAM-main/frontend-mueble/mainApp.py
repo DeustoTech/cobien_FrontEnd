@@ -1508,7 +1508,7 @@ class MainScreen(Screen):
             print(f"[BACKEND_NOTIF] ⚠️ Type inconnu: {notif_type}")
             print(f"[BACKEND_NOTIF] ========================================")
 
-    def on_nav(self, destino):
+    def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
         d = destino.lower()
         target = None
         if "tiempo" in d or "météo" in d:
@@ -1522,7 +1522,8 @@ class MainScreen(Screen):
         elif "main" in d or "acceuil" in d:
             target = "main"
         if target:
-            log_navigation("touchscreen", target)
+            # Log with the originating source (touchscreen by default).
+            log_navigation(source, target, recognized_text)
             self.sm.current = target
     """
     def start_assistant(self):
