@@ -255,3 +255,4 @@ websockets==15.0.1
 Wikipedia-API==0.8.1
 xxhash==3.5.0
 yarl==1.19.0
+python-can==4.6.1

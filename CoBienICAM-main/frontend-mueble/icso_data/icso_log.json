@@ -1,13 +1,13 @@
 {
     "page_views": {
-        "weather": 33,
-        "events": 10,
+        "weather": 38,
+        "events": 11,
         "day_events": 3,
-        "contacts": 1,
-        "board": 0
+        "contacts": 2,
+        "board": 1
     },
     "navigation_inputs": {
-        "touchscreen": 39,
+        "touchscreen": 47,
         "home_button": 20,
         "vocal_assistant": 21,
         "rfid_cards": 9
@@ -29,7 +29,7 @@
         "added_events": 0
     },
     "screen_wakeup": {
-        "wakeups": 43
+        "wakeups": 44
     },
     "proximity": {
         "north": {
