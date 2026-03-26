@@ -1,5 +1,6 @@
 # board/loadBoard.py
 import os
+import json
 from typing import List, Dict, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -14,6 +15,7 @@ from events.loadEvents import get_mongo_client
 DB_NAME = "LabasAppDB"
 BUCKET = "pizarra_fs"  # colecciones pizarra_fs.files / pizarra_fs.chunks
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "board_cache")
+CACHE_INDEX_FILE = os.path.join(CACHE_DIR, "board_items.json")
 
 # Asegurar que existe un directorio cache local (si no, usar temporal)
 try:
@@ -107,6 +109,75 @@ def _fetch_image_to_cache(db, file_id: ObjectId) -> Optional[str]:
         return None
 
 
+def _serialize_board_items(items: List[Dict]) -> List[Dict]:
+    serialized = []
+    for item in items:
+        created_at = item.get("created_at")
+        serialized.append(
+            {
+                "author": item.get("author", "—"),
+                "text": item.get("text", ""),
+                "image": item.get("image", ""),
+                "created_at": created_at.isoformat() if isinstance(created_at, datetime) else "",
+            }
+        )
+    return serialized
+
+
+def _save_board_cache(items: List[Dict]) -> None:
+    try:
+        payload = {
+            "items": _serialize_board_items(items),
+            "saved_at": datetime.utcnow().isoformat(),
+        }
+        tmp_path = CACHE_INDEX_FILE + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as cache_file:
+            json.dump(payload, cache_file, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, CACHE_INDEX_FILE)
+        print(f"[BOARD] 💾 Cache guardada en {CACHE_INDEX_FILE}")
+    except Exception as e:
+        print(f"[BOARD] ⚠️ No se pudo guardar caché local: {e}")
+
+
+def _load_board_cache() -> List[Dict]:
+    if not os.path.exists(CACHE_INDEX_FILE):
+        return []
+
+    try:
+        with open(CACHE_INDEX_FILE, "r", encoding="utf-8") as cache_file:
+            payload = json.load(cache_file)
+
+        items = []
+        for raw in payload.get("items", []):
+            created_at = raw.get("created_at")
+            if created_at:
+                try:
+                    created_at = datetime.fromisoformat(created_at)
+                except Exception:
+                    created_at = None
+            else:
+                created_at = None
+
+            image_path = raw.get("image", "") or ""
+            if image_path and not os.path.exists(image_path):
+                image_path = ""
+
+            items.append(
+                {
+                    "author": raw.get("author", "—"),
+                    "text": raw.get("text", ""),
+                    "image": image_path,
+                    "created_at": created_at,
+                }
+            )
+
+        print(f"[BOARD] 📦 {len(items)} mensajes cargados desde caché local")
+        return items
+    except Exception as e:
+        print(f"[BOARD] ⚠️ No se pudo leer caché local: {e}")
+        return []
+
+
 def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50) -> List[Dict]:
     """
     Devuelve una lista de mensajes en formato:
@@ -167,9 +238,11 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
             )
 
         print(f"[BOARD] Mensajes descargados: {count}")
+        _save_board_cache(items)
         cl.close()
 
     except Exception as e:
         print(f"[BOARD] Error al consultar Mongo: {e}")
+        return _load_board_cache()
 
     return items

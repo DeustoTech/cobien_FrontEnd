@@ -222,6 +222,11 @@ def add_personal_event_mongo(day_date, title, description, location="Bilbao", de
             "color": AUDIENCE_COLORS["device"],
         }
         res = collection.insert_one(doc)
+        try:
+            eventos = fetch_events_from_mongo(device_name=device_name)
+            guardar_eventos_localmente(eventos)
+        except Exception as cache_error:
+            print(f"[MONGO] No se pudo refrescar la caché local tras insertar: {cache_error}")
         event_bus.notify_events_changed()
         return str(res.inserted_id)
     except Exception as e:
