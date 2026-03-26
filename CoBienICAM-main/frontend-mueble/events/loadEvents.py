@@ -14,7 +14,8 @@ from app_config import AppConfig
 # ------------------------
 # CONFIGURACIÓN
 # ------------------------
-LOCAL_FILE = "events/eventos_local.json"
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+LOCAL_FILE = os.path.join(BASE_DIR, "events", "eventos_local.json")
 _cfg = AppConfig()
 DEVICE_NAME = _cfg.get_device_id()
 LOCATION_NAME = _cfg.get_device_location()
@@ -199,7 +200,7 @@ def delete_event_mongo(event_id: str) -> bool:
 # ------------------------
 # MONGO: AÑADIR
 # ------------------------
-def add_personal_event_mongo(day_date, title, description, location="Bilbao", device_name="maria"):
+def add_personal_event_mongo(day_date, title, description, location=None, device_name=None):
     """
     Inserta un evento personal (audience='device') para 'device_name' en 'location' y fecha 'day_date' (datetime.date).
     Devuelve el string del _id insertado o None si falla.
@@ -208,6 +209,8 @@ def add_personal_event_mongo(day_date, title, description, location="Bilbao", de
         client = get_mongo_client()
         db = client["LabasAppDB"]
         collection = db["eventos"]
+        target_location = location or LOCATION_NAME
+        target_device = device_name or DEVICE_NAME
 
         # Guardamos la fecha con el mismo formato que estás usando en la app
         fecha_str = day_date.strftime("%d-%m-%Y")
@@ -216,14 +219,14 @@ def add_personal_event_mongo(day_date, title, description, location="Bilbao", de
             "date": fecha_str,
             "title": str(title).strip() if title else "Sin título",
             "description": str(description).strip() if description else "Sin descripción",
-            "location": location,
+            "location": target_location,
             "audience": "device",
-            "target_device": device_name,
+            "target_device": target_device,
             "color": AUDIENCE_COLORS["device"],
         }
         res = collection.insert_one(doc)
         try:
-            eventos = fetch_events_from_mongo(device_name=device_name)
+            eventos = fetch_events_from_mongo(device_name=target_device)
             guardar_eventos_localmente(eventos)
         except Exception as cache_error:
             print(f"[MONGO] No se pudo refrescar la caché local tras insertar: {cache_error}")
