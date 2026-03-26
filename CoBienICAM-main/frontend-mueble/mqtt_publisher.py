@@ -3,6 +3,7 @@ import requests
 import os
 import json
 import paho.mqtt.client as mqtt
+import time
 from datetime import date, datetime
 from timezonefinder import TimezoneFinder
 from icso_data.imu_logger import log_imu_event
@@ -25,6 +26,10 @@ _last_rfid_at = 0.0
 
 today = date.today().isoformat()
 tf = TimezoneFinder()
+BASE_DIR = os.path.dirname(__file__)
+CONFIG_DIR = os.path.join(BASE_DIR, "config")
+WEATHER_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_weather.txt")
+RFID_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_rfid.txt")
 
 # Geocoding the cities in config_weather.txt
 def geocode_city(city_name):
@@ -49,7 +54,7 @@ def geocode_city(city_name):
 # Loading the cities in config_weather.txt
 def load_weather_config(path="config/config_weather.txt"):
     cities = []
-    import os
+    path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
     if not os.path.exists(path):
         print(f"[CONFIG] Fichier météo introuvable : {path}")
         return cities
@@ -95,9 +100,9 @@ def load_contacts_map():
 
 # Loading the RFID cards actions in config_rfid.txt
 def load_rfid_config(path="config/config_rfid.txt"):
+    path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
     contacts_map = load_contacts_map()
     actions = {}
-    import os
     if not os.path.exists(path):
         print(f"[CONFIG] Fichier RFID introuvable : {path}")
         return actions
@@ -117,7 +122,7 @@ def load_rfid_config(path="config/config_rfid.txt"):
                 # Charger la liste des villes valides depuis config_weather.txt
                 valid_cities = []
                 try:
-                    with open("config/config_weather.txt", "r", encoding="utf-8") as f:
+                    with open(WEATHER_CONFIG_PATH, "r", encoding="utf-8") as f:
                         for line in f:
                             line = line.strip()
                             if not line or line.startswith("#"):  # lignes commentées = villes inactives
@@ -174,8 +179,8 @@ global WEATHER_CITIES_RAW
 global RFID_ACTIONS
 global WEATHER_CITIES_GEO
 
-WEATHER_CITIES_RAW = load_weather_config("config/config_weather.txt")
-RFID_ACTIONS = load_rfid_config("config/config_rfid.txt")
+WEATHER_CITIES_RAW = load_weather_config(WEATHER_CONFIG_PATH)
+RFID_ACTIONS = load_rfid_config(RFID_CONFIG_PATH)
 
 # Geocoding the cities
 WEATHER_CITIES_GEO = []

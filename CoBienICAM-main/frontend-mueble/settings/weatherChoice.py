@@ -104,11 +104,9 @@ class WeatherChoice(FloatLayout):
         self.sm = sm
         self.city_list_geo = {}
         self.available_cities = []
-        # === Watcher du fichier pour auto-refresh ===
         self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
         self.last_mtime = os.path.getmtime(self.config_path) if os.path.exists(self.config_path) else 0
-
-        Clock.schedule_interval(self._watch_config_file, 1)   # vérifie toutes les 1 sec
+        self._watch_event = None
         
         print("[WEATHER CHOICE] __init__ appelé")
 
@@ -529,9 +527,26 @@ class WeatherChoice(FloatLayout):
     def on_pre_enter(self, *args):
         """Appelé avant d'afficher l'écran"""
         print("[WEATHER CHOICE] on_pre_enter")
+        self._start_config_watcher()
         self.update_labels()
         self.load_available_cities()
         self.refresh_cities()
+
+    def on_leave(self, *args):
+        self._stop_config_watcher()
+
+    def _start_config_watcher(self):
+        if self._watch_event is not None:
+            return
+        self._watch_event = Clock.schedule_interval(self._watch_config_file, 3)
+        print("[WEATHER CHOICE] ✅ Config watcher activé")
+
+    def _stop_config_watcher(self):
+        if self._watch_event is None:
+            return
+        self._watch_event.cancel()
+        self._watch_event = None
+        print("[WEATHER CHOICE] 🛑 Config watcher désactivé")
 
     def _watch_config_file(self, dt):
         """Surveille config_weather.txt et recharge si modifié."""

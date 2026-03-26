@@ -80,6 +80,12 @@ RINGTONES_DIR = os.path.join(
 _active_audio_thread = None
 _audio_stop_event = threading.Event()
 NONE_RINGTONE = ""
+NOTIFICATION_CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    "notifications",
+    "cache",
+)
+NOTIFICATION_CACHE_FILE = os.path.join(NOTIFICATION_CACHE_DIR, "active_notifications.json")
 
 
 def normalize_ringtone_name(ringtone):
@@ -94,6 +100,49 @@ def normalize_ringtone_name(ringtone):
         return NONE_RINGTONE
 
     return ringtone_name
+
+
+def _notification_cache_key(kind, data):
+    return json.dumps({"kind": kind, "data": data}, ensure_ascii=False, sort_keys=True, default=str)
+
+
+def load_cached_notifications():
+    if not os.path.exists(NOTIFICATION_CACHE_FILE):
+        return []
+    try:
+        with open(NOTIFICATION_CACHE_FILE, "r", encoding="utf-8") as cache_file:
+            payload = json.load(cache_file)
+        return payload.get("notifications", [])
+    except Exception as e:
+        print(f"[NOTIF_CACHE] ⚠️ Error loading cache: {e}")
+        return []
+
+
+def save_cached_notifications(items):
+    try:
+        os.makedirs(NOTIFICATION_CACHE_DIR, exist_ok=True)
+        tmp_path = NOTIFICATION_CACHE_FILE + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as cache_file:
+            json.dump({"notifications": items}, cache_file, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, NOTIFICATION_CACHE_FILE)
+    except Exception as e:
+        print(f"[NOTIF_CACHE] ⚠️ Error saving cache: {e}")
+
+
+def append_cached_notification(kind, data):
+    cached = load_cached_notifications()
+    entry_key = _notification_cache_key(kind, data)
+    filtered = [item for item in cached if _notification_cache_key(item.get("kind"), item.get("data")) != entry_key]
+    filtered.insert(0, {"kind": kind, "data": data, "saved_at": datetime.now().isoformat()})
+    save_cached_notifications(filtered[:50])
+
+
+def remove_cached_notification(kind, data):
+    entry_key = _notification_cache_key(kind, data)
+    cached = load_cached_notifications()
+    filtered = [item for item in cached if _notification_cache_key(item.get("kind"), item.get("data")) != entry_key]
+    if len(filtered) != len(cached):
+        save_cached_notifications(filtered)
 
 def load_notification_config():
     """Load notification configuration from JSON file"""
@@ -730,6 +779,7 @@ class NotificationManager:
             'room': room,      # Exact case preserved
             'timestamp': datetime.now()
         }
+        append_cached_notification('videocall', data)
         
         def _create_popup(dt):
             try:
@@ -777,6 +827,7 @@ class NotificationManager:
             'date': date_str,
             'timestamp': datetime.now()
         }
+        append_cached_notification('event', data)
         
         def _create_popup(dt):
             try:
@@ -822,6 +873,7 @@ class NotificationManager:
             'has_text': has_text,
             'timestamp': datetime.now()
         }
+        append_cached_notification('message', data)
         
         def _create_popup(dt):
             try:
@@ -858,6 +910,7 @@ class NotificationManager:
         Falls back to settings.json videocall_room if not provided
         """
         self._remove_from_active(data)
+        remove_cached_notification('videocall', data)
 
         # Retirer du tracker
         self.active_videocall_popup = None
@@ -945,6 +998,7 @@ class NotificationManager:
     def _handle_event_action(self, action, data):
         """Handle event notification actions"""
         self._remove_from_active(data)
+        remove_cached_notification('event', data)
         
         if action == 'ok':
             print(f"[NOTIF] Event '{data['title']}' closed")
@@ -955,6 +1009,7 @@ class NotificationManager:
     def _handle_message_action(self, action, data):
         """Handle message notification actions"""
         self._remove_from_active(data)
+        remove_cached_notification('message', data)
         
         if action == 'view':
             sender = data.get('sender', '?')
@@ -1040,6 +1095,11 @@ class NotificationManager:
         print(f"[NOTIF]    Caller: '{caller}' (case-sensitive)")
         print(f"[NOTIF]    Time: {time_str}")
         print(f"[NOTIF] ========================================")
+        append_cached_notification("missed_call", {
+            "caller": caller,
+            "time_str": time_str,
+            "timestamp": datetime.now(),
+        })
         
         # Fermer la notification "Appel entrant" si elle existe
         if self.active_videocall_popup:
