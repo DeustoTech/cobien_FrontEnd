@@ -12,7 +12,7 @@ from kivy.metrics import dp, sp
 from translation import _
 from kivy.app import App
 
-from board.loadBoard import fetch_board_items_from_mongo
+from board.loadBoard import delete_board_item, fetch_board_items_from_mongo
 
 from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
@@ -227,17 +227,26 @@ KV = r"""
                             orientation: "vertical"
                             size_hint_x: 0.45
                             spacing: dp(12)
-                            Label:
-                                id: lbl_from
-                                text: "De —:"
-                                font_size: sp(34)
-                                bold: True
-                                color: C_BLACK
+                            BoxLayout:
                                 size_hint_y: None
-                                height: dp(48)
-                                halign: "left"
-                                valign: "middle"
-                                text_size: self.size
+                                height: dp(58)
+                                spacing: dp(10)
+                                Label:
+                                    id: lbl_from
+                                    text: "De —:"
+                                    font_size: sp(34)
+                                    bold: True
+                                    color: C_BLACK
+                                    halign: "left"
+                                    valign: "middle"
+                                    text_size: self.size
+                                IconBadge:
+                                    id: btn_delete
+                                    size: dp(58), dp(58)
+                                    icon_source: "images/trash.png"
+                                    opacity: 0.4
+                                    disabled: True
+                                    on_release: root.parent_widget.delete_current()
                             Label:
                                 id: lbl_body
                                 text: ""
@@ -347,13 +356,15 @@ class BoardScreen(Screen):
         ids.lbl_time.text = now.strftime("%H:%M")
 
     def _render_current(self):
-        if not self._have_ids("lbl_from", "lbl_body", "img_photo"):
+        if not self._have_ids("lbl_from", "lbl_body", "img_photo", "btn_delete"):
             return
         if not self.items:
             ids = self.root_view.ids
             ids.lbl_from.text = f"{_('De')} —:"
             ids.lbl_body.text = _("No hay mensajes por ahora.")
             ids.img_photo.source = ""
+            ids.btn_delete.disabled = True
+            ids.btn_delete.opacity = 0.4
             return
         
         item = self.items[self.idx]
@@ -361,6 +372,32 @@ class BoardScreen(Screen):
         ids.lbl_from.text = f"{_('De')} {item.get('author','—')}:"
         ids.lbl_body.text = item.get("text","")
         ids.img_photo.source = item.get("image","") or ""
+        ids.btn_delete.disabled = not bool(item.get("id"))
+        ids.btn_delete.opacity = 1 if item.get("id") else 0.4
+
+    def delete_current(self):
+        if not self.items:
+            return
+
+        item = self.items[self.idx]
+        post_id = item.get("id", "")
+        if not post_id:
+            print("[BOARD] Mensaje actual sin id, no se puede borrar")
+            return
+
+        try:
+            ok = delete_board_item(post_id)
+            if not ok:
+                print(f"[BOARD] No se pudo borrar mensaje {post_id}")
+                return
+            print(f"[BOARD] ✅ Mensaje borrado: {post_id}")
+            del self.items[self.idx]
+            if self.idx >= len(self.items):
+                self.idx = max(0, len(self.items) - 1)
+            self._render_current()
+            Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
+        except Exception as e:
+            print(f"[BOARD] Error borrando mensaje {post_id}: {e}")
 
     # ------- Navegación flechas -------
     def goto_prev(self):

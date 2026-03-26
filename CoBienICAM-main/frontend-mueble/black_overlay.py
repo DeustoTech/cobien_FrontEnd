@@ -1,6 +1,29 @@
 from kivy.uix.modalview import ModalView
 from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
+import os
+import subprocess
+
+
+def suspend_system() -> bool:
+    if os.getenv("COBIEN_DISABLE_SYSTEM_SLEEP", "0") in ("1", "true", "True"):
+        return False
+
+    commands = [
+        ["systemctl", "suspend"],
+        ["loginctl", "suspend"],
+        ["dbus-send", "--system", "--print-reply", "--dest=org.freedesktop.login1",
+         "/org/freedesktop/login1", "org.freedesktop.login1.Manager.Suspend", "boolean:true"],
+    ]
+
+    for cmd in commands:
+        try:
+            subprocess.run(cmd, check=True, timeout=8)
+            print(f"[SLEEP] ✅ Suspend command executed: {' '.join(cmd[:2])}")
+            return True
+        except Exception as exc:
+            print(f"[SLEEP] Command failed ({' '.join(cmd[:2])}): {exc}")
+    return False
 
 
 class BlackOverlay(ModalView):

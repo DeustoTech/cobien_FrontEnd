@@ -54,7 +54,7 @@ from virtual_assistant.nlp_processor import IntentClassifier
 from virtual_assistant.main_assistant import AssistantOrchestrator
 
 # Sleep screen
-from black_overlay import BlackOverlay
+from black_overlay import BlackOverlay, suspend_system
 
 # HTTP
 import requests
@@ -1722,9 +1722,12 @@ class MyApp(App):
 
 
     def _show_black_overlay(self, *args):
+        if suspend_system():
+            Clock.schedule_once(lambda dt: self._on_wakeup(), 1)
+            return
+
         if not getattr(self, "black_overlay", None):
             return
-        # Evite double-open
         if self.black_overlay.parent:
             return
         self.black_overlay.open()

@@ -116,6 +116,7 @@ def _serialize_board_items(items: List[Dict]) -> List[Dict]:
         created_at = item.get("created_at")
         serialized.append(
             {
+                "id": item.get("id", ""),
                 "author": item.get("author", "—"),
                 "text": item.get("text", ""),
                 "image": item.get("image", ""),
@@ -165,6 +166,7 @@ def _load_board_cache() -> List[Dict]:
 
             items.append(
                 {
+                    "id": raw.get("id", ""),
                     "author": raw.get("author", "—"),
                     "text": raw.get("text", ""),
                     "image": image_path,
@@ -215,6 +217,7 @@ def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
         image_path = _fetch_image_from_url(raw.get("image", ""), item_id) or ""
         items.append(
             {
+                "id": raw.get("id", ""),
                 "author": raw.get("author", "—"),
                 "text": raw.get("text", ""),
                 "image": image_path,
@@ -303,6 +306,7 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
 
             items.append(
                 {
+                    "id": str(doc.get("_id", "")),
                     "author": author,
                     "text": text,
                     "image": img_path,
@@ -319,3 +323,22 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
         return _load_board_cache()
 
     return items
+
+
+def delete_board_item(post_id: str) -> bool:
+    if not post_id:
+        return False
+
+    url = os.getenv(
+        "COBIEN_PIZARRA_DELETE_URL_TEMPLATE",
+        f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/{{post_id}}/delete/",
+    ).format(post_id=post_id)
+    headers = {}
+    api_key = os.getenv("COBIEN_NOTIFY_API_KEY", "").strip()
+    if api_key:
+        headers["X-API-KEY"] = api_key
+
+    response = requests.post(url, headers=headers, timeout=8)
+    response.raise_for_status()
+    payload = response.json()
+    return bool(payload.get("ok"))
