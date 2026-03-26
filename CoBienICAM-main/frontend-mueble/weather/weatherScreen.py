@@ -373,7 +373,7 @@ class WeatherScreenWidget(BoxLayout):
     
     weekday_names = ListProperty([])
 
-    owm_api_key = "6128e2f97c533ad711be849699cb4d47"
+    owm_api_key = os.getenv("OWM_API_KEY", "6128e2f97c533ad711be849699cb4d47")
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)

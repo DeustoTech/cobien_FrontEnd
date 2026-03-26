@@ -566,7 +566,7 @@ class MainScreen(Screen):
         random_id = "kivy_local_client"
         self.mqtt_client_local = mqtt.Client(client_id=random_id, clean_session=True)
         
-        self.mqtt_broker_local = "localhost"
+        self.mqtt_broker_local = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
         self.mqtt_client_local.on_connect = self.on_connect_local
         self.mqtt_client_local.on_message = self.on_message_local
         self._subscribed_local = False
@@ -582,7 +582,7 @@ class MainScreen(Screen):
 
         # ========== MQTT BACKEND (pour les notifications du site web) ==========
         self.mqtt_client_backend = mqtt.Client(client_id="kivy_backend_client")
-        self.mqtt_broker_backend = "broker.hivemq.com"
+        self.mqtt_broker_backend = os.getenv("COBIEN_MQTT_BACKEND_BROKER", "broker.hivemq.com")
         self.mqtt_client_backend.on_connect = self.on_connect_backend
         self.mqtt_client_backend.on_message = self.on_message_backend
 
@@ -621,7 +621,7 @@ class MainScreen(Screen):
             self.weather_lon = -2.935
             print(f"[MAIN] ⚠️ Pas de villes configurées, fallback: {self.weather_city}")
 
-        self.owm_api_key = "6128e2f97c533ad711be849699cb4d47"
+        self.owm_api_key = os.getenv("OWM_API_KEY", "6128e2f97c533ad711be849699cb4d47")
 
         Clock.schedule_once(lambda dt: self._update_weather_async(), 0)
         Clock.schedule_interval(lambda dt: self._update_weather_async(), 600)

@@ -29,9 +29,10 @@ AUDIENCE_COLORS = {
 # CONEXIÓN A MONGODB
 # ------------------------
 def get_mongo_client():
-    uri = (
+    uri = os.getenv(
+        "MONGO_URI",
         "mongodb+srv://usuarioCoBien:passwordCoBien@clustercobienevents."
-        "j8ev5.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true"
+        "j8ev5.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true",
     )
     return MongoClient(uri, serverSelectionTimeoutMS=3000)  # corta si no conecta en 3s
 
