@@ -6,6 +6,23 @@ Este directorio deja preparado el mueble Ubuntu para:
 - actualizar `cobien_FrontEnd` y `cobien_MQTT_Dictionnary`
 - hacerlo una sola vez o en modo polling cada minuto
 
+## Uso recomendado
+
+Si una persona no tecnica va a usarlo, el punto de entrada recomendado es solo uno:
+
+```bash
+bash cobien-first-run.sh
+```
+
+Ese asistente pregunta:
+
+- donde estan los proyectos
+- si hay que instalar dependencias del sistema
+- si hay que borrar el `.venv` anterior
+- si quieres hacer una comprobacion de actualizacion antes de lanzar
+
+Y despues hace el resto automaticamente.
+
 ## Archivos
 
 - `cobien-bootstrap.sh`
@@ -71,6 +88,8 @@ Si ademas quieres forzar una pasada de actualizacion antes del lanzamiento:
 ```bash
 bash cobien-first-run.sh --workspace /home/cobien/cobien --run-update-once
 ```
+
+Pero para uso normal no hace falta pasar parametros: el script ya pregunta de forma interactiva.
 
 ## Modo puntual
 

@@ -10,6 +10,7 @@ FRONTEND_REPO_NAME="cobien_FrontEnd"
 MQTT_REPO_NAME="cobien_MQTT_Dictionnary"
 BRANCH_NAME="development_fix"
 INSTALL_SYSTEM_DEPS="1"
+RECREATE_VENV="0"
 
 usage() {
   cat <<EOF
@@ -22,6 +23,7 @@ Opciones:
   --mqtt-name NAME            Nombre carpeta repo mqtt (default: cobien_MQTT_Dictionnary)
   --branch NAME               Rama objetivo (default: development_fix)
   --skip-system-deps          No instala paquetes apt
+  --recreate-venv             Borra y recrea .venv
   -h, --help                  Muestra esta ayuda
 EOF
 }
@@ -50,6 +52,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-system-deps)
       INSTALL_SYSTEM_DEPS="0"
+      shift
+      ;;
+    --recreate-venv)
+      RECREATE_VENV="1"
       shift
       ;;
     -h|--help)
@@ -157,6 +163,11 @@ prepare_venv() {
     log "Python seleccionado: $PYTHON_BIN"
     log "Este proyecto no esta estabilizado sobre Python 3.12+. Instala python3.11 o exporta COBIEN_BOOTSTRAP_PYTHON_BIN=python3.11"
     exit 1
+  fi
+
+  if [[ "$RECREATE_VENV" == "1" && -d "$VENV_DIR" ]]; then
+    log "Eliminando entorno virtual previo: $VENV_DIR"
+    rm -rf "$VENV_DIR"
   fi
 
   "$UV_BIN" venv --python "$PYTHON_BIN" "$VENV_DIR"
