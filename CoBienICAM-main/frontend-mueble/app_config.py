@@ -4,6 +4,34 @@ import os
 from kivy.event import EventDispatcher
 from kivy.properties import DictProperty
 
+
+CONFIG_PATH = "settings/settings.json"
+DEFAULT_CONFIG = {
+    "language": "es",
+    "weather_cities": [],
+    "button_colors": {},
+    "rfid_actions": {},
+    "device_id": "CoBien1",
+    "videocall_room": "CoBien1",
+    "device_location": "Bilbao",
+    "joke_category": "general",
+    "idle_timeout_sec": 60,
+}
+
+
+def _clone_default_config():
+    return {
+        "language": DEFAULT_CONFIG["language"],
+        "weather_cities": list(DEFAULT_CONFIG["weather_cities"]),
+        "button_colors": dict(DEFAULT_CONFIG["button_colors"]),
+        "rfid_actions": dict(DEFAULT_CONFIG["rfid_actions"]),
+        "device_id": DEFAULT_CONFIG["device_id"],
+        "videocall_room": DEFAULT_CONFIG["videocall_room"],
+        "device_location": DEFAULT_CONFIG["device_location"],
+        "joke_category": DEFAULT_CONFIG["joke_category"],
+        "idle_timeout_sec": DEFAULT_CONFIG["idle_timeout_sec"],
+    }
+
 class AppConfig(EventDispatcher):
     """
     ✅ Configuration avec support du binding pour notifications de changements
@@ -13,7 +41,8 @@ class AppConfig(EventDispatcher):
     def __init__(self):
         super().__init__()  # Important pour EventDispatcher
         
-        self.config_path = "settings/settings.json"
+        self.config_path = CONFIG_PATH
+        self._last_mtime = None
         
         # Créer dossier si nécessaire
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
@@ -29,17 +58,7 @@ class AppConfig(EventDispatcher):
     
     def _default_config(self):
         """Configuration par défaut"""
-        return {
-            "language": "es",
-            "weather_cities": [],
-            "button_colors": {},
-            "rfid_actions": {},
-            "device_id": "CoBien1",
-            "videocall_room": "CoBien1",
-            "device_location": "Bilbao",
-            "joke_category": "general",
-            "idle_timeout_sec": 60
-        }
+        return _clone_default_config()
     
     def set_joke_category(self, category):
         """Définit la catégorie de blagues."""
@@ -73,6 +92,7 @@ class AppConfig(EventDispatcher):
             
             # IMPORTANT : Assigner via la property pour déclencher les bindings
             self.data = new_data
+            self._last_mtime = os.path.getmtime(self.config_path)
             
             print(f"[CONFIG] ✅ Configuration chargée depuis {self.config_path}")
         except Exception as e:
@@ -84,6 +104,7 @@ class AppConfig(EventDispatcher):
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, indent=4, ensure_ascii=False)
+            self._last_mtime = os.path.getmtime(self.config_path)
             print(f"[CONFIG] ✅ Configuration sauvegardée")
         except Exception as e:
             print(f"[CONFIG] ⚠️ Erreur sauvegarde config: {e}")
@@ -113,9 +134,8 @@ class AppConfig(EventDispatcher):
             current_mtime = os.path.getmtime(self.config_path)
             
             # Charger uniquement si modifié
-            if not hasattr(self, '_last_mtime') or current_mtime != self._last_mtime:
+            if current_mtime != self._last_mtime:
                 self.load()
-                self._last_mtime = current_mtime
         
         except FileNotFoundError:
             # Fichier n'existe pas, utiliser données en mémoire
