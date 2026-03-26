@@ -21,7 +21,7 @@ from translation import _
 from events.loadEvents import fetch_events_from_mongo, cargar_eventos_locales
 from events.event_bus import event_bus
 
-from app_config import AppConfig
+from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 import paho.mqtt.client as mqtt
 import json
@@ -737,7 +737,7 @@ class EventsScreen(Screen):
             
             self.mqtt_client = mqtt.Client(client_id="events_screen_client")
             self.mqtt_client.on_message = on_message
-            self.mqtt_client.connect("localhost", 1883, 60)
+            self.mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
             self.mqtt_client.subscribe("app/nav")
             self.mqtt_client.loop_start()
             print("[EVENTS] ✅ MQTT listener activated")

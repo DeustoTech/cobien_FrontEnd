@@ -19,6 +19,7 @@ from translation import _, get_current_language, change_language
 import json
 import paho.mqtt.client as mqtt
 import os
+from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -323,7 +324,7 @@ class RFIDActionsScreen(Screen):
         self.mqtt_client = mqtt.Client()
         self.mqtt_client.on_message = self.on_mqtt_message
         try:
-            self.mqtt_client.connect("localhost", 1883, 60)
+            self.mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
             self.mqtt_client.loop_start()
             self.mqtt_client.subscribe("rfid/read")
         except Exception as e:

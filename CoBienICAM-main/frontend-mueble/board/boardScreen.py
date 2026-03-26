@@ -14,7 +14,7 @@ from kivy.app import App
 
 from board.loadBoard import fetch_board_items_from_mongo
 
-from app_config import AppConfig
+from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 import json
 import paho.mqtt.client as mqtt
@@ -471,7 +471,7 @@ class BoardScreen(Screen):
             
             self.mqtt_client = mqtt.Client(client_id="board_screen_client")
             self.mqtt_client.on_message = on_message
-            self.mqtt_client.connect("localhost", 1883, 60)
+            self.mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
             self.mqtt_client.subscribe("app/nav")
             self.mqtt_client.loop_start()
             print("[BOARD] ✅ MQTT listener activated")
