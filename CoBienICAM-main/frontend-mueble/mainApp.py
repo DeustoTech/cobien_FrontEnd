@@ -3,10 +3,8 @@ import json
 import random
 import subprocess
 import sys
-import signal
-import random
 from glob import glob
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -15,7 +13,6 @@ from kivy.lang import Builder
 from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, BooleanProperty
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.floatlayout import FloatLayout
 
 
 # Voz (si la usas en tu orquestador)
