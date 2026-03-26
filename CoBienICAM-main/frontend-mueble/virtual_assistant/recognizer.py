@@ -105,6 +105,10 @@ class SpeechRecognizer:
             callback=self._callback
         ):
 
+            if stop_event is not None and stop_event.is_set():
+                print("[VOSK] Cancelled before warmup")
+                return None
+
             time.sleep(0.1)
             self._clear_queue()
             
@@ -122,6 +126,9 @@ class SpeechRecognizer:
                 try:
                     data = self.q.get(timeout=0.2)
                 except queue.Empty:
+                    if stop_event is not None and stop_event.is_set():
+                        print("[VOSK] Cancelled while waiting for audio")
+                        break
                     continue
 
                 if self.recognizer.AcceptWaveform(data):
