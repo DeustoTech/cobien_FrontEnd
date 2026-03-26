@@ -29,7 +29,10 @@ echo "[CLEAN] Closing previous CoBien terminals..."
 
 for title in "CAN BUS" "MQTT-CAN BRIDGE" "COBIEN APP"
 do
-    wmctrl -ic "$(wmctrl -l | grep "$title" | awk '{print $1}')" 2>/dev/null
+    window_id="$(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1; exit}')"
+    if [[ -n "${window_id:-}" ]]; then
+        wmctrl -ic "$window_id" >/dev/null 2>&1 || true
+    fi
 done
 
 sleep 1
