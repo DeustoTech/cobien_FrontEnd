@@ -20,6 +20,7 @@ LABEL_MAP = {
     "west": "WEST",
 }
 
+
 def log_proximity_event(can_id: int, event_code: int):
     if can_id not in CAPTEUR_MAP:
         return

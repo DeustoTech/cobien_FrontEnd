@@ -45,24 +45,25 @@ DEFAULT_STATE = {
         "wakeups": 0
     },
     "proximity": {
-    "north": {
-        "motion_detected": 0,
-        "approach_detected": 0
-    },
-    "south": {
-        "motion_detected": 0,
-        "approach_detected": 0
-    },
-    "east": {
-        "motion_detected": 0,
-        "approach_detected": 0
-    },
-    "west": {
-        "motion_detected": 0,
-        "approach_detected": 0
+        "north": {
+            "motion_detected": 0,
+            "approach_detected": 0
+        },
+        "south": {
+            "motion_detected": 0,
+            "approach_detected": 0
+        },
+        "east": {
+            "motion_detected": 0,
+            "approach_detected": 0
+        },
+        "west": {
+            "motion_detected": 0,
+            "approach_detected": 0
+        }
     }
 }
-}
+
 
 def load_full_state():
     if not os.path.exists(LOG_JSON):
@@ -102,12 +103,9 @@ def write_log_txt(source, target=None, recognized: str = None):
     if source == "rfid_cards" and target == "videocall":
         target = "videocall request"
 
-    # If the vocal assistant was activated (start), keep the old activation line
-    # but when it triggers a navigation we want a specific log with the recognized word.
     if source == "vocal_assistant" and target in (None, "assistant_triggered"):
         line = f"[{now}] ACTIVATION VOCAL ASSISTANT"
     elif source == "vocal_assistant" and target is not None:
-        # Log that the vocal assistant navigated directly and include recognized words
         recog_text = (recognized or "").strip()
         if recog_text:
             line = f"[{now}] VOCAL ASSISTANT → {target} (recognized: {recog_text})"
@@ -117,9 +115,8 @@ def write_log_txt(source, target=None, recognized: str = None):
         line = f"[{now}] VIA {label} → {target}"
     else:
         line = f"[{now}] {label}"
-    
+
     log_path = LOG_PROXIMITY_TXT if source == "proximity" else LOG_TXT
 
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(line + "\n")
-

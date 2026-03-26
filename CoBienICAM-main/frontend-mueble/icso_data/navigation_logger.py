@@ -12,12 +12,8 @@ def log_navigation(source: str, target: str, recognized: str = None):
     if target in state["page_views"]:
         state["page_views"][target] += 1
 
-
     if source in state["navigation_inputs"]:
         state["navigation_inputs"][source] += 1
 
-    # TXT (now supports recognized words when the source is the vocal assistant)
     write_log_txt(source, target, recognized)
-
-    # JSON
     write_log_json(state)
