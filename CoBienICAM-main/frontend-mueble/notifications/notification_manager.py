@@ -718,6 +718,7 @@ class NotificationManager:
 
         # Tracker du popup d'appel entrant actif (case-sensitive)
         self.active_videocall_popup = None
+        self.active_call_process = None
         
         print("[NOTIF_MANAGER] ✅ Notification manager initialized (CASE-SENSITIVE)")
     
@@ -731,6 +732,12 @@ class NotificationManager:
         
         Note: 'CoBien' and 'cobien' are treated as DIFFERENT rooms
         """
+        if self.active_call_process and self.active_call_process.poll() is None:
+            print(f"[NOTIF] ⚠️ Active call already running, incoming call ignored")
+            print(f"[NOTIF]    Caller: '{caller}'")
+            print(f"[NOTIF]    Room: '{room}'")
+            return
+
         # ✅ CASE-SENSITIVE duplicate check
         # Include both caller AND room to distinguish between different calls
         current_time = datetime.now().strftime('%Y%m%d%H%M')
@@ -978,7 +985,7 @@ class NotificationManager:
                 print(f"[NOTIF] 🚀 Launching videocall_launcher.py")
                 print(f"[NOTIF]    Room: '{room}' (from settings.json)")
                 
-                subprocess.Popen([sys.executable, launcher_path, config_file])
+                self.active_call_process = subprocess.Popen([sys.executable, launcher_path, config_file])
                 
                 print(f"[NOTIF] ✅ Videocall launcher started")
                 log_call_start()
@@ -1115,6 +1122,8 @@ class NotificationManager:
             except:
                 pass
             self.active_videocall_popup = None
+        if self.active_call_process and self.active_call_process.poll() is not None:
+            self.active_call_process = None
 
         # Créer popup
         popup = ModalView(

@@ -583,7 +583,7 @@ class DayEventsScreen(Screen):
             title=title,
             description=desc,
             location=self.current_location,
-            device_name="CoBien1"  # Nom de l'appareil
+            device_name=self.cfg.get_device_id()
         )
         if ok:
             self.speak(_("Evento añadido."))
@@ -622,7 +622,7 @@ class DayEventsScreen(Screen):
             title=title,
             description=desc,
             location=self.current_location,
-            device_name="CoBien1"
+            device_name=self.cfg.get_device_id()
         )
 
         from kivy.clock import Clock
