@@ -1554,10 +1554,6 @@ class MainScreen(Screen):
 
         log_navigation("vocal_assistant", "assistant_triggered")
 
-        if getattr(app, "videocall_running", False):
-            print("[ASR] Assistant blocked while videocall is active")
-            return
-
         # ✅ Créer l'assistant UNE seule fois et le stocker sur l'app
         if not hasattr(app, "assistant") or app.assistant is None:
             app.assistant = AssistantOrchestrator(self)
@@ -1774,7 +1770,6 @@ class MyApp(App):
     def build(self):
         self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
         self._idle_event = None
-        self.videocall_running = False
 
         Window.bind(
             on_touch_down=self._on_first_user_input,

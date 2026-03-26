@@ -845,9 +845,6 @@ class NotificationManager:
         self.active_videocall_popup = None
         
         if action == 'accept':
-            app = App.get_running_app()
-            if app:
-                app.videocall_running = True
             caller = data.get('caller', 'Unknown')
             room = data.get('room')
             
