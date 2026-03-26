@@ -95,10 +95,14 @@ install_system_deps() {
     python3 python3-venv python3-pip \
     wmctrl gnome-terminal can-utils iproute2 \
     libasound2-dev portaudio19-dev \
-    libgl1-mesa-glx libglib2.0-0 \
+    libgl1 libegl1 libglib2.0-0 \
     libgstreamer1.0-0 gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-libav \
-    libpulse0 libmosquitto-dev libcjson-dev
+    libpulse0 libmosquitto-dev libcjson-dev \
+    libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
+    libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 \
+    libxcomposite1 libxdamage1 libxrandr2 libnss3 \
+    libatk-bridge2.0-0 libgtk-3-0
 }
 
 prepare_venv() {
