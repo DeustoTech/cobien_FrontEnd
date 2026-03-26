@@ -70,6 +70,7 @@ VENV_DIR="$FRONTEND_REPO/.venv"
 ENV_FILE="$FRONTEND_REPO/deploy/ubuntu/cobien-update.env"
 BRIDGE_DIR="$MQTT_REPO/Interface_MQTT_CAN_c"
 CAN_CONFIG="$BRIDGE_DIR/config/conversion.json"
+PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 
 check_paths() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { log "No existe repo frontend: $FRONTEND_REPO"; exit 1; }
@@ -103,11 +104,37 @@ install_system_deps() {
     libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 \
     libxcomposite1 libxdamage1 libxrandr2 libnss3 \
     libatk-bridge2.0-0 libgtk-3-0
+
+  if apt-cache show python3.11 >/dev/null 2>&1; then
+    sudo apt install -y python3.11 python3.11-venv python3.11-dev
+  fi
+}
+
+resolve_python_bin() {
+  if [[ -n "$PYTHON_BIN" ]]; then
+    return
+  fi
+
+  if command -v python3.11 >/dev/null 2>&1; then
+    PYTHON_BIN="python3.11"
+  else
+    PYTHON_BIN="python3"
+  fi
 }
 
 prepare_venv() {
+  resolve_python_bin
+
+  if "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] <= (3, 11) else 1)'; then
+    :
+  else
+    log "Python seleccionado: $PYTHON_BIN"
+    log "Este proyecto no esta estabilizado sobre Python 3.12+. Instala python3.11 o exporta COBIEN_BOOTSTRAP_PYTHON_BIN=python3.11"
+    exit 1
+  fi
+
   if [[ ! -d "$VENV_DIR" ]]; then
-    python3 -m venv "$VENV_DIR"
+    "$PYTHON_BIN" -m venv "$VENV_DIR"
   fi
 
   # shellcheck disable=SC1091
@@ -128,6 +155,7 @@ COBIEN_UPDATE_REMOTE=origin
 COBIEN_UPDATE_BRANCH=$BRANCH_NAME
 COBIEN_UPDATE_INTERVAL_SEC=60
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
+COBIEN_PYTHON_BIN=$PYTHON_BIN
 COBIEN_BRIDGE_DIR=$BRIDGE_DIR
 COBIEN_CAN_CONFIG=$CAN_CONFIG
 EOF

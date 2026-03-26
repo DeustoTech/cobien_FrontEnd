@@ -29,6 +29,16 @@ Eso:
 - deja generado `cobien-update.env`
 - deja listos el launcher y el updater
 
+## Version de Python
+
+El frontend actualmente debe desplegarse con `Python 3.11`.
+
+El bootstrap:
+
+- usa `python3.11` si esta disponible
+- instala `python3.11` y `python3.11-venv` cuando Ubuntu lo ofrece
+- aborta si solo encuentra `Python 3.12+`, porque varias dependencias fijadas del proyecto no son compatibles
+
 ## Primera ejecucion automatizada
 
 Si quieres hacer todo en una sola orden, usa:
