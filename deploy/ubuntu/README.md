@@ -8,8 +8,26 @@ Este directorio deja preparado el mueble Ubuntu para:
 
 ## Archivos
 
+- `cobien-bootstrap.sh`
 - `cobien-update.sh`
 - `cobien-update.env.example`
+
+## Bootstrap inicial
+
+Si los dos repos ya estan descargados, puedes preparar todo desde `deploy/ubuntu` con:
+
+```bash
+bash cobien-bootstrap.sh --workspace /home/cobien/cobien
+```
+
+Eso:
+
+- verifica rutas
+- instala dependencias del sistema
+- crea `.venv` del frontend
+- instala dependencias Python
+- deja generado `cobien-update.env`
+- deja listos el launcher y el updater
 
 ## Modo puntual
 
