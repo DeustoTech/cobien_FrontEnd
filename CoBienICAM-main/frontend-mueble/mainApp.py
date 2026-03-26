@@ -23,6 +23,7 @@ import paho.mqtt.client as mqtt
 
 # Pantallas // Ecrans
 from weather.weatherScreen import WeatherScreenWidget
+from weather.weather_data import fetch_weather_bundle
 from events.eventsScreen import EventsScreen
 from events.dayEventsScreen import DayEventsScreen
 #from videocall.videocallScreen import VideoCallScreen
@@ -613,12 +614,14 @@ class MainScreen(Screen):
             self.weather_city = first_city["name"]
             self.weather_lat = first_city["lat"]
             self.weather_lon = first_city["lon"]
+            self.weather_tz = first_city.get("tz", "UTC")
             print(f"[MAIN] 🌤 Météo principale: {self.weather_city}")
         else:
             # Fallback si liste vide
             self.weather_city = "Bilbao"
             self.weather_lat = 43.263
             self.weather_lon = -2.935
+            self.weather_tz = "Europe/Madrid"
             print(f"[MAIN] ⚠️ Pas de villes configurées, fallback: {self.weather_city}")
 
         self.owm_api_key = os.getenv("OWM_API_KEY", "6128e2f97c533ad711be849699cb4d47")
@@ -1129,32 +1132,24 @@ class MainScreen(Screen):
         threading.Thread(target=self._fetch_weather_and_update, daemon=True).start()
 
     def _fetch_weather_and_update(self):
-        """✅ Récupère vraie météo depuis OpenWeatherMap"""
+        """Récupère la météo principale avec la même base de calcul que l'écran météo."""
         try:
-            # Obtenir langue actuelle
             lang = get_current_language()
-            
-            # Appel API OpenWeatherMap
-            url = (
-                f"https://api.openweathermap.org/data/2.5/weather?"
-                f"q={self.weather_city}&appid={self.owm_api_key}&units=metric&lang={lang}"
-            )
-            
             print(f"[MAIN_WEATHER] 🌐 Fetching {self.weather_city} (lang={lang})")
-            
-            response = requests.get(url, timeout=8)
-            data = response.json()
-            
-            # Parser données
-            temp = round(data["main"]["temp"])
-            temp_min = round(data["main"]["temp_min"])
-            temp_max = round(data["main"]["temp_max"])
-            description = data["weather"][0]["description"].capitalize()
-            weather_id = int(data["weather"][0]["id"])
-            icon_code = data["weather"][0].get("icon", "01d")
-            
-            # Mapper icône
-            icon_path = self._map_weather_icon(weather_id, icon_code)
+            bundle = fetch_weather_bundle(
+                city_name=self.weather_city,
+                lat=self.weather_lat,
+                lon=self.weather_lon,
+                tz_name=self.weather_tz,
+                api_lang=lang,
+                owm_api_key=self.owm_api_key,
+                forecast_days=2,
+            )
+            temp = bundle["temp"]
+            temp_min = bundle["temp_min"]
+            temp_max = bundle["temp_max"]
+            description = bundle["description"]
+            icon_path = bundle["icon"]
             
             # Mettre à jour l'interface (dans le thread UI)
             def _update_ui(dt):
@@ -1173,7 +1168,7 @@ class MainScreen(Screen):
             
             # Sauvegarder en cache
             cache_data = {
-                "city": self.weather_city,
+                "city": bundle["city"],
                 "temp": temp,
                 "temp_min": temp_min,
                 "temp_max": temp_max,

@@ -20,6 +20,7 @@ from kivy.app import App
 import paho.mqtt.client as mqtt
 import json
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from weather.weather_data import daily_icon_path, fetch_weather_bundle, map_icon_openmeteo, map_icon_owm
 
 KV = r"""
 #:import dp kivy.metrics.dp
@@ -613,69 +614,18 @@ class WeatherScreenWidget(BoxLayout):
 
     def _fetch_all_and_render(self):
         try:
-            # ✅ Utiliser self.api_lang au lieu de 'es' en dur
-            cur_url = (
-                f"https://api.openweathermap.org/data/2.5/weather?"
-                f"q={self.city}&appid={self.owm_api_key}&units=metric&lang={self.api_lang}"
-            )
             print(f"[WEATHER] 🌐 Fetching weather with lang={self.api_lang}")
-            
-            cur = requests.get(cur_url, timeout=8).json()
-            cur_temp = round(cur["main"]["temp"])
-            desc = cur["weather"][0]["description"].capitalize()
-            wid = int(cur["weather"][0]["id"])
-            icon_code = cur["weather"][0].get("icon", "01d")
-            icon_path = self._map_icon_owm(wid, icon_code)
-            tz_offset = cur.get("timezone", 0)
-
-            today = (datetime.utcnow() + timedelta(seconds=tz_offset)).date()
-            start = end = today.isoformat()
-
-            om_hourly = requests.get(
-                "https://api.open-meteo.com/v1/forecast",
-                params=dict(
-                    latitude=self.lat,
-                    longitude=self.lon,
-                    hourly="temperature_2m,weathercode",
-                    timezone=self.tz_name,
-                    start_date=start,
-                    end_date=end,
-                ),
-                timeout=8,
-            ).json()
-
-            om_daily = requests.get(
-                "https://api.open-meteo.com/v1/forecast",
-                params=dict(
-                    latitude=self.lat,
-                    longitude=self.lon,
-                    daily="weathercode,temperature_2m_min,temperature_2m_max,precipitation_probability_max",
-                    timezone=self.tz_name,
-                    forecast_days=7,
-                ),
-                timeout=8,
-            ).json()
-
-            tmin = round(om_daily["daily"]["temperature_2m_min"][0])
-            tmax = round(om_daily["daily"]["temperature_2m_max"][0])
-
-            times = om_hourly["hourly"]["time"]
-            temps = om_hourly["hourly"]["temperature_2m"]
-            codes = om_hourly["hourly"]["weathercode"]
-            items = []
-            now_local = datetime.utcnow() + timedelta(seconds=tz_offset)
-            for t, tmp, code in zip(times, temps, codes):
-                dt = datetime.fromisoformat(t)
-                if dt >= now_local and len(items) < 12:
-                    items.append((dt, round(tmp), code))
-            if len(items) < 12:
-                for t, tmp, code in zip(times, temps, codes):
-                    dt = datetime.fromisoformat(t)
-                    if dt < now_local and len(items) < 12:
-                        items.append((dt, round(tmp), code))
-
+            bundle = fetch_weather_bundle(
+                city_name=self.city,
+                lat=self.lat,
+                lon=self.lon,
+                tz_name=self.tz_name,
+                api_lang=self.api_lang,
+                owm_api_key=self.owm_api_key,
+                forecast_days=7,
+            )
             days = []
-            daily = om_daily["daily"]
+            daily = bundle["daily"]
             for i in range(1, 7):
                 d_dt = datetime.fromisoformat(daily["time"][i])
                 code_val = int(daily["weathercode"][i])
@@ -691,13 +641,13 @@ class WeatherScreenWidget(BoxLayout):
                 )
 
             def _apply(_dt):
-                self.current_temp = f"{cur_temp}°"
-                self.current_desc = desc
-                self.today_minmax_left = f"{_('Min')} {tmin}°"
-                self.today_minmax_right = f"{_('Max')} {tmax}°"
-                if os.path.exists(icon_path):
-                    self.current_icon = icon_path
-                self._render_hourly(items)
+                self.current_temp = f"{bundle['temp']}°"
+                self.current_desc = bundle["description"]
+                self.today_minmax_left = f"{_('Min')} {bundle['temp_min']}°"
+                self.today_minmax_right = f"{_('Max')} {bundle['temp_max']}°"
+                if os.path.exists(bundle["icon"]):
+                    self.current_icon = bundle["icon"]
+                self._render_hourly(bundle["hourly_items"])
                 self._render_daily(days)
 
             Clock.schedule_once(_apply)
@@ -750,20 +700,10 @@ class WeatherScreenWidget(BoxLayout):
             code_int = int(code)
         except Exception:
             code_int = 3
-        path = self._map_icon_openmeteo(code_int, is_day)
-        return path if os.path.exists(path) else "images/nubes.png"
+        return daily_icon_path(code_int, is_day)
 
     def _map_icon_owm(self, weather_id: int, icon_code: str) -> str:
-        is_day = icon_code.endswith("d")
-        if weather_id // 100 == 2: return "images/tormenta.png"
-        if weather_id // 100 == 3: return "images/lluvia.png"
-        if weather_id // 100 == 5: return "images/lluvia.png"
-        if weather_id // 100 == 6: return "images/nieve.png"
-        if weather_id // 100 == 7: return "images/neblina.png"
-        if weather_id == 800: return "images/sol.png" if is_day else "images/noche.png"
-        if 801 <= weather_id <= 802: return "images/parcial.png"
-        if 803 <= weather_id <= 804: return "images/nubes.png"
-        return "images/nubes.png"
+        return map_icon_owm(weather_id, icon_code)
 
     def set_city_by_name(self, name: str):
         from weather.weatherScreen import cities
@@ -775,14 +715,7 @@ class WeatherScreenWidget(BoxLayout):
                 break
 
     def _map_icon_openmeteo(self, code: int, is_day: bool) -> str:
-        if code == 0: return "images/sol.png" if is_day else "images/noche.png"
-        if code in (1, 2): return "images/parcial.png"
-        if code == 3: return "images/nubes.png"
-        if code in (45, 48): return "images/neblina.png"
-        if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82): return "images/lluvia.png"
-        if code in (71, 73, 75, 77, 85, 86): return "images/nieve.png"
-        if code in (95, 96, 99): return "images/tormenta.png"
-        return "images/nubes.png"
+        return map_icon_openmeteo(code, is_day)
 
     def on_pre_enter(self, *args):
         """✅ Mise à jour des traductions avant d'entrer dans l'écran"""
