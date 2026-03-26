@@ -15,44 +15,21 @@ from kivy.metrics import dp, sp
 from kivy.app import App
 from kivy.clock import Clock
 from translation import _
-import json
 import os
 import threading
 
 # ========== IMPORT DU MODULE LED CENTRALISÉ ==========
 from notifications.mqtt_led_sender import send_led_config_from_dict
-
-NONE_RINGTONE = ""
-
-# ========== IMPORT AUDIO PLAYER (avec fallback) ==========
-AUDIO_AVAILABLE = False
-AUDIO_BACKEND = None
-
-# Essayer pygame en premier (plus stable)
-try:
-    import pygame
-    pygame.mixer.init()
-    AUDIO_AVAILABLE = True
-    AUDIO_BACKEND = "pygame"
-    print("[NOTIF_SCREEN] ✓ Audio backend: pygame")
-except ImportError:
-    # Fallback sur playsound
-    try:
-        from playsound import playsound
-        AUDIO_AVAILABLE = True
-        AUDIO_BACKEND = "playsound"
-        print("[NOTIF_SCREEN] ✓ Audio backend: playsound")
-    except ImportError:
-        AUDIO_AVAILABLE = False
-        AUDIO_BACKEND = None
-        print("[NOTIF_SCREEN] ⚠ Aucun backend audio disponible")
-        print("[NOTIF_SCREEN]   Installer avec: pip install pygame")
-
-# ========== CHEMIN DU FICHIER DE CONFIGURATION ==========
-CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "notifications_config.json")
-
-print(f"[CONFIG] Chemin du fichier de config: {CONFIG_FILE}")
+from notifications.notification_runtime import (
+    AUDIO_AVAILABLE,
+    NONE_RINGTONE,
+    load_notification_config as runtime_load_notification_config,
+    load_ringtones as runtime_load_ringtones,
+    normalize_ringtone_name,
+    play_ringtone_file,
+    save_notification_config as runtime_save_notification_config,
+    stop_ringtone as runtime_stop_ringtone,
+)
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -564,62 +541,25 @@ class StripCard(BoxLayout):
             print("[RINGTONE] ⚠ No audio backend available")
             return
         
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        ringtone_path = os.path.join(script_dir, "ringtones", ringtone_name)
-        
-        print(f"[RINGTONE] Attempting to play: {ringtone_path}")
-        
-        if not os.path.exists(ringtone_path):
-            print(f"[RINGTONE] File not found: {ringtone_path}")
-            return
-        
         # Stop previous playback if exists
         if self._ringtone_thread and self._ringtone_thread.is_alive():
             print("[RINGTONE] Already playing, stopping first...")
             self.stop_ringtone()
             return
         
-        # Create stop event
-        self._stop_event = threading.Event()
-        
-        def _play_sound():
-            try:
-                print(f"[RINGTONE] Playing ({AUDIO_BACKEND}): {os.path.basename(ringtone_path)}")
-                
-                if AUDIO_BACKEND == "pygame":
-                    pygame.mixer.music.load(ringtone_path)
-                    pygame.mixer.music.play()
-                    # Wait for playback end or stop signal
-                    while pygame.mixer.music.get_busy():
-                        if self._stop_event.is_set():
-                            pygame.mixer.music.stop()
-                            print("[RINGTONE] ⏹ Playback stopped by user")
-                            Clock.schedule_once(lambda dt: self._reset_button_state(), 0)
-                            return
-                        pygame.time.Clock().tick(10)
-                
-                elif AUDIO_BACKEND == "playsound":
-                    # Note: playsound cannot be easily interrupted
-                    if not self._stop_event.is_set():
-                        playsound(ringtone_path)
-                
-                print(f"[RINGTONE] ✓ Playback finished")
-                # Reset button to play state when sound finishes
-                Clock.schedule_once(lambda dt: self._reset_button_state(), 0)
-                
-            except Exception as e:
-                print(f"[RINGTONE] ✗ Error: {e}")
-                import traceback
-                traceback.print_exc()
-                Clock.schedule_once(lambda dt: self._reset_button_state(), 0)
-        
         # Update button state
         self._is_playing = True
         self.ids.play_stop_btn.is_playing = True
         self.ids.play_stop_btn.icon_source = self.stop_icon
-        
-        # Launch in separate thread
-        self._ringtone_thread = threading.Thread(target=_play_sound, daemon=True)
+
+        def _finish():
+            Clock.schedule_once(lambda dt: self._reset_button_state(), 0)
+
+        if not play_ringtone_file(ringtone_name, on_finish=_finish):
+            self._reset_button_state()
+            return
+
+        self._ringtone_thread = threading.Thread(target=lambda: None, daemon=True)
         self._ringtone_thread.start()
 
     def _refresh_ringtone_spinner(self):
@@ -639,16 +579,7 @@ class StripCard(BoxLayout):
             return
         
         print("[RINGTONE] Stopping playback...")
-        
-        if self._stop_event:
-            self._stop_event.set()
-        
-        if AUDIO_BACKEND == "pygame":
-            try:
-                pygame.mixer.music.stop()
-            except:
-                pass
-        
+        runtime_stop_ringtone()
         self._reset_button_state()
     
     def _reset_button_state(self):
@@ -775,37 +706,18 @@ class NotificationsScreen(Screen):
     
     def load_config(self):
         """Charge la configuration depuis le fichier JSON"""
-        if not os.path.exists(CONFIG_FILE):
-            print(f"[CONFIG] Fichier non trouvé, création avec valeurs par défaut")
-            self.save_config()
-            return
-        
-        try:
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            
-            for key in self.ledStrips.keys():
-                if key in config:
-                    config[key]["ringtone"] = self.normalize_ringtone(config[key].get("ringtone"))
-                    self.ledStrips[key].update(config[key])
-            
-            print(f"[CONFIG] ✓ Configuration chargée")
-        except Exception as e:
-            print(f"[CONFIG] ✗ Erreur chargement: {e}")
+        config = runtime_load_notification_config()
+        for key in self.ledStrips.keys():
+            if key in config:
+                self.ledStrips[key].update(config[key])
+        print("[CONFIG] ✓ Configuration chargée")
     
     def save_config(self):
         """Sauvegarde la configuration dans le fichier JSON"""
-        try:
-            os.makedirs(CONFIG_DIR, exist_ok=True)
-            
-            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(dict(self.ledStrips), f, indent=2, ensure_ascii=False)
-            
-            print(f"[CONFIG] ✓ Sauvegardé dans {CONFIG_FILE}")
-            return True
-        except Exception as e:
-            print(f"[CONFIG] ✗ Erreur sauvegarde: {e}")
-            return False
+        ok = runtime_save_notification_config(dict(self.ledStrips))
+        if ok:
+            print("[CONFIG] ✓ Configuration sauvegardée")
+        return ok
     
     def update_strip_value(self, strip, field, value):
         """Mise à jour + sauvegarde automatique"""
@@ -826,40 +738,14 @@ class NotificationsScreen(Screen):
     # ========== AUTRES MÉTHODES ==========
     
     def load_ringtones(self):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        ringtones_dir = os.path.join(script_dir, "ringtones")
-        ringtones = [NONE_RINGTONE]
-        
-        if not os.path.exists(ringtones_dir):
-            try:
-                os.makedirs(ringtones_dir)
-                print(f"[RINGTONE] Created directory: {ringtones_dir}")
-            except Exception as e:
-                print(f"[RINGTONE] Error creating directory: {e}")
-            return ringtones
-        
-        supported_formats = ('.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac')
-        try:
-            for file in os.listdir(ringtones_dir):
-                if file.lower().endswith(supported_formats):
-                    ringtones.append(file)
-            print(f"[RINGTONE] Found {len(ringtones)-1} ringtones")
-        except Exception as e:
-            print(f"[RINGTONE] Error loading ringtones: {e}")
-        
+        ringtones = runtime_load_ringtones()
+        print(f"[RINGTONE] Found {len(ringtones)-1} ringtones")
         return ringtones
 
     def normalize_ringtone(self, ringtone):
-        if ringtone is None:
+        ringtone_name = normalize_ringtone_name(ringtone)
+        if ringtone_name in {_("Ninguna"), _("Aucune")}:
             return NONE_RINGTONE
-
-        ringtone_name = str(ringtone).strip()
-        if not ringtone_name:
-            return NONE_RINGTONE
-
-        if ringtone_name in {"Ninguna", "Aucune", _("Ninguna")}:
-            return NONE_RINGTONE
-
         return ringtone_name
 
     def to_display_ringtone(self, ringtone):

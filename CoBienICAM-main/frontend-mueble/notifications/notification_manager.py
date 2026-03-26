@@ -20,7 +20,6 @@ import os
 import json
 from translation import _, change_language
 from kivy.app import App
-import threading
 import paho.mqtt.publish as publish
 
 #ICSO
@@ -32,74 +31,24 @@ from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ========== IMPORT CENTRALIZED LED MODULE ==========
 from notifications.mqtt_led_sender import send_led_config_from_dict, turn_off_leds
-
-# ========== IMPORT AUDIO PLAYER (with fallback) ==========
-AUDIO_AVAILABLE = False
-AUDIO_BACKEND = None
-
-# Try pygame first (more stable)
-try:
-    import pygame
-    pygame.mixer.init()
-    AUDIO_AVAILABLE = True
-    AUDIO_BACKEND = "pygame"
-    print("[NOTIF_MANAGER] ✓ Audio backend: pygame")
-except ImportError:
-    # Fallback to playsound
-    try:
-        from playsound import playsound
-        AUDIO_AVAILABLE = True
-        AUDIO_BACKEND = "playsound"
-        print("[NOTIF_MANAGER] ✓ Audio backend: playsound")
-    except ImportError:
-        AUDIO_AVAILABLE = False
-        AUDIO_BACKEND = None
-        print("[NOTIF_MANAGER] ⚠ No audio backend available")
-        print("[NOTIF_MANAGER]   Install with: pip install pygame")
+from notifications.notification_runtime import (
+    NONE_RINGTONE,
+    load_notification_config,
+    normalize_ringtone_name,
+    play_ringtone_file,
+    stop_ringtone,
+)
 
 # ========== MQTT CONFIGURATION ==========
 TOPIC_EVENTS_RELOAD = "events/reload"
 TOPIC_BOARD_RELOAD = "board/reload"
 
-# ========== CONFIGURATION ==========
-CONFIG_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 
-    "config", 
-    "notifications_config.json"
-)
-print(f"[NOTIF_MANAGER] Config file: {CONFIG_FILE}")
-
-# Ringtones directory
-RINGTONES_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    "settings",
-    "ringtones"
-)
-
-# Global variable to store active audio thread
-_active_audio_thread = None
-_audio_stop_event = threading.Event()
-NONE_RINGTONE = ""
 NOTIFICATION_CACHE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     "notifications",
     "cache",
 )
 NOTIFICATION_CACHE_FILE = os.path.join(NOTIFICATION_CACHE_DIR, "active_notifications.json")
-
-
-def normalize_ringtone_name(ringtone):
-    if ringtone is None:
-        return NONE_RINGTONE
-
-    ringtone_name = str(ringtone).strip()
-    if not ringtone_name:
-        return NONE_RINGTONE
-
-    if ringtone_name in {"Ninguna", "Aucune", _("Ninguna")}:
-        return NONE_RINGTONE
-
-    return ringtone_name
 
 
 def _notification_cache_key(kind, data):
@@ -144,64 +93,6 @@ def remove_cached_notification(kind, data):
     if len(filtered) != len(cached):
         save_cached_notifications(filtered)
 
-def load_notification_config():
-    """Load notification configuration from JSON file"""
-    if not os.path.exists(CONFIG_FILE):
-        print(f"[NOTIF_CONFIG] File not found: {CONFIG_FILE}")
-        return {
-            "videollamada": {
-                "group": 7,
-                "intensity": 255,
-                "color": "#00FF00",
-                "mode": "ON",
-                "ringtone": NONE_RINGTONE
-            },
-            "nuevo_evento": {
-                "group": 7,
-                "intensity": 255,
-                "color": "#FF0000",
-                "mode": "ON",
-                "ringtone": NONE_RINGTONE
-            },
-            "nueva_foto": {
-                "group": 7,
-                "intensity": 255,
-                "color": "#0000FF",
-                "mode": "BLINK",
-                "ringtone": NONE_RINGTONE
-            }
-        }
-    
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        for value in config.values():
-            if isinstance(value, dict):
-                value["ringtone"] = normalize_ringtone_name(value.get("ringtone"))
-        print(f"[NOTIF_CONFIG] Configuration loaded from {CONFIG_FILE}")
-        return config
-    except Exception as e:
-        print(f"[NOTIF_CONFIG] Error reading file: {e}")
-        return {}
-
-def stop_notification_ringtone():
-    """Stop the currently playing ringtone"""
-    global _audio_stop_event
-    
-    if not AUDIO_AVAILABLE:
-        return
-    
-    try:
-        _audio_stop_event.set()  # Stop signal
-        
-        if AUDIO_BACKEND == "pygame":
-            pygame.mixer.music.stop()
-            print("[RINGTONE] ✓ Ringtone stopped (pygame)")
-        
-        print("[RINGTONE] ✓ Stop signal sent")
-    except Exception as e:
-        print(f"[RINGTONE] ✗ Stop error: {e}")
-
 def play_notification_ringtone(notification_type):
     """
     Play the configured ringtone for a notification type
@@ -209,16 +100,6 @@ def play_notification_ringtone(notification_type):
     Args:
         notification_type: 'videollamada', 'nuevo_evento', or 'nueva_foto'
     """
-    global _active_audio_thread, _audio_stop_event
-    
-    if not AUDIO_AVAILABLE:
-        print(f"[RINGTONE] ⚠ No audio backend available")
-        return
-    
-    # Stop previous ringtone if exists
-    stop_notification_ringtone()
-    _audio_stop_event.clear()  # Reset signal
-    
     config = load_notification_config()
     
     if notification_type not in config:
@@ -231,41 +112,8 @@ def play_notification_ringtone(notification_type):
         print(f"[RINGTONE] No ringtone configured for {notification_type}")
         return
     
-    ringtone_path = os.path.join(RINGTONES_DIR, ringtone)
-    
-    if not os.path.exists(ringtone_path):
-        print(f"[RINGTONE] File not found: {ringtone_path}")
-        return
-    
-    def _play_sound():
-        try:
-            print(f"[RINGTONE] Playing ({AUDIO_BACKEND}): {ringtone} for {notification_type}")
-            
-            if AUDIO_BACKEND == "pygame":
-                pygame.mixer.music.load(ringtone_path)
-                pygame.mixer.music.play()
-                # Wait for playback end or stop signal
-                while pygame.mixer.music.get_busy():
-                    if _audio_stop_event.is_set():
-                        pygame.mixer.music.stop()
-                        print("[RINGTONE] ⏹ Playback interrupted")
-                        return
-                    pygame.time.Clock().tick(10)
-            
-            elif AUDIO_BACKEND == "playsound":
-                # Note: playsound cannot be easily interrupted
-                if not _audio_stop_event.is_set():
-                    playsound(ringtone_path)
-            
-            print(f"[RINGTONE] ✓ Playback finished")
-        except Exception as e:
-            print(f"[RINGTONE] ✗ Playback error: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    # Launch in separate thread to avoid blocking UI
-    _active_audio_thread = threading.Thread(target=_play_sound, daemon=True)
-    _active_audio_thread.start()
+    print(f"[RINGTONE] Playing: {ringtone} for {notification_type}")
+    play_ringtone_file(ringtone)
 
 def send_led_mqtt(notification_type):
     """
@@ -682,7 +530,7 @@ class NotificationPopup(ModalView):
     def _on_action(self, action):
         """Handle user actions"""        
         # ========== STOP SOUND AND LEDS ==========
-        stop_notification_ringtone()
+        stop_ringtone()
         turn_off_leds()
         
         if self.callback:
