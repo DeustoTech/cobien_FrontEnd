@@ -142,9 +142,13 @@ resolve_uv_bin() {
     return
   fi
 
-  resolve_python_bin
-  log "Instalando uv para $PYTHON_BIN"
-  "$PYTHON_BIN" -m pip install --user --upgrade uv
+  if [[ -x "$HOME/.local/bin/uv" ]]; then
+    UV_BIN="$HOME/.local/bin/uv"
+    return
+  fi
+
+  log "Instalando uv con el instalador oficial de Astral"
+  curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 
   if command -v uv >/dev/null 2>&1; then
     UV_BIN="uv"
