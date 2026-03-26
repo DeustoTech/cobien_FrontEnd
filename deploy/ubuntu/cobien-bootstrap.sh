@@ -113,6 +113,7 @@ prepare_venv() {
   # shellcheck disable=SC1091
   source "$VENV_DIR/bin/activate"
   pip install --upgrade pip
+  pip install --upgrade setuptools wheel build
   pip install -r "$FRONTEND_APP_DIR/requirements.txt"
   deactivate
 }
