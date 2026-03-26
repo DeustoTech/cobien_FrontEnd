@@ -7,29 +7,39 @@ WORKSPACE_ROOT_DEFAULT="/home/cobien/cobien"
 FRONTEND_REPO_NAME_DEFAULT="cobien_FrontEnd"
 MQTT_REPO_NAME_DEFAULT="cobien_MQTT_Dictionnary"
 
-WORKSPACE_ROOT="$WORKSPACE_ROOT_DEFAULT"
-FRONTEND_REPO_NAME="$FRONTEND_REPO_NAME_DEFAULT"
-MQTT_REPO_NAME="$MQTT_REPO_NAME_DEFAULT"
-RUN_UPDATE_ONCE="0"
-INSTALL_SYSTEM_DEPS="1"
-RECREATE_VENV="0"
-ENABLE_WATCH="0"
-INSTALL_CRON="0"
-CRON_SCHEDULE="0 3,15 * * *"
+WORKSPACE_ROOT="${COBIEN_WORKSPACE_ROOT:-$WORKSPACE_ROOT_DEFAULT}"
+FRONTEND_REPO_NAME="${COBIEN_FRONTEND_REPO_NAME:-$FRONTEND_REPO_NAME_DEFAULT}"
+MQTT_REPO_NAME="${COBIEN_MQTT_REPO_NAME:-$MQTT_REPO_NAME_DEFAULT}"
+RUN_UPDATE_ONCE="${COBIEN_RUN_UPDATE_ONCE:-0}"
+INSTALL_SYSTEM_DEPS="${COBIEN_INSTALL_SYSTEM_DEPS:-1}"
+RECREATE_VENV="${COBIEN_RECREATE_VENV:-0}"
+ENABLE_WATCH="${COBIEN_ENABLE_WATCH:-0}"
+INSTALL_CRON="${COBIEN_INSTALL_CRON:-0}"
+CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-0 3,15 * * *}"
+NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-0}"
+AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-0}"
 
 usage() {
   cat <<EOF
-Uso:
+Uso interactivo:
   $(basename "$0")
-  $(basename "$0") --workspace /home/cobien/cobien
 
-Asistente interactivo para:
-  1. pedir la carpeta donde estan los dos proyectos
-  2. comprobar Python 3.11
-  3. preguntar si hay que reinstalar dependencias del sistema
-  4. preguntar si hay que borrar el .venv anterior
-  5. preparar el entorno
-  6. permitir lanzar, actualizar, activar watch o instalar cron
+Uso desatendido:
+  $(basename "$0") --non-interactive --workspace /home/cobien/cobien --yes
+
+Opciones:
+  --workspace PATH
+  --frontend-name NAME
+  --mqtt-name NAME
+  --run-update-once
+  --enable-watch
+  --install-cron
+  --cron-schedule "0 3,15 * * *"
+  --recreate-venv
+  --skip-system-deps
+  --non-interactive
+  --yes
+  -h, --help
 EOF
 }
 
@@ -37,6 +47,10 @@ ask() {
   local prompt="$1"
   local default_value="${2:-}"
   local answer
+  if [[ "$NON_INTERACTIVE" == "1" ]]; then
+    echo "$default_value"
+    return
+  fi
   if [[ -n "$default_value" ]]; then
     read -r -p "$prompt [$default_value]: " answer
     echo "${answer:-$default_value}"
@@ -54,16 +68,17 @@ ask_yes_no() {
     suffix="[s/N]"
   fi
 
+  if [[ "$NON_INTERACTIVE" == "1" ]]; then
+    [[ "$default_value" != "n" ]]
+    return
+  fi
+
   while true; do
     read -r -p "$prompt $suffix: " answer
     answer="${answer:-$default_value}"
     case "${answer,,}" in
-      s|si|sí|y|yes)
-        return 0
-        ;;
-      n|no)
-        return 1
-        ;;
+      s|si|sí|y|yes) return 0 ;;
+      n|no) return 1 ;;
     esac
   done
 }
@@ -94,20 +109,79 @@ install_cron_job() {
   echo "  $cron_line"
 }
 
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --workspace)
+        WORKSPACE_ROOT="$2"
+        shift 2
+        ;;
+      --frontend-name)
+        FRONTEND_REPO_NAME="$2"
+        shift 2
+        ;;
+      --mqtt-name)
+        MQTT_REPO_NAME="$2"
+        shift 2
+        ;;
+      --run-update-once)
+        RUN_UPDATE_ONCE="1"
+        shift
+        ;;
+      --enable-watch)
+        ENABLE_WATCH="1"
+        shift
+        ;;
+      --install-cron)
+        INSTALL_CRON="1"
+        shift
+        ;;
+      --cron-schedule)
+        CRON_SCHEDULE="$2"
+        shift 2
+        ;;
+      --recreate-venv)
+        RECREATE_VENV="1"
+        shift
+        ;;
+      --skip-system-deps)
+        INSTALL_SYSTEM_DEPS="0"
+        shift
+        ;;
+      --non-interactive)
+        NON_INTERACTIVE="1"
+        shift
+        ;;
+      --yes)
+        AUTO_CONFIRM="1"
+        NON_INTERACTIVE="1"
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        usage
+        exit 1
+        ;;
+    esac
+  done
+}
+
 main() {
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
+  parse_args "$@"
+
+  if [[ "$NON_INTERACTIVE" != "1" ]]; then
+    echo "========================================"
+    echo "Asistente de instalacion CoBien Ubuntu"
+    echo "========================================"
+    echo
   fi
 
-  echo "========================================"
-  echo "Asistente de instalacion CoBien Ubuntu"
-  echo "========================================"
-  echo
-
-  WORKSPACE_ROOT="$(ask "Directorio donde estan los dos proyectos" "$WORKSPACE_ROOT_DEFAULT")"
-  FRONTEND_REPO_NAME="$(ask "Nombre de la carpeta del frontend" "$FRONTEND_REPO_NAME_DEFAULT")"
-  MQTT_REPO_NAME="$(ask "Nombre de la carpeta del repo MQTT" "$MQTT_REPO_NAME_DEFAULT")"
+  WORKSPACE_ROOT="$(ask "Directorio donde estan los dos proyectos" "$WORKSPACE_ROOT")"
+  FRONTEND_REPO_NAME="$(ask "Nombre de la carpeta del frontend" "$FRONTEND_REPO_NAME")"
+  MQTT_REPO_NAME="$(ask "Nombre de la carpeta del repo MQTT" "$MQTT_REPO_NAME")"
 
   FRONTEND_REPO="$WORKSPACE_ROOT/$FRONTEND_REPO_NAME"
   MQTT_REPO="$WORKSPACE_ROOT/$MQTT_REPO_NAME"
@@ -123,15 +197,8 @@ main() {
   echo "  MQTT:     $MQTT_REPO"
   echo
 
-  if [[ ! -d "$FRONTEND_REPO/.git" ]]; then
-    echo "No existe repo frontend en: $FRONTEND_REPO"
-    exit 1
-  fi
-
-  if [[ ! -d "$MQTT_REPO/.git" ]]; then
-    echo "No existe repo MQTT en: $MQTT_REPO"
-    exit 1
-  fi
+  [[ -d "$FRONTEND_REPO/.git" ]] || { echo "No existe repo frontend en: $FRONTEND_REPO"; exit 1; }
+  [[ -d "$MQTT_REPO/.git" ]] || { echo "No existe repo MQTT en: $MQTT_REPO"; exit 1; }
 
   if detect_python311; then
     echo "Python 3.11 detectado: $(command -v python3.11)"
@@ -145,31 +212,29 @@ main() {
     fi
   fi
 
-  if [[ "$INSTALL_SYSTEM_DEPS" != "1" ]]; then
+  if [[ "$NON_INTERACTIVE" != "1" && "$INSTALL_SYSTEM_DEPS" != "1" ]]; then
     if ask_yes_no "Quieres reinstalar o verificar dependencias del sistema igualmente" "s"; then
       INSTALL_SYSTEM_DEPS="1"
-    else
-      INSTALL_SYSTEM_DEPS="0"
     fi
   fi
 
-  if [[ -d "$VENV_DIR" ]]; then
+  if [[ "$NON_INTERACTIVE" != "1" && -d "$VENV_DIR" ]]; then
     if ask_yes_no "Se ha encontrado un .venv previo. Quieres borrarlo y recrearlo" "s"; then
       RECREATE_VENV="1"
     fi
-  else
+  elif [[ "$NON_INTERACTIVE" != "1" ]]; then
     echo "No existe .venv previo. Se creara uno nuevo."
   fi
 
-  if ask_yes_no "Quieres ejecutar una comprobacion de actualizacion antes de lanzar" "n"; then
+  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Quieres ejecutar una comprobacion de actualizacion antes de lanzar" "n"; then
     RUN_UPDATE_ONCE="1"
   fi
 
-  if ask_yes_no "Quieres dejar un proceso de vigilancia que revise cambios cada minuto" "n"; then
+  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Quieres dejar un proceso de vigilancia que revise cambios cada minuto" "n"; then
     ENABLE_WATCH="1"
   fi
 
-  if ask_yes_no "Quieres instalar una tarea cron para actualizar a horas concretas" "n"; then
+  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Quieres instalar una tarea cron para actualizar a horas concretas" "n"; then
     INSTALL_CRON="1"
     CRON_SCHEDULE="$(ask "Expresion cron para la actualizacion" "$CRON_SCHEDULE")"
   fi
@@ -187,7 +252,7 @@ main() {
   fi
   echo
 
-  if ! ask_yes_no "Continuar" "s"; then
+  if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continuar" "s"; then
     echo "Cancelado."
     exit 0
   fi

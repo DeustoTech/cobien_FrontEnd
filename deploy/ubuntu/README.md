@@ -25,6 +25,30 @@ Ese asistente pregunta:
 
 Y despues hace el resto automaticamente.
 
+## Modo desatendido
+
+El mismo script tambien puede ejecutarse sin preguntas, por ejemplo desde `bashrc`, `cron` o un servicio:
+
+```bash
+bash cobien-first-run.sh \
+  --non-interactive \
+  --yes \
+  --workspace /home/cobien/cobien \
+  --run-update-once
+```
+
+Opciones utiles en modo desatendido:
+
+- `--non-interactive`
+- `--yes`
+- `--workspace /ruta`
+- `--recreate-venv`
+- `--skip-system-deps`
+- `--run-update-once`
+- `--enable-watch`
+- `--install-cron`
+- `--cron-schedule "0 3,15 * * *"`
+
 ## Archivos
 
 - `cobien-bootstrap.sh`
