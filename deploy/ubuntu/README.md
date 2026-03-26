@@ -29,6 +29,27 @@ Eso:
 - deja generado `cobien-update.env`
 - deja listos el launcher y el updater
 
+## Primera ejecucion automatizada
+
+Si quieres hacer todo en una sola orden, usa:
+
+```bash
+bash cobien-first-run.sh --workspace /home/cobien/cobien
+```
+
+Eso ejecuta:
+
+- `cobien-bootstrap.sh`
+- carga `cobien-update.env`
+- `cobien-update.sh --dry-run`
+- `start_cobien.sh`
+
+Si ademas quieres forzar una pasada de actualizacion antes del lanzamiento:
+
+```bash
+bash cobien-first-run.sh --workspace /home/cobien/cobien --run-update-once
+```
+
 ## Modo puntual
 
 Pensado para cron o ejecucion manual:
