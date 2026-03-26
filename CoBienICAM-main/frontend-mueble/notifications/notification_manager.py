@@ -79,6 +79,21 @@ RINGTONES_DIR = os.path.join(
 # Global variable to store active audio thread
 _active_audio_thread = None
 _audio_stop_event = threading.Event()
+NONE_RINGTONE = ""
+
+
+def normalize_ringtone_name(ringtone):
+    if ringtone is None:
+        return NONE_RINGTONE
+
+    ringtone_name = str(ringtone).strip()
+    if not ringtone_name:
+        return NONE_RINGTONE
+
+    if ringtone_name in {"Ninguna", "Aucune", _("Ninguna")}:
+        return NONE_RINGTONE
+
+    return ringtone_name
 
 def load_notification_config():
     """Load notification configuration from JSON file"""
@@ -90,27 +105,30 @@ def load_notification_config():
                 "intensity": 255,
                 "color": "#00FF00",
                 "mode": "ON",
-                "ringtone": "Ninguna"
+                "ringtone": NONE_RINGTONE
             },
             "nuevo_evento": {
                 "group": 7,
                 "intensity": 255,
                 "color": "#FF0000",
                 "mode": "ON",
-                "ringtone": "Ninguna"
+                "ringtone": NONE_RINGTONE
             },
             "nueva_foto": {
                 "group": 7,
                 "intensity": 255,
                 "color": "#0000FF",
                 "mode": "BLINK",
-                "ringtone": "Ninguna"
+                "ringtone": NONE_RINGTONE
             }
         }
     
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
             config = json.load(f)
+        for value in config.values():
+            if isinstance(value, dict):
+                value["ringtone"] = normalize_ringtone_name(value.get("ringtone"))
         print(f"[NOTIF_CONFIG] Configuration loaded from {CONFIG_FILE}")
         return config
     except Exception as e:
@@ -158,9 +176,9 @@ def play_notification_ringtone(notification_type):
         print(f"[RINGTONE] Type '{notification_type}' not found in config")
         return
     
-    ringtone = config[notification_type].get("ringtone", "Ninguna")
+    ringtone = normalize_ringtone_name(config[notification_type].get("ringtone"))
     
-    if ringtone == "Ninguna" or not ringtone or ringtone.strip() == "":
+    if ringtone == NONE_RINGTONE or not ringtone or ringtone.strip() == "":
         print(f"[RINGTONE] No ringtone configured for {notification_type}")
         return
     

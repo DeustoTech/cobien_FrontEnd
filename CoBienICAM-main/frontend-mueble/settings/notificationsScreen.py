@@ -22,6 +22,8 @@ import threading
 # ========== IMPORT DU MODULE LED CENTRALISÉ ==========
 from notifications.mqtt_led_sender import send_led_config_from_dict
 
+NONE_RINGTONE = ""
+
 # ========== IMPORT AUDIO PLAYER (avec fallback) ==========
 AUDIO_AVAILABLE = False
 AUDIO_BACKEND = None
@@ -503,6 +505,7 @@ class StripCard(BoxLayout):
         
         # Update mode spinner values
         self.mode_values = [_("Encendido"), _("Apagado"), _("Parpadeo"), _("Parpadeo Gradual")]
+        self._refresh_ringtone_spinner()
     
     def on_intensity(self, instance, value):
         if not self.initialized or not self.parent_screen:
@@ -538,8 +541,9 @@ class StripCard(BoxLayout):
     def on_ringtone(self, instance, ringtone):
         if not self.initialized or not self.parent_screen:
             return
-        self.ringtone = ringtone
-        self.parent_screen.update_strip_value(self.strip_key, "ringtone", ringtone)
+        stored_ringtone = self.parent_screen.to_stored_ringtone(ringtone)
+        self.ringtone = self.parent_screen.to_display_ringtone(stored_ringtone)
+        self.parent_screen.update_strip_value(self.strip_key, "ringtone", stored_ringtone)
     
     def toggle_ringtone(self):
         """Toggle between play and stop"""
@@ -550,7 +554,9 @@ class StripCard(BoxLayout):
     
     def play_ringtone(self):
         """Play the selected ringtone"""
-        if self.ringtone == _("Ninguna") or not self.ringtone or self.ringtone.strip() == "":
+        ringtone_name = self.parent_screen.to_stored_ringtone(self.ringtone) if self.parent_screen else self.ringtone
+
+        if ringtone_name == NONE_RINGTONE or not ringtone_name or ringtone_name.strip() == "":
             print("[RINGTONE] No ringtone selected")
             return
         
@@ -559,7 +565,7 @@ class StripCard(BoxLayout):
             return
         
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        ringtone_path = os.path.join(script_dir, "ringtones", self.ringtone)
+        ringtone_path = os.path.join(script_dir, "ringtones", ringtone_name)
         
         print(f"[RINGTONE] Attempting to play: {ringtone_path}")
         
@@ -615,6 +621,17 @@ class StripCard(BoxLayout):
         # Launch in separate thread
         self._ringtone_thread = threading.Thread(target=_play_sound, daemon=True)
         self._ringtone_thread.start()
+
+    def _refresh_ringtone_spinner(self):
+        if not hasattr(self, "ids") or "ringtone_spinner" not in self.ids:
+            return
+        if not self.parent_screen:
+            return
+
+        self.available_ringtones = self.parent_screen.get_display_ringtones()
+        self.ringtone = self.parent_screen.to_display_ringtone(self.parent_screen.to_stored_ringtone(self.ringtone))
+        self.ids.ringtone_spinner.values = self.available_ringtones
+        self.ids.ringtone_spinner.text = self.ringtone
     
     def stop_ringtone(self):
         """Stop the currently playing ringtone"""
@@ -700,9 +717,9 @@ Factory.register("StripCard", cls=StripCard)
 
 class NotificationsScreen(Screen):
     ledStrips = DictProperty({
-        "videollamada": {"group": 1, "intensity": 255, "color": "#00FF00", "mode": "ON", "ringtone": "Ninguna"},
-        "nuevo_evento": {"group": 2, "intensity": 255, "color": "#FF0000", "mode": "ON", "ringtone": "Ninguna"},
-        "nueva_foto": {"group": 3, "intensity": 255, "color": "#0000FF", "mode": "BLINK", "ringtone": "Ninguna"},
+        "videollamada": {"group": 1, "intensity": 255, "color": "#00FF00", "mode": "ON", "ringtone": NONE_RINGTONE},
+        "nuevo_evento": {"group": 2, "intensity": 255, "color": "#FF0000", "mode": "ON", "ringtone": NONE_RINGTONE},
+        "nueva_foto": {"group": 3, "intensity": 255, "color": "#0000FF", "mode": "BLINK", "ringtone": NONE_RINGTONE},
     })
     
     def __init__(self, sm, cfg, **kwargs):
@@ -769,6 +786,7 @@ class NotificationsScreen(Screen):
             
             for key in self.ledStrips.keys():
                 if key in config:
+                    config[key]["ringtone"] = self.normalize_ringtone(config[key].get("ringtone"))
                     self.ledStrips[key].update(config[key])
             
             print(f"[CONFIG] ✓ Configuration chargée")
@@ -791,6 +809,8 @@ class NotificationsScreen(Screen):
     
     def update_strip_value(self, strip, field, value):
         """Mise à jour + sauvegarde automatique"""
+        if field == "ringtone":
+            value = self.normalize_ringtone(value)
         self.ledStrips[strip][field] = value
         self.save_config()
     
@@ -808,7 +828,7 @@ class NotificationsScreen(Screen):
     def load_ringtones(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         ringtones_dir = os.path.join(script_dir, "ringtones")
-        ringtones = [_("Ninguna")]
+        ringtones = [NONE_RINGTONE]
         
         if not os.path.exists(ringtones_dir):
             try:
@@ -828,6 +848,31 @@ class NotificationsScreen(Screen):
             print(f"[RINGTONE] Error loading ringtones: {e}")
         
         return ringtones
+
+    def normalize_ringtone(self, ringtone):
+        if ringtone is None:
+            return NONE_RINGTONE
+
+        ringtone_name = str(ringtone).strip()
+        if not ringtone_name:
+            return NONE_RINGTONE
+
+        if ringtone_name in {"Ninguna", "Aucune", _("Ninguna")}:
+            return NONE_RINGTONE
+
+        return ringtone_name
+
+    def to_display_ringtone(self, ringtone):
+        ringtone_name = self.normalize_ringtone(ringtone)
+        if ringtone_name == NONE_RINGTONE:
+            return _("Ninguna")
+        return ringtone_name
+
+    def to_stored_ringtone(self, ringtone):
+        return self.normalize_ringtone(ringtone)
+
+    def get_display_ringtones(self):
+        return [self.to_display_ringtone(ringtone) for ringtone in self.available_ringtones]
     
     def load_strip_cards(self):
         """Charge les StripCard avec les traductions actuelles"""
@@ -860,8 +905,8 @@ class NotificationsScreen(Screen):
                 intensity=data["intensity"],
                 color=data["color"],
                 mode=translated_mode,
-                ringtone=data.get("ringtone", _("Ninguna")),
-                available_ringtones=self.available_ringtones,
+                ringtone=self.to_display_ringtone(data.get("ringtone", NONE_RINGTONE)),
+                available_ringtones=self.get_display_ringtones(),
                 mode_values=[_("Encendido"), _("Apagado"), _("Parpadeo"), _("Parpadeo Gradual")]
             )
             card.parent_screen = self
