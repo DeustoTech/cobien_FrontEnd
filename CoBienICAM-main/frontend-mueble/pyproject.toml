@@ -1,0 +1,35 @@
+[project]
+name = "cobien-frontend-mueble"
+version = "0.1.0"
+description = "Ubuntu furniture frontend for CoBien"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "beautifulsoup4==4.13.4",
+  "googletrans==4.0.0rc1",
+  "joblib==1.4.2",
+  "Kivy==2.3.1",
+  "numpy==1.24.3",
+  "onnxruntime==1.21.0",
+  "opencv-python==4.11.0.86",
+  "paho-mqtt==2.1.0",
+  "pillow==11.1.0",
+  "playsound==1.2.2",
+  "polib==1.2.0",
+  "PyAudio==0.2.14",
+  "pygame==2.6.1",
+  "pymongo==4.12.0",
+  "PyQt5==5.15.11",
+  "PyQtWebEngine==5.15.7",
+  "pyttsx3==2.98",
+  "requests==2.32.3",
+  "scikit-learn==1.6.1",
+  "sounddevice==0.5.1",
+  "timezonefinder==7.0.2",
+  "torch==2.6.0",
+  "transformers==4.49.0",
+  "python-vlc==3.0.21203",
+  "vosk==0.3.45",
+]
+
+[tool.uv]
+package = false

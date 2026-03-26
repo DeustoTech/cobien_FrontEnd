@@ -39,6 +39,18 @@ El bootstrap:
 - instala `python3.11` y `python3.11-venv` cuando Ubuntu lo ofrece
 - aborta si solo encuentra `Python 3.12+`, porque varias dependencias fijadas del proyecto no son compatibles
 
+## Entorno con uv
+
+El bootstrap ya no usa `pip install -r requirements.txt` como camino principal.
+
+Ahora:
+
+- instala `uv` si no existe
+- crea `.venv` con `uv venv`
+- sincroniza dependencias desde [pyproject.toml](/home/aritz/Development/DT/Projects/cobien/cobien_FrontEnd/CoBienICAM-main/frontend-mueble/pyproject.toml) usando `uv sync`
+
+Esto hace el despliegue mas reproducible y reduce problemas de resolucion del entorno.
+
 ## Primera ejecucion automatizada
 
 Si quieres hacer todo en una sola orden, usa:

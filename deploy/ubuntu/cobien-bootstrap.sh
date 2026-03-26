@@ -71,6 +71,7 @@ ENV_FILE="$FRONTEND_REPO/deploy/ubuntu/cobien-update.env"
 BRIDGE_DIR="$MQTT_REPO/Interface_MQTT_CAN_c"
 CAN_CONFIG="$BRIDGE_DIR/config/conversion.json"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
+UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 
 check_paths() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { log "No existe repo frontend: $FRONTEND_REPO"; exit 1; }
@@ -122,8 +123,33 @@ resolve_python_bin() {
   fi
 }
 
+resolve_uv_bin() {
+  if [[ -n "$UV_BIN" ]]; then
+    return
+  fi
+
+  if command -v uv >/dev/null 2>&1; then
+    UV_BIN="uv"
+    return
+  fi
+
+  resolve_python_bin
+  log "Instalando uv para $PYTHON_BIN"
+  "$PYTHON_BIN" -m pip install --user --upgrade uv
+
+  if command -v uv >/dev/null 2>&1; then
+    UV_BIN="uv"
+  elif [[ -x "$HOME/.local/bin/uv" ]]; then
+    UV_BIN="$HOME/.local/bin/uv"
+  else
+    log "No se pudo localizar uv tras la instalacion"
+    exit 1
+  fi
+}
+
 prepare_venv() {
   resolve_python_bin
+  resolve_uv_bin
 
   if "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] <= (3, 11) else 1)'; then
     :
@@ -133,16 +159,8 @@ prepare_venv() {
     exit 1
   fi
 
-  if [[ ! -d "$VENV_DIR" ]]; then
-    "$PYTHON_BIN" -m venv "$VENV_DIR"
-  fi
-
-  # shellcheck disable=SC1091
-  source "$VENV_DIR/bin/activate"
-  pip install --upgrade pip
-  pip install --upgrade setuptools wheel build
-  pip install -r "$FRONTEND_APP_DIR/requirements.txt"
-  deactivate
+  "$UV_BIN" venv --python "$PYTHON_BIN" "$VENV_DIR"
+  "$UV_BIN" sync --python "$PYTHON_BIN" --project "$FRONTEND_APP_DIR"
 }
 
 write_env_file() {
@@ -156,6 +174,7 @@ COBIEN_UPDATE_BRANCH=$BRANCH_NAME
 COBIEN_UPDATE_INTERVAL_SEC=60
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
 COBIEN_PYTHON_BIN=$PYTHON_BIN
+COBIEN_UV_BIN=$UV_BIN
 COBIEN_BRIDGE_DIR=$BRIDGE_DIR
 COBIEN_CAN_CONFIG=$CAN_CONFIG
 EOF
@@ -175,6 +194,8 @@ main() {
   log "Frontend:  $FRONTEND_REPO"
   log "MQTT:      $MQTT_REPO"
   log "Env file:  $ENV_FILE"
+  log "Python:    $PYTHON_BIN"
+  log "uv:        $UV_BIN"
   log "Lanzar sistema:"
   log "  bash \"$FRONTEND_APP_DIR/start_cobien.sh\""
   log "Lanzar updater una vez:"
