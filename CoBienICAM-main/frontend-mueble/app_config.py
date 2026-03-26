@@ -74,17 +74,21 @@ class AppConfig(EventDispatcher):
         return self.data.get("joke_category", "general")
     
     def _ensure_device_fields(self):
-        """S'assure que les champs device existent (migration)"""
+        """Backfill missing config keys while preserving stored values."""
         defaults = self._default_config()
         modified = False
-        
-        for key in ["device_id", "videocall_room", "device_location", "idle_timeout_sec", "microphone_device"]:
+
+        for key, default_value in defaults.items():
             if key not in self.data:
-                self.data[key] = defaults[key]
-                print(f"[CONFIG] ✅ Ajout {key} = {defaults[key]}")
+                if isinstance(default_value, list):
+                    self.data[key] = list(default_value)
+                elif isinstance(default_value, dict):
+                    self.data[key] = dict(default_value)
+                else:
+                    self.data[key] = default_value
+                print(f"[CONFIG] ✅ Ajout {key} = {self.data[key]}")
                 modified = True
         
-        # Sauvegarder si on a ajouté des champs
         if modified:
             self.save()
     
