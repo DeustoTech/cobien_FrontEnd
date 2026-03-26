@@ -16,6 +16,7 @@ from translation import _
 import json
 from datetime import datetime
 import paho.mqtt.publish as publish
+from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -150,8 +151,8 @@ class WeatherChoice(FloatLayout):
             publish.single(
                 "weather/reload",
                 payload=json.dumps(payload),
-                hostname="localhost",
-                port=1883
+                hostname=MQTT_LOCAL_BROKER,
+                port=MQTT_LOCAL_PORT
             )
             
             print("[TOGGLE] 📤 Événement MQTT 'weather/reload' publié")

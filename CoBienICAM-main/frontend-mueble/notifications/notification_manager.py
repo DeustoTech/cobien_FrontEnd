@@ -28,7 +28,7 @@ from icso_data.videocall_logger import log_call_start
 from icso_data.notification_logger import log_received_photos, log_added_events
 
 # ✅ IMPORT APP CONFIG TO READ settings.json
-from app_config import AppConfig
+from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ========== IMPORT CENTRALIZED LED MODULE ==========
 from notifications.mqtt_led_sender import send_led_config_from_dict, turn_off_leds
@@ -58,8 +58,6 @@ except ImportError:
         print("[NOTIF_MANAGER]   Install with: pip install pygame")
 
 # ========== MQTT CONFIGURATION ==========
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
 TOPIC_EVENTS_RELOAD = "events/reload"
 TOPIC_BOARD_RELOAD = "board/reload"
 
@@ -233,8 +231,8 @@ def publish_events_reload():
         publish.single(
             "app/nav",
             payload=json.dumps(payload),
-            hostname=MQTT_BROKER,
-            port=MQTT_PORT
+            hostname=MQTT_LOCAL_BROKER,
+            port=MQTT_LOCAL_PORT
         )
         print("[NOTIF_MANAGER] 📤 Events reload event published")
     except Exception as e:
@@ -250,8 +248,8 @@ def publish_board_reload():
         publish.single(
             TOPIC_BOARD_RELOAD,
             payload=json.dumps(payload),
-            hostname=MQTT_BROKER,
-            port=MQTT_PORT
+            hostname=MQTT_LOCAL_BROKER,
+            port=MQTT_LOCAL_PORT
         )
         print("[NOTIF_MANAGER] 📤 Board reload event published")
     except Exception as e:
@@ -271,8 +269,8 @@ def publish_board_reload_last():
         publish.single(
             "app/nav",
             payload=json.dumps(payload),
-            hostname=MQTT_BROKER,
-            port=MQTT_PORT
+            hostname=MQTT_LOCAL_BROKER,
+            port=MQTT_LOCAL_PORT
         )
         
         print("[NOTIF_MANAGER] 📤 Board reload_last event published")

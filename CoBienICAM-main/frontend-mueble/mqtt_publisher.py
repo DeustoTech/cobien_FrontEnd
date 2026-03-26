@@ -7,9 +7,10 @@ from datetime import date, datetime
 from timezonefinder import TimezoneFinder
 from icso_data.imu_logger import log_imu_event
 from icso_data.log_writer import load_full_state as load_state
+from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
-BROKER_HOST = "localhost"
-BROKER_PORT = 1883
+BROKER_HOST = MQTT_LOCAL_BROKER
+BROKER_PORT = MQTT_LOCAL_PORT
 TOPIC_RFID_IN = "rfid/read"
 TOPIC_SENSORS_IN = "sensors/update"
 TOPIC_APP_NAV_OUT = "app/nav"

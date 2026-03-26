@@ -19,12 +19,13 @@ from translation import _
 import json
 import paho.mqtt.client as mqtt
 import os
+from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ✅ MQTT Client CORRIGÉ
 mqtt_client = mqtt.Client()
 
 try:
-    mqtt_client.connect("localhost", 1883, 60)
+    mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
     mqtt_client.loop_start()
     print("[MQTT_BUTTONS] ✓ Client MQTT démarré pour button/config")
 except Exception as e:

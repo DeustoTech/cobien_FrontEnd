@@ -5,19 +5,18 @@ Utilisé par notification_manager.py et notificationsScreen.py
 """
 import paho.mqtt.client as mqtt
 import json
+from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ========== CONFIGURATION MQTT ==========
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
 MQTT_TOPIC = "ledstrip/config"
 
 # Client MQTT global
 mqtt_client = mqtt.Client(client_id="led_sender_client")
 
 try:
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
     mqtt_client.loop_start()
-    print(f"[LED_SENDER] ✓ Connecté à MQTT {MQTT_BROKER}:{MQTT_PORT}")
+    print(f"[LED_SENDER] ✓ Connecté à MQTT {MQTT_LOCAL_BROKER}:{MQTT_LOCAL_PORT}")
 except Exception as e:
     print(f"[LED_SENDER] ✗ Erreur connexion MQTT: {e}")
 
