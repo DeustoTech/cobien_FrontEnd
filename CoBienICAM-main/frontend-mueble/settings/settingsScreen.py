@@ -77,11 +77,13 @@ KV = """
     # Texte
     Label:
         text: root.text
-        font_size: sp(45)
+        font_size: sp(36)
         color: 0, 0, 0, 1
         halign: "center"
         valign: "middle"
         text_size: self.size
+        shorten: True
+        shorten_from: "right"
 
 <IconBadge>:
     size_hint: None, None
@@ -141,11 +143,11 @@ KV = """
             Label:
                 id: lbl_title
                 text: ""
-                font_size: sp(60)
+                font_size: sp(50)
                 bold: True
                 color: C_BLACK
                 size_hint_x: None
-                width: dp(400)
+                width: dp(520)
                 halign: "left"
                 valign: "middle"
                 text_size: self.size

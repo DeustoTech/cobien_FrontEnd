@@ -234,7 +234,7 @@ KV = r"""
                                 Label:
                                     id: lbl_from
                                     text: "De —:"
-                                    font_size: sp(34)
+                                    font_size: sp(38)
                                     bold: True
                                     color: C_BLACK
                                     halign: "left"
@@ -250,7 +250,7 @@ KV = r"""
                             Label:
                                 id: lbl_body
                                 text: ""
-                                font_size: sp(22)
+                                font_size: sp(28)
                                 color: C_BLACK
                                 halign: "left"
                                 valign: "top"
