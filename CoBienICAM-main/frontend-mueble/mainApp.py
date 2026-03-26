@@ -18,12 +18,12 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 # Voz (si la usas en tu orquestador)
 from vosk import Model, KaldiRecognizer  # noqa
 import pyaudio  # noqa
-import pyttsx3
 import paho.mqtt.client as mqtt
 
 # Pantallas // Ecrans
 from weather.weatherScreen import WeatherScreenWidget
 from weather.weather_data import fetch_weather_bundle
+from tts_service import tts_service
 from events.eventsScreen import EventsScreen
 from events.dayEventsScreen import DayEventsScreen
 #from videocall.videocallScreen import VideoCallScreen
@@ -559,10 +559,6 @@ class MainScreen(Screen):
         self.action_executor = None
         #self.recognizer = SpeechRecognizer()
         self.classifier = IntentClassifier()
-        self.tts_engine = pyttsx3.init()
-        self.tts_engine.setProperty("rate", 150)
-        self.tts_engine.setProperty("volume", 0.9)
-
         # ========== MQTT LOCAL (pour les capteurs du meuble) ==========
         random_id = "kivy_local_client"
         self.mqtt_client_local = mqtt.Client(client_id=random_id, clean_session=True)
@@ -1746,20 +1742,21 @@ class MyApp(App):
             return
 
         try:
-            # Initialiser assistant si nécessaire
-            if not hasattr(self, "assistant") or self.assistant is None:
-                from virtual_assistant.main_assistant import AssistantOrchestrator
-                self.assistant = AssistantOrchestrator(self)
-
             import threading
             threading.Thread(
-                target=self.assistant._speak,
+                target=self.speak_text,
                 args=(text,),
                 daemon=True
             ).start()
 
         except Exception as e:
             print(f"[WARN] Assistant indisponible, TTS ignoré: {e}")
+
+    def speak_text(self, text: str):
+        if not text:
+            return
+        language = self.cfg.data.get("language", "es")
+        tts_service.speak_sync(text, language=language)
 
 
     def build(self):

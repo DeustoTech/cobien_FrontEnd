@@ -4,12 +4,13 @@ import json
 from typing import List, Dict, Optional
 from datetime import datetime
 from bson import ObjectId
-from pymongo import MongoClient
 import gridfs
+import requests
 from PIL import Image, ExifTags
 
 # Importa el cliente que ya usas en eventos
 from events.loadEvents import get_mongo_client
+from app_config import BACKEND_BASE_URL
 
 # === Configuración ===
 DB_NAME = "LabasAppDB"
@@ -178,6 +179,73 @@ def _load_board_cache() -> List[Dict]:
         return []
 
 
+def _fetch_image_from_url(image_url: str, item_id: str) -> Optional[str]:
+    if not image_url:
+        return None
+    try:
+        ext = os.path.splitext(image_url.split("?", 1)[0])[1].lower()
+        if not ext or len(ext) > 6:
+            ext = ".bin"
+        target = os.path.join(CACHE_DIR, f"api_{item_id}{ext}")
+        if not os.path.exists(target):
+            response = requests.get(image_url, timeout=8)
+            response.raise_for_status()
+            with open(target, "wb") as out:
+                out.write(response.content)
+            _fix_image_orientation(target)
+        return target
+    except Exception as e:
+        print(f"[BOARD][API] No se pudo cachear imagen {image_url}: {e}")
+        return None
+
+
+def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
+    items = []
+    for raw in messages:
+        created = raw.get("created_at")
+        if created:
+            try:
+                created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            except Exception:
+                created = None
+        else:
+            created = None
+
+        item_id = raw.get("id", "message")
+        image_path = _fetch_image_from_url(raw.get("image", ""), item_id) or ""
+        items.append(
+            {
+                "author": raw.get("author", "—"),
+                "text": raw.get("text", ""),
+                "image": image_path,
+                "created_at": created,
+            }
+        )
+    return items
+
+
+def fetch_board_items_from_api(recipient_key: str, limit: int = 50) -> List[Dict]:
+    url = os.getenv("COBIEN_PIZARRA_API_URL", f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/")
+    headers = {}
+    api_key = os.getenv("COBIEN_NOTIFY_API_KEY", "").strip()
+    if api_key:
+        headers["X-API-KEY"] = api_key
+
+    response = requests.get(
+        url,
+        params={"recipient": recipient_key},
+        headers=headers,
+        timeout=8,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    items = _normalize_api_items(payload.get("messages", [])[:limit])
+    if items:
+        _save_board_cache(items)
+    print(f"[BOARD][API] Mensajes descargados: {len(items)}")
+    return items
+
+
 def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50) -> List[Dict]:
     """
     Devuelve una lista de mensajes en formato:
@@ -188,6 +256,11 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
         'created_at': datetime
     }
     """
+    try:
+        return fetch_board_items_from_api(recipient_key=recipient_key, limit=limit)
+    except Exception as e:
+        print(f"[BOARD][API] Fallback a Mongo/caché: {e}")
+
     items: List[Dict] = []
     try:
         cl = get_mongo_client()

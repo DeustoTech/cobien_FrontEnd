@@ -7,21 +7,10 @@ from kivy.uix.screenmanager import Screen
 ############# SIMONA
 from virtual_assistant.commands import match_command
 from kivy.clock import Clock
-import subprocess
-import tempfile
-import os
 import threading
 from translation import _
 import time
-
-
-#############
-
-# Fallback a TTS local si la app no tiene speak_text
-try:
-    import pyttsx3
-except Exception:
-    pyttsx3 = None
+from tts_service import tts_service
 
 
 class AssistantOrchestrator:
@@ -42,8 +31,6 @@ class AssistantOrchestrator:
         self.executor = ActionExecutor(app_reference)
 
         # Motor TTS de respaldo
-        self._tts_engine = None
-
         self._running = False
         self._listening = False
 
@@ -207,28 +194,8 @@ class AssistantOrchestrator:
             except Exception:
                 pass
 
-        # Pico TTS fallback (BEST)
-        try:
-            lang = self.app.cfg.data["language"]
-            pico_lang = "fr-FR" if lang == "fr" else "es-ES"
-
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                wav_path = f.name
-
-            subprocess.run(
-                ["pico2wave", "-l", pico_lang, "-w", wav_path, text],
-                check=True
-            )
-            subprocess.run(["aplay", wav_path], check=True)
-
-            os.remove(wav_path)
-
-            self._needs_post_tts_delay = True
-
-
-        except Exception as e:
-            print(f"[TTS ERROR] {e}")
-            print(text)
+        lang = self.app.cfg.data.get("language", "es")
+        tts_service.speak_sync(text, language=lang)
 
 
     def _actualizar_label(self, texto: str):

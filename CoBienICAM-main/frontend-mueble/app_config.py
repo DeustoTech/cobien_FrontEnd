@@ -8,6 +8,7 @@ from kivy.properties import DictProperty
 CONFIG_PATH = "settings/settings.json"
 MQTT_LOCAL_BROKER = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
 MQTT_LOCAL_PORT = int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883"))
+BACKEND_BASE_URL = os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu")
 DEFAULT_CONFIG = {
     "language": "es",
     "weather_cities": [],
