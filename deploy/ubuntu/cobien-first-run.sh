@@ -13,6 +13,9 @@ MQTT_REPO_NAME="$MQTT_REPO_NAME_DEFAULT"
 RUN_UPDATE_ONCE="0"
 INSTALL_SYSTEM_DEPS="1"
 RECREATE_VENV="0"
+ENABLE_WATCH="0"
+INSTALL_CRON="0"
+CRON_SCHEDULE="0 3,15 * * *"
 
 usage() {
   cat <<EOF
@@ -26,7 +29,7 @@ Asistente interactivo para:
   3. preguntar si hay que reinstalar dependencias del sistema
   4. preguntar si hay que borrar el .venv anterior
   5. preparar el entorno
-  6. lanzar el sistema
+  6. permitir lanzar, actualizar, activar watch o instalar cron
 EOF
 }
 
@@ -67,6 +70,28 @@ ask_yes_no() {
 
 detect_python311() {
   command -v python3.11 >/dev/null 2>&1
+}
+
+install_cron_job() {
+  local env_file="$1"
+  local update_script="$2"
+  local schedule="$3"
+  local cron_line="$schedule . \"$env_file\" && /bin/bash \"$update_script\" --once >> /home/cobien/cobien-update.log 2>&1"
+  local current_cron
+
+  current_cron="$(crontab -l 2>/dev/null || true)"
+  if grep -Fq "$update_script --once" <<<"$current_cron"; then
+    echo "[COBIEN-FIRST-RUN] Ya existe una tarea cron para el updater. No se duplica."
+    return
+  fi
+
+  {
+    printf "%s\n" "$current_cron"
+    printf "%s\n" "$cron_line"
+  } | crontab -
+
+  echo "[COBIEN-FIRST-RUN] Cron instalado:"
+  echo "  $cron_line"
 }
 
 main() {
@@ -140,12 +165,26 @@ main() {
     RUN_UPDATE_ONCE="1"
   fi
 
+  if ask_yes_no "Quieres dejar un proceso de vigilancia que revise cambios cada minuto" "n"; then
+    ENABLE_WATCH="1"
+  fi
+
+  if ask_yes_no "Quieres instalar una tarea cron para actualizar a horas concretas" "n"; then
+    INSTALL_CRON="1"
+    CRON_SCHEDULE="$(ask "Expresion cron para la actualizacion" "$CRON_SCHEDULE")"
+  fi
+
   echo
   echo "Resumen:"
   echo "  Workspace:        $WORKSPACE_ROOT"
   echo "  Instalar deps:    $INSTALL_SYSTEM_DEPS"
   echo "  Recrear .venv:    $RECREATE_VENV"
   echo "  Update puntual:   $RUN_UPDATE_ONCE"
+  echo "  Watch cada min:   $ENABLE_WATCH"
+  echo "  Instalar cron:    $INSTALL_CRON"
+  if [[ "$INSTALL_CRON" == "1" ]]; then
+    echo "  Cron schedule:    $CRON_SCHEDULE"
+  fi
   echo
 
   if ! ask_yes_no "Continuar" "s"; then
@@ -180,9 +219,21 @@ main() {
     bash "$UPDATE_SCRIPT" --once
   fi
 
+  if [[ "$INSTALL_CRON" == "1" ]]; then
+    echo
+    echo "[3c/4] Instalando cron..."
+    install_cron_job "$ENV_FILE" "$UPDATE_SCRIPT" "$CRON_SCHEDULE"
+  fi
+
   echo
   echo "[4/4] Lanzando sistema del mueble..."
   bash "$LAUNCH_SCRIPT"
+
+  if [[ "$ENABLE_WATCH" == "1" ]]; then
+    echo
+    echo "[COBIEN-FIRST-RUN] Arrancando updater en modo watch..."
+    bash "$UPDATE_SCRIPT" --watch
+  fi
 }
 
 main "$@"

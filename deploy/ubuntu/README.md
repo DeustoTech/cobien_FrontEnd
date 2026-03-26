@@ -20,6 +20,8 @@ Ese asistente pregunta:
 - si hay que instalar dependencias del sistema
 - si hay que borrar el `.venv` anterior
 - si quieres hacer una comprobacion de actualizacion antes de lanzar
+- si quieres vigilancia cada minuto
+- si quieres instalar una tarea cron a ciertas horas
 
 Y despues hace el resto automaticamente.
 
@@ -90,6 +92,23 @@ bash cobien-first-run.sh --workspace /home/cobien/cobien --run-update-once
 ```
 
 Pero para uso normal no hace falta pasar parametros: el script ya pregunta de forma interactiva.
+
+## Objetivo
+
+La idea es que una persona no tecnica pueda entrar en `deploy/ubuntu` y ejecutar solo:
+
+```bash
+bash cobien-first-run.sh
+```
+
+Desde ese mismo script se puede:
+
+- preparar el entorno
+- reinstalar el `.venv`
+- lanzar el mueble
+- hacer una actualizacion puntual
+- activar vigilancia cada minuto
+- instalar cron para actualizacion a ciertas horas
 
 ## Modo puntual
 
