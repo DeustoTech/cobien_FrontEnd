@@ -21,33 +21,38 @@ from PyQt5.QtWebEngineWidgets import (
 # Permitir cámara/micrófono sin pedir permiso
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--use-fake-ui-for-media-stream"
 
-PORTAL_URL = "https://portal.co-bien.eu/videocall/"
-BACKEND_URL = "https://portal.co-bien.eu/videocall/call-answered/"
+PORTAL_URL = os.getenv("COBIEN_PORTAL_VIDEOCALL_URL", "https://portal.co-bien.eu/videocall/")
+BACKEND_URL = os.getenv("COBIEN_PORTAL_CALL_ANSWERED_URL", "https://portal.co-bien.eu/videocall/call-answered/")
 
-def load_config():
-    config_path = os.path.join(
+
+def _default_config_path():
+    return os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
         "settings",
         "settings.json"
     )
-    
+
+
+def load_config(config_path=None):
+    selected_path = config_path or _default_config_path()
+
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        with open(selected_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+            print(f"[VIDEOCALL] ✅ Config cargada desde {selected_path}")
+            return config
     except Exception as e:
-        print(f"[VIDEOCALL] ⚠️ Erreur config: {e}")
+        print(f"[VIDEOCALL] ⚠️ Erreur config ({selected_path}): {e}")
         return {"device_id": "CoBien1", "videocall_room": "CoBien1"}
 
-# Charger au démarrage du module
-CONFIG = load_config()
-ROOM_NAME = CONFIG.get("videocall_room", "CoBien1")
-DEVICE_NAME = CONFIG.get("device_id", "CoBien1")
 
-print(f"[VIDEOCALL] ========================================")
-print(f"[VIDEOCALL] Configuration:")
-print(f"[VIDEOCALL]    Room: {ROOM_NAME}")
-print(f"[VIDEOCALL]    Device: {DEVICE_NAME}")
-print(f"[VIDEOCALL] ========================================")
+def resolve_runtime_config(argv=None):
+    argv = argv or sys.argv
+    config_path = argv[1] if len(argv) > 1 and argv[1] else None
+    config = load_config(config_path)
+    room_name = config.get("room") or config.get("videocall_room") or "CoBien1"
+    device_name = config.get("identity") or config.get("device_id") or room_name
+    return config, room_name, device_name
 
 # ========== Fonction pour notifier le backend ==========
 def notify_backend_call_answered(room_name: str, device_name: str):
@@ -94,30 +99,34 @@ def notify_backend_call_answered(room_name: str, device_name: str):
 
 # ================================================================
 class CustomWebEnginePage(QWebEnginePage):
-    def __init__(self, parent=None):
+    def __init__(self, room_name, device_name, parent=None):
         super().__init__(parent)
         self.prompt_counter = 0
+        self.room_name = room_name
+        self.device_name = device_name
 
     # Autocompleta los dos prompts secuenciales (room y nombre)
     def javaScriptPrompt(self, security_origin, msg, default):
         if self.prompt_counter == 0:
             self.prompt_counter += 1
-            return True, ROOM_NAME
+            return True, self.room_name
         elif self.prompt_counter == 1:
             self.prompt_counter += 1
-            return True, DEVICE_NAME
+            return True, self.device_name
         return True, (default or "")
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, room_name, device_name):
         super().__init__()
+        self.room_name = room_name
+        self.device_name = device_name
         
         self.setWindowTitle("VIDEOLLAMADA")
         self._call_start_time = datetime.datetime.now()
         
         # ✅ NOTIFIER LE BACKEND DÈS LE DÉMARRAGE
         print("[VIDEOCALL] 📞 Notification backend: appel accepté")
-        notify_backend_call_answered(ROOM_NAME, DEVICE_NAME)
+        notify_backend_call_answered(self.room_name, self.device_name)
         
         # Perfil/caché persistente
         cache_path = os.path.expanduser("~/.cobien_qtwebengine_cache")
@@ -134,7 +143,7 @@ class MainWindow(QMainWindow):
 
         # Vista + página
         self.web_view = QWebEngineView()
-        self.page = CustomWebEnginePage(self.web_view)
+        self.page = CustomWebEnginePage(self.room_name, self.device_name, self.web_view)
         self.web_view.setPage(self.page)
 
         # Conceder permisos de cámara/mic de forma automática
@@ -198,10 +207,16 @@ class MainWindow(QMainWindow):
         print(f"[VIDEOCALL] 🌐 Chargement: {PORTAL_URL}")
 
 def main():
+    config, room_name, device_name = resolve_runtime_config()
+    print(f"[VIDEOCALL] ========================================")
+    print(f"[VIDEOCALL] Configuration:")
+    print(f"[VIDEOCALL]    Room: {room_name}")
+    print(f"[VIDEOCALL]    Device: {device_name}")
+    print(f"[VIDEOCALL] ========================================")
     app = QApplication(sys.argv)
     # Escala HiDPI correcta en Mac
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    window = MainWindow()
+    window = MainWindow(room_name, device_name)
     sys.exit(app.exec_())
 
 if __name__ == "__main__":

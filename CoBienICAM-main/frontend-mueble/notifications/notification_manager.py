@@ -735,6 +735,12 @@ class NotificationManager:
         # Include both caller AND room to distinguish between different calls
         current_time = datetime.now().strftime('%Y%m%d%H%M')
         notif_key = f"videocall_{caller}_{room}_{current_time}"
+        cutoff = datetime.now().timestamp() - (60 * 10)
+        self.notification_history = {
+            key: value
+            for key, value in self.notification_history.items()
+            if value.timestamp() >= cutoff
+        }
         
         if notif_key in self.notification_history:
             print(f"[NOTIF] ⚠️ Duplicate ignored (case-sensitive)")

@@ -1,13 +1,23 @@
-from kivy.uix.button import Button
+import os
 import requests
+from app_config import AppConfig
+
+
+_cfg = AppConfig()
+DEFAULT_API_KEY = os.getenv("COBIEN_NOTIFY_API_KEY", "test_jules")
+DEFAULT_FROM_DEVICE = _cfg.get_device_id()
+DEFAULT_PIZARRA_NOTIFY_URL = os.getenv(
+    "COBIEN_PIZARRA_NOTIFY_URL",
+    "http://portal.co-bien.eu/pizarra/api/notify/",
+)
 
 def send_pizarra_notification(
     to_user: str,
-    api_key: str = "test_jules",
+    api_key: str = DEFAULT_API_KEY,
     message: str = "Call now?",
-    from_device: str = "Maria"
+    from_device: str = DEFAULT_FROM_DEVICE
 ):
-    url = "http://portal.co-bien.eu/pizarra/api/notify/"
+    url = DEFAULT_PIZARRA_NOTIFY_URL
 
     data = {
         "to_user": to_user,
