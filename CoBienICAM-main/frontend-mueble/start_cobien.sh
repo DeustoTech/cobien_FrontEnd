@@ -9,6 +9,9 @@ BRIDGE_DIR="${COBIEN_BRIDGE_DIR:-$MQTT_REPO/Interface_MQTT_CAN_c}"
 CAN_CONFIG="${COBIEN_CAN_CONFIG:-$BRIDGE_DIR/config/conversion.json}"
 VENV_ACTIVATE="${COBIEN_VENV_ACTIVATE:-$FRONTEND_REPO_ROOT/.venv/bin/activate}"
 PYTHON_BIN="${COBIEN_PYTHON_BIN:-python3}"
+UV_BIN="${COBIEN_UV_BIN:-uv}"
+UV_PYTHON="${COBIEN_UV_PYTHON:-3.11}"
+FRONTEND_APP_DIR="${COBIEN_FRONTEND_APP_DIR:-$SCRIPT_DIR}"
 CAN_BITRATE="${COBIEN_CAN_BITRATE:-500000}"
 
 echo "=== Launching CoBien System ==="
@@ -16,6 +19,8 @@ echo "[PATHS] FRONTEND_REPO_ROOT=$FRONTEND_REPO_ROOT"
 echo "[PATHS] MQTT_REPO=$MQTT_REPO"
 echo "[PATHS] BRIDGE_DIR=$BRIDGE_DIR"
 echo "[PATHS] VENV_ACTIVATE=$VENV_ACTIVATE"
+echo "[PATHS] UV_BIN=$UV_BIN"
+echo "[PATHS] FRONTEND_APP_DIR=$FRONTEND_APP_DIR"
 
 ##########################################
 # CLEAN PREVIOUS COBIEN TERMINALS
@@ -63,13 +68,16 @@ sleep 2
 # TERMINAL 3 : APPLICATION PYTHON
 #################################
 gnome-terminal --title="COBIEN APP" -- bash -c "
-echo '[APP] Activating Virtual env';
-if [ -f \"$VENV_ACTIVATE\" ]; then
-  source \"$VENV_ACTIVATE\";
+echo '[APP] Launching with uv';
+cd \"$FRONTEND_APP_DIR\" || exit;
+if command -v \"$UV_BIN\" >/dev/null 2>&1; then
+  \"$UV_BIN\" run --python \"$UV_PYTHON\" --project \"$FRONTEND_APP_DIR\" mainApp.py;
 else
-  echo '[APP] Virtual env not found, using system python';
+  echo '[APP] uv not found, using fallback python';
+  if [ -f \"$VENV_ACTIVATE\" ]; then
+    source \"$VENV_ACTIVATE\";
+  fi
+  \"$PYTHON_BIN\" mainApp.py;
 fi
-cd \"$SCRIPT_DIR\" || exit;
-$PYTHON_BIN mainApp.py;
 exec bash
 "

@@ -78,6 +78,7 @@ BRIDGE_DIR="$MQTT_REPO/Interface_MQTT_CAN_c"
 CAN_CONFIG="$BRIDGE_DIR/config/conversion.json"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
+PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
 
 check_paths() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { log "No existe repo frontend: $FRONTEND_REPO"; exit 1; }
@@ -122,7 +123,9 @@ resolve_python_bin() {
     return
   fi
 
-  if command -v python3.11 >/dev/null 2>&1; then
+  if command -v "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
+    PYTHON_BIN="python${PYTHON_REQUEST}"
+  elif command -v python3.11 >/dev/null 2>&1; then
     PYTHON_BIN="python3.11"
   else
     PYTHON_BIN="python3"
@@ -157,21 +160,16 @@ prepare_venv() {
   resolve_python_bin
   resolve_uv_bin
 
-  if "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] <= (3, 11) else 1)'; then
-    :
-  else
-    log "Python seleccionado: $PYTHON_BIN"
-    log "Este proyecto no esta estabilizado sobre Python 3.12+. Instala python3.11 o exporta COBIEN_BOOTSTRAP_PYTHON_BIN=python3.11"
-    exit 1
-  fi
+  log "Asegurando Python con uv: $PYTHON_REQUEST"
+  "$UV_BIN" python install "$PYTHON_REQUEST"
 
   if [[ "$RECREATE_VENV" == "1" && -d "$VENV_DIR" ]]; then
     log "Eliminando entorno virtual previo: $VENV_DIR"
     rm -rf "$VENV_DIR"
   fi
 
-  "$UV_BIN" venv --python "$PYTHON_BIN" "$VENV_DIR"
-  "$UV_BIN" sync --python "$PYTHON_BIN" --project "$FRONTEND_APP_DIR"
+  "$UV_BIN" venv --python "$PYTHON_REQUEST" "$VENV_DIR"
+  "$UV_BIN" sync --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR"
 }
 
 write_env_file() {
@@ -186,6 +184,8 @@ COBIEN_UPDATE_INTERVAL_SEC=60
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
 COBIEN_PYTHON_BIN=$PYTHON_BIN
 COBIEN_UV_BIN=$UV_BIN
+COBIEN_UV_PYTHON=$PYTHON_REQUEST
+COBIEN_FRONTEND_APP_DIR=$FRONTEND_APP_DIR
 COBIEN_BRIDGE_DIR=$BRIDGE_DIR
 COBIEN_CAN_CONFIG=$CAN_CONFIG
 EOF
