@@ -3,11 +3,66 @@ import queue
 import sounddevice as sd
 import json
 from vosk import Model, KaldiRecognizer
-import queue
 import time
 
+
+def select_input_device(preferred_device=None):
+    """Resolve a valid input device, preferring persisted names when possible."""
+    try:
+        devices = sd.query_devices()
+    except Exception as exc:
+        print(f"[ASR] Unable to list audio devices: {exc}")
+        return None, ""
+
+    def is_valid_input(index):
+        try:
+            return devices[index]["max_input_channels"] > 0
+        except Exception:
+            return False
+
+    if isinstance(preferred_device, int) and is_valid_input(preferred_device):
+        return preferred_device, devices[preferred_device]["name"]
+
+    if isinstance(preferred_device, str) and preferred_device.strip():
+        preferred = preferred_device.strip().lower()
+        for idx, device in enumerate(devices):
+            if device["max_input_channels"] <= 0:
+                continue
+            name = device["name"].strip()
+            if name.lower() == preferred or preferred in name.lower():
+                return idx, name
+
+    try:
+        default_input = sd.default.device[0]
+    except Exception:
+        default_input = None
+
+    if isinstance(default_input, int) and default_input >= 0 and is_valid_input(default_input):
+        return default_input, devices[default_input]["name"]
+
+    preferred_keywords = (
+        "digital microphone",
+        "digital mic",
+        "sof-hda",
+        "microphone",
+        "mic",
+    )
+    for keyword in preferred_keywords:
+        for idx, device in enumerate(devices):
+            if device["max_input_channels"] <= 0:
+                continue
+            name = device["name"].strip()
+            if keyword in name.lower():
+                return idx, name
+
+    for idx, device in enumerate(devices):
+        if device["max_input_channels"] > 0:
+            return idx, device["name"]
+
+    return None, ""
+
 class SpeechRecognizer:
-    def __init__(self, model_path=str, sample_rate=16000):
+    def __init__(self, model_path=str, sample_rate=16000, input_device=None):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"No se encontró el modelo Vosk en {model_path}")
         
@@ -15,6 +70,8 @@ class SpeechRecognizer:
         self.recognizer = KaldiRecognizer(self.model, sample_rate)
         self.q = queue.Queue()
         self.sample_rate = sample_rate
+        self.input_device, self.input_device_name = select_input_device(input_device)
+        print(f"[ASR] Input device: {self.input_device_name or 'default'}")
 
     def _clear_queue(self):
         """Méthode pour vider la file d'attente des sons parasites."""
@@ -31,7 +88,7 @@ class SpeechRecognizer:
 
 
     # Version non blocking of liste_and_transcribe
-    def listen_and_transcribe(self, timeout=15):
+    def listen_and_transcribe(self, timeout=15, stop_event=None):
         print("Habla ahora...")
         self.recognizer.Reset()
 
@@ -44,6 +101,7 @@ class SpeechRecognizer:
             blocksize=8000,
             dtype='int16',
             channels=1,
+            device=self.input_device,
             callback=self._callback
         ):
 
@@ -53,6 +111,10 @@ class SpeechRecognizer:
             result = ""
 
             while True:
+                if stop_event is not None and stop_event.is_set():
+                    print("[VOSK] Cancelled")
+                    break
+
                 if time.time() - start_time > timeout:
                     print("[VOSK] Timeout écoute")
                     break

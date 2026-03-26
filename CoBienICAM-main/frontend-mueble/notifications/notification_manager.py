@@ -691,6 +691,14 @@ class NotificationManager:
             except:
                 pass
             self.active_videocall_popup = None
+
+        app = App.get_running_app()
+        if app and getattr(app, "assistant", None):
+            try:
+                app.assistant.cancel()
+                print("[NOTIF] Assistant cancelled because of incoming videocall")
+            except Exception as e:
+                print(f"[NOTIF] Failed to cancel assistant: {e}")
         
         # ========== SEND LED CONFIG TO FURNITURE ==========
         send_led_mqtt("videollamada")
@@ -837,6 +845,9 @@ class NotificationManager:
         self.active_videocall_popup = None
         
         if action == 'accept':
+            app = App.get_running_app()
+            if app:
+                app.videocall_running = True
             caller = data.get('caller', 'Unknown')
             room = data.get('room')
             

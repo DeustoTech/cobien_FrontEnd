@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "weather_cities": [],
     "button_colors": {},
     "rfid_actions": {},
+    "microphone_device": "",
     "device_id": "CoBien1",
     "videocall_room": "CoBien1",
     "device_location": "Bilbao",
@@ -27,6 +28,7 @@ def _clone_default_config():
         "weather_cities": list(DEFAULT_CONFIG["weather_cities"]),
         "button_colors": dict(DEFAULT_CONFIG["button_colors"]),
         "rfid_actions": dict(DEFAULT_CONFIG["rfid_actions"]),
+        "microphone_device": DEFAULT_CONFIG["microphone_device"],
         "device_id": DEFAULT_CONFIG["device_id"],
         "videocall_room": DEFAULT_CONFIG["videocall_room"],
         "device_location": DEFAULT_CONFIG["device_location"],
@@ -76,7 +78,7 @@ class AppConfig(EventDispatcher):
         defaults = self._default_config()
         modified = False
         
-        for key in ["device_id", "videocall_room", "device_location", "idle_timeout_sec"]:
+        for key in ["device_id", "videocall_room", "device_location", "idle_timeout_sec", "microphone_device"]:
             if key not in self.data:
                 self.data[key] = defaults[key]
                 print(f"[CONFIG] ✅ Ajout {key} = {defaults[key]}")
@@ -144,3 +146,10 @@ class AppConfig(EventDispatcher):
             pass
         
         return self.data.get("idle_timeout_sec", 60)
+
+    def get_microphone_device(self):
+        return self.data.get("microphone_device", "")
+
+    def set_microphone_device(self, device_name):
+        self.data["microphone_device"] = device_name or ""
+        self.save()

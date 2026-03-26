@@ -256,6 +256,8 @@ class LanguageScreen(Screen):
         print(f"[LANGUAGE] Test: _('Tiempo') = {_('Tiempo')}")
         
         # 5. Recharger interface
+        if hasattr(app, "reset_assistant"):
+            app.reset_assistant()
         app.reload_main_screen()
         
         # 6. Mettre à jour cet écran

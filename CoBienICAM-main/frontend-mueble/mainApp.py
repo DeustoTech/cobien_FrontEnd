@@ -534,7 +534,7 @@ class MainScreen(Screen):
     btn_tiempo_texto = StringProperty("Tiempo")
     btn_eventos_texto = StringProperty("Eventos")
     btn_pizarra_texto = StringProperty("Pizarra")
-    btn_llamame_texto = StringProperty("Llamame")
+    btn_llamame_texto = StringProperty("Llámame")
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
@@ -741,7 +741,7 @@ class MainScreen(Screen):
         self.btn_tiempo_texto = _("Tiempo")
         self.btn_eventos_texto = _("Eventos")
         self.btn_pizarra_texto = _("Pizarra")
-        self.btn_llamame_texto = _("Llamame")
+        self.btn_llamame_texto = _("Llámame")
         self.joke_title = _("Frase del día")
         
         # Forcer mise à jour date/heure
@@ -1554,6 +1554,10 @@ class MainScreen(Screen):
 
         log_navigation("vocal_assistant", "assistant_triggered")
 
+        if getattr(app, "videocall_running", False):
+            print("[ASR] Assistant blocked while videocall is active")
+            return
+
         # ✅ Créer l'assistant UNE seule fois et le stocker sur l'app
         if not hasattr(app, "assistant") or app.assistant is None:
             app.assistant = AssistantOrchestrator(self)
@@ -1563,6 +1567,15 @@ class MainScreen(Screen):
 
         # ✅ Lancer (start() est déjà protégé contre le double démarrage)
         self.assistant.start()
+
+    def reset_assistant(self):
+        assistant = getattr(self, "assistant", None)
+        if assistant is not None:
+            try:
+                assistant.cancel()
+            except Exception:
+                pass
+        self.assistant = None
 
     # SIMONA
     # Méthode relais pour pouvoir appeler la méthode _speak définie dans l'assistant virtuel
@@ -1761,6 +1774,7 @@ class MyApp(App):
     def build(self):
         self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
         self._idle_event = None
+        self.videocall_running = False
 
         Window.bind(
             on_touch_down=self._on_first_user_input,

@@ -27,15 +27,11 @@ except Exception:
 class AssistantOrchestrator:
     def __init__(self, app_reference):
         # Componentes del asistente
-        language = app_reference.cfg.data["language"]
-        if language =="es" :
-            app_path = "virtual_assistant/vosk_models/vosk-model-small-es-0.42"
-        else :
-            app_path = "virtual_assistant/vosk_models/vosk-model-small-fr-0.22"
-
-
         self.recognizer = None
-        self._recognizer_path = app_path
+        self.app = app_reference
+        self._recognizer_path = self._get_model_path()
+        self._recognizer_language = self.app.cfg.data.get("language", "es")
+        self._stop_event = threading.Event()
 
         # AJOUT : Charger le modèle en arrière-plan immédiatement
         threading.Thread(target=self._preload_model, daemon=True).start()
@@ -44,9 +40,6 @@ class AssistantOrchestrator:
         #self.recognizer = SpeechRecognizer(app_path)
         self.classifier = IntentClassifier()
         self.executor = ActionExecutor(app_reference)
-
-        # Referencia a la app principal (para speak_text y result_label)
-        self.app = app_reference
 
         # Motor TTS de respaldo
         self._tts_engine = None
@@ -57,10 +50,35 @@ class AssistantOrchestrator:
     # -------------------------
     # Utilidades internas
     # -------------------------
+    def _get_model_path(self):
+        language = self.app.cfg.data.get("language", "es")
+        if language == "es":
+            return "virtual_assistant/vosk_models/vosk-model-small-es-0.42"
+        return "virtual_assistant/vosk_models/vosk-model-small-fr-0.22"
+
+    def _ensure_recognizer(self):
+        language = self.app.cfg.data.get("language", "es")
+        desired_path = self._get_model_path()
+        if (
+            self.recognizer is None
+            or self._recognizer_language != language
+            or self._recognizer_path != desired_path
+        ):
+            self._recognizer_path = desired_path
+            self._recognizer_language = language
+            self.recognizer = SpeechRecognizer(
+                desired_path,
+                input_device=self.app.cfg.get_microphone_device(),
+            )
+            if (
+                self.recognizer.input_device_name
+                and self.recognizer.input_device_name != self.app.cfg.get_microphone_device()
+            ):
+                self.app.cfg.set_microphone_device(self.recognizer.input_device_name)
 
     def _preload_model(self):
         print("[ASR] Pré-chargement du modèle Vosk...")
-        self.recognizer = SpeechRecognizer(self._recognizer_path)
+        self._ensure_recognizer()
         print("[ASR] Modèle prêt !")
 
 
@@ -138,20 +156,18 @@ class AssistantOrchestrator:
 
     def listen(self, prompt: str) -> str | None:
         # empêche double écoute
-        if self._listening:
+        if self._listening or self._running:
             print("[ASR] écoute déjà en cours → ignoré")
             return None
 
         self._listening = True
         try:
-
-            if self.recognizer is None:
-                self.recognizer = SpeechRecognizer(self._recognizer_path)
-                time.sleep(1.5)
+            self._ensure_recognizer()
+            time.sleep(0.2)
             
             self.speak(prompt)         
 
-            return self.recognizer.listen_and_transcribe()
+            return self.recognizer.listen_and_transcribe(stop_event=self._stop_event)
         finally:
             self._listening = False
 
@@ -227,18 +243,22 @@ class AssistantOrchestrator:
     # Flujo principal
     # -------------------------
     def start(self):
-        # pour charger les modèles hors démarrage
-        if self.recognizer is None:
-            self.recognizer = SpeechRecognizer(self._recognizer_path)
-
         if getattr(self, "_running", False):
             return
+        self._ensure_recognizer()
+        self._stop_event.clear()
         self._running = True
 
         threading.Thread(
             target=self._run_assistant,
             daemon=True
         ).start()
+
+    def cancel(self):
+        print("[ASR] Cancel requested")
+        self._stop_event.set()
+        self._running = False
+        self._listening = False
 
     def _run_assistant(self):
         try:
@@ -256,8 +276,15 @@ class AssistantOrchestrator:
 
             # BLOQUANT mais dans un thread
             self._listening = True
-            texto = self.recognizer.listen_and_transcribe()
+            texto = self.recognizer.listen_and_transcribe(stop_event=self._stop_event)
             self._listening = False
+            if self._stop_event.is_set():
+                self._actualizar_label(_("Asistente cancelado"))
+                return
+            if not texto:
+                self._actualizar_label(_("No he entendido"))
+                self._speak(_("No he reconocido el comando"))
+                return
             print(f"Texto detectado: {texto}")
 
             self._actualizar_label(f"Has dicho: {texto}")
@@ -290,12 +317,14 @@ class AssistantOrchestrator:
                 """
                 self._actualizar_label("Comando no reconocido")
             
-            self._running = False
-
         except Exception as e:
             print(f"Error en el asistente: {e}")
             self._actualizar_label("Ha ocurrido un error")
             self._speak(_("Lo siento, ha ocurrido un error"))
+        finally:
+            self._running = False
+            self._listening = False
+            self._stop_event.clear()
 
     """
     def start(self):

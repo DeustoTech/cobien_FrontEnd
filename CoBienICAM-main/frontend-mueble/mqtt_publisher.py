@@ -19,6 +19,9 @@ TOPIC_WEATHER_RELOAD = "weather/reload"
 TOPIC_RFID_RELOAD = "rfid/actions_reload"
 TOPIC_EVENTS_RELOAD = "events/reload"  
 TOPIC_BOARD_RELOAD = "board/reload"    
+RFID_DEBOUNCE_SECONDS = 5
+_last_rfid_card_id = None
+_last_rfid_at = 0.0
 
 today = date.today().isoformat()
 tf = TimezoneFinder()
@@ -220,6 +223,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     global WEATHER_CITIES_RAW, WEATHER_CITIES_GEO, RFID_ACTIONS
+    global _last_rfid_card_id, _last_rfid_at
     
     try:
         payload = json.loads(msg.payload.decode("utf-8"))
@@ -235,6 +239,12 @@ def on_message(client, userdata, msg):
                 card_id = int(payload.get("id", 0))
         except:
             card_id = 0
+        now = time.time()
+        if card_id and card_id == _last_rfid_card_id and (now - _last_rfid_at) < RFID_DEBOUNCE_SECONDS:
+            print(f"[RFID] Duplicate card ignored during debounce window: {card_id}")
+            return
+        _last_rfid_card_id = card_id
+        _last_rfid_at = now
         action = RFID_ACTIONS.get(card_id)
         if action:
             out = {

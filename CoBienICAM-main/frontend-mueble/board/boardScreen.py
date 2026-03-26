@@ -452,6 +452,11 @@ class BoardScreen(Screen):
         """
         try:
             def on_message(client, userdata, msg):
+                if msg.topic == "board/reload":
+                    print("[BOARD] 📥 Legacy reload request received via MQTT")
+                    Clock.schedule_once(lambda dt: self.refresh_from_mongo(), 0)
+                    return
+
                 if msg.topic == "app/nav":
                     try:
                         payload = json.loads(msg.payload.decode("utf-8"))
@@ -473,6 +478,7 @@ class BoardScreen(Screen):
             self.mqtt_client.on_message = on_message
             self.mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
             self.mqtt_client.subscribe("app/nav")
+            self.mqtt_client.subscribe("board/reload")
             self.mqtt_client.loop_start()
             print("[BOARD] ✅ MQTT listener activated")
         except Exception as e:
