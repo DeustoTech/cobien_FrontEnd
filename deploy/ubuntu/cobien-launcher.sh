@@ -86,9 +86,9 @@ resolve_paths() {
 runtime_can_command() {
   cat <<EOF
 echo '[CAN] Initializing the CAN bus'
-sudo /sbin/ip link set can0 down
-sudo /sbin/ip link set can0 type can bitrate ${COBIEN_CAN_BITRATE:-500000}
-sudo /sbin/ip link set can0 up
+sudo -n /sbin/ip link set can0 down
+sudo -n /sbin/ip link set can0 type can bitrate ${COBIEN_CAN_BITRATE:-500000}
+sudo -n /sbin/ip link set can0 up
 echo '[CAN] candump active'
 candump can0
 exec bash
@@ -280,6 +280,21 @@ install_system_deps_fn() {
   fi
 }
 
+install_can_sudoers_rule() {
+  local current_user sudoers_file
+  current_user="$(id -un)"
+  sudoers_file="/etc/sudoers.d/cobien-can"
+
+  log "Installing passwordless CAN setup rule for user: $current_user"
+  sudo /bin/sh -c "cat > '$sudoers_file' <<EOF
+$current_user ALL=(root) NOPASSWD: /sbin/ip link set can0 down
+$current_user ALL=(root) NOPASSWD: /sbin/ip link set can0 up
+$current_user ALL=(root) NOPASSWD: /sbin/ip link set can0 type can bitrate *
+EOF"
+  sudo chmod 440 "$sudoers_file"
+  sudo visudo -cf "$sudoers_file" >/dev/null
+}
+
 resolve_python_bin() {
   if [[ -n "$PYTHON_BIN" ]]; then
     return
@@ -338,6 +353,27 @@ prepare_venv() {
   "$UV_BIN" sync --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR"
 }
 
+ensure_assistant_model_assets() {
+  local model_dir
+  model_dir="$FRONTEND_APP_DIR/virtual_assistant/roberta_model"
+
+  if [[ -f "$model_dir/model.safetensors" || -f "$model_dir/pytorch_model.bin" || -f "$model_dir/tf_model.h5" || -f "$model_dir/model.ckpt.index" || -f "$model_dir/flax_model.msgpack" ]]; then
+    log "Assistant model weights already present in $model_dir"
+    return
+  fi
+
+  log "Provisioning assistant model weights into $model_dir"
+  "$UV_BIN" run --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR" python - <<PY
+from pathlib import Path
+from transformers import AutoModel
+
+target = Path(r"$model_dir")
+target.mkdir(parents=True, exist_ok=True)
+model = AutoModel.from_pretrained("roberta-base")
+model.save_pretrained(target)
+PY
+}
+
 write_env_file() {
   cat > "$ENV_FILE" <<EOF
 COBIEN_FRONTEND_REPO=$FRONTEND_REPO
@@ -368,9 +404,11 @@ load_env_file() {
 setup_environment() {
   check_paths
   install_system_deps_fn
+  install_can_sudoers_rule
   checkout_branch "$FRONTEND_REPO"
   checkout_branch "$MQTT_REPO"
   prepare_venv
+  ensure_assistant_model_assets
   write_env_file
 }
 
