@@ -14,21 +14,21 @@ from tts_service import tts_service
 
 class AssistantOrchestrator:
     def __init__(self, app_reference):
-        # Componentes del asistente
+        # Assistant components
         self.recognizer = None
         self.app = app_reference
         self._recognizer_path = self._get_model_path()
         self._recognizer_language = self.app.cfg.data.get("language", "es")
         self._stop_event = threading.Event()
 
-        # AJOUT : Charger le modèle en arrière-plan immédiatement
+        # Preload the recognizer in the background immediately
         threading.Thread(target=self._preload_model, daemon=True).start()
-        
-        # On évite le chargement des modèles vosk au démarrage
+
+        # Avoid loading Vosk models synchronously at startup
         #self.recognizer = SpeechRecognizer(app_path)
         self.executor = ActionExecutor(app_reference)
 
-        # Motor TTS de respaldo
+        # Fallback TTS engine state
         self._running = False
         self._listening = False
 
@@ -62,9 +62,9 @@ class AssistantOrchestrator:
                 self.app.cfg.set_microphone_device(self.recognizer.input_device_name)
 
     def _preload_model(self):
-        print("[ASR] Pré-chargement du modèle Vosk...")
+        print("[ASR] Preloading Vosk model...")
         self._ensure_recognizer()
-        print("[ASR] Modèle prêt !")
+        print("[ASR] Model ready")
 
 
     """
@@ -142,7 +142,7 @@ class AssistantOrchestrator:
     def listen(self, prompt: str) -> str | None:
         # empêche double écoute
         if self._listening or self._running:
-            print("[ASR] écoute déjà en cours → ignoré")
+            print("[ASR] Listening already in progress -> ignored")
             return None
 
         self._listening = True
@@ -227,7 +227,7 @@ class AssistantOrchestrator:
 
     def _run_assistant(self):
         try:
-            # Feedback initial pour l’utilisateur
+            # Initial user feedback
             #self._actualizar_label("Escuchando…")
             language = self.app.cfg.data["language"]
 
@@ -239,15 +239,15 @@ class AssistantOrchestrator:
                 self._speak("Bonjour, comment puis-je vous aider")
             """
 
-            # BLOQUANT mais dans un thread
+            # Blocking call running inside a thread
             self._listening = True
             texto = self.recognizer.listen_and_transcribe(stop_event=self._stop_event)
             self._listening = False
             if self._stop_event.is_set():
-                self._actualizar_label(_("Asistente cancelado"))
+                self._actualizar_label(_("Assistant cancelled"))
                 return
             if not texto:
-                self._actualizar_label(_("No he entendido"))
+                self._actualizar_label(_("I did not understand"))
                 self._speak(_("No he reconocido el comando"))
                 return
             print(f"Texto detectado: {texto}")

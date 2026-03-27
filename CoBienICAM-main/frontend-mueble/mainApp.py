@@ -541,13 +541,13 @@ class MainScreen(Screen):
         self.sm = sm
         self.cfg = AppConfig()
 
-        # ✅ CHARGER IDENTITÉ DU MEUBLE DEPUIS settings.json
+        # Load device identity from settings.json
         self.DEVICE_ID = self.cfg.get_device_id()
         self.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
         self.DEVICE_LOCATION = self.cfg.get_device_location()
         
         print(f"[MAIN] ========================================")
-        print(f"[MAIN] 🏠 Configuration du meuble (depuis settings.json):")
+        print(f"[MAIN] Device configuration loaded from settings.json:")
         print(f"[MAIN]    Device ID: '{self.DEVICE_ID}' (case-sensitive)")
         print(f"[MAIN]    Videocall Room: '{self.VIDEOCALL_ROOM}' (case-sensitive)")
         print(f"[MAIN]    Location: '{self.DEVICE_LOCATION}'")
@@ -557,7 +557,7 @@ class MainScreen(Screen):
         
         self.action_executor = None
         #self.recognizer = SpeechRecognizer()
-        # ========== MQTT LOCAL (pour les capteurs du meuble) ==========
+        # Local MQTT for furniture sensors/buttons
         random_id = "kivy_local_client"
         self.mqtt_client_local = mqtt.Client(client_id=random_id, clean_session=True)
         
@@ -571,11 +571,11 @@ class MainScreen(Screen):
         try:
             self.mqtt_client_local.connect(self.mqtt_broker_local, 1883, 60)
             self.mqtt_client_local.loop_start()
-            print(f"[MQTT LOCAL] ✓ Connecté à localhost (ID: {random_id})")
+            print(f"[MQTT LOCAL] Connected to localhost (ID: {random_id})")
         except Exception as e:
-            print(f"[MQTT LOCAL] ✗ Erreur connexion: {e}")
+            print(f"[MQTT LOCAL] Connection error: {e}")
 
-        # ========== MQTT BACKEND (pour les notifications du site web) ==========
+        # Backend MQTT for web notifications
         self.mqtt_client_backend = mqtt.Client(client_id="kivy_backend_client")
         self.mqtt_broker_backend = os.getenv("COBIEN_MQTT_BACKEND_BROKER", "broker.hivemq.com")
         self.mqtt_client_backend.on_connect = self.on_connect_backend
@@ -586,9 +586,9 @@ class MainScreen(Screen):
         try:
             self.mqtt_client_backend.connect(self.mqtt_broker_backend, 1883, 60)
             self.mqtt_client_backend.loop_start()
-            print("[MQTT BACKEND] ✓ Connecté à broker.hivemq.com pour notifications")
+            print("[MQTT BACKEND] Connected to broker.hivemq.com for notifications")
         except Exception as e:
-            print(f"[MQTT BACKEND] ✗ Erreur connexion: {e}")
+            print(f"[MQTT BACKEND] Connection error: {e}")
 
         # Gestionnaire de notifications
         self.notification_manager = NotificationManager(sm, self)
@@ -609,14 +609,14 @@ class MainScreen(Screen):
             self.weather_lat = first_city["lat"]
             self.weather_lon = first_city["lon"]
             self.weather_tz = first_city.get("tz", "UTC")
-            print(f"[MAIN] 🌤 Météo principale: {self.weather_city}")
+            print(f"[MAIN] Primary weather city: {self.weather_city}")
         else:
             # Fallback si liste vide
             self.weather_city = "Bilbao"
             self.weather_lat = 43.263
             self.weather_lon = -2.935
             self.weather_tz = "Europe/Madrid"
-            print(f"[MAIN] ⚠️ Pas de villes configurées, fallback: {self.weather_city}")
+            print(f"[MAIN] No configured cities found, using fallback: {self.weather_city}")
 
         self.owm_api_key = os.getenv("OWM_API_KEY", "6128e2f97c533ad711be849699cb4d47")
 
@@ -660,14 +660,14 @@ class MainScreen(Screen):
         if force or day_changed or language_changed or category_changed:
             # ✅ Recharger blagues si langue ou catégorie ont changé
             if language_changed or category_changed:
-                print(f"[JOKES] 🔄 Rechargement blagues (lang={current_lang}, cat={current_category})")
+                print(f"[JOKES] Reloading jokes (lang={current_lang}, category={current_category})")
                 self.jokes = self._load_jokes()
             
             # ✅ Afficher nouvelle blague
             self._last_joke_date = today
             if self.jokes:
                 self.joke_text = random.choice(self.jokes)
-                print(f"[JOKES] 🎭 Nouvelle blague affichée: {self.joke_text[:50]}...")
+                print(f"[JOKES] New joke displayed: {self.joke_text[:50]}...")
             else:
                 self.joke_text = "..."
 
@@ -687,7 +687,7 @@ class MainScreen(Screen):
         
         # Si l'heure actuelle correspond exactement à l'heure configurée
         if current_hour == self.JOKE_CHANGE_HOUR and current_minute == self.JOKE_CHANGE_MINUTE:
-            print(f"[JOKES] ⏰ Changement automatique à {self.JOKE_CHANGE_HOUR:02d}:{self.JOKE_CHANGE_MINUTE:02d}")
+            print(f"[JOKES] Automatic refresh at {self.JOKE_CHANGE_HOUR:02d}:{self.JOKE_CHANGE_MINUTE:02d}")
             self._last_joke_change_time = time_key
             
             # Recharger blagues (au cas où catégorie/langue auraient changé)
@@ -698,7 +698,7 @@ class MainScreen(Screen):
 
     def reload_joke(self):
         """✅ AMÉLIORÉ : Force le rechargement IMMÉDIAT d'une nouvelle blague"""
-        print("[JOKES] 🔄 Rechargement forcé...")
+        print("[JOKES] Forced reload...")
         
         # 1. Sauvegarder l'ancienne blague
         old_joke = getattr(self, 'joke_text', None)
@@ -722,13 +722,13 @@ class MainScreen(Screen):
                 new_joke = random.choice(self.jokes)
             
             self.joke_text = new_joke
-            print(f"[JOKES] ✅ Nouvelle blague affichée")
-            print(f"[JOKES]    Ancienne: {old_joke[:30] if old_joke else 'Aucune'}...")
-            print(f"[JOKES]    Nouvelle: {new_joke[:30]}...")
-            print(f"[JOKES]    Catégorie: {self.cfg.data.get('joke_category', 'general')}")
+            print(f"[JOKES] New joke displayed")
+            print(f"[JOKES]    Previous: {old_joke[:30] if old_joke else 'None'}...")
+            print(f"[JOKES]    New: {new_joke[:30]}...")
+            print(f"[JOKES]    Category: {self.cfg.data.get('joke_category', 'general')}")
         else:
             self.joke_text = "..."
-            print("[JOKES] ⚠️ Aucune blague disponible")
+            print("[JOKES] No joke available")
 
     def update_labels(self):
         """✅ Met à jour tous les labels traduits"""
@@ -753,13 +753,13 @@ class MainScreen(Screen):
         # ✅ NOUVEAU : Recharger blague si langue a changé
         self._maybe_refresh_joke(force=True)
         
-        print("[MAIN] ✅ Labels mis à jour")
+        print("[MAIN] Labels updated")
 
 
     # ========== Callbacks MQTT LOCAL (capteurs/boutons du meuble) ==========
     def on_connect_local(self, client, userdata, flags, rc):
-        print(f"[DEBUG] on_connect_local appelé - rc={rc}, flags={flags}")
-        print(f"[DEBUG] _subscribed_local = {getattr(self, '_subscribed_local', 'NON DÉFINI')}")
+        print(f"[DEBUG] on_connect_local called - rc={rc}, flags={flags}")
+        print(f"[DEBUG] _subscribed_local = {getattr(self, '_subscribed_local', 'UNDEFINED')}")
         
         if rc == 0:
             if self._subscribed_local:
@@ -776,7 +776,7 @@ class MainScreen(Screen):
         """Traite les messages des capteurs locaux"""
         message = msg.payload.decode()
         topic = msg.topic
-        print(f"[MQTT LOCAL] 📩 Reçu sur {topic}: {message[:50]}...")
+        print(f"[MQTT LOCAL] Message received on {topic}: {message[:50]}...")
         Clock.schedule_once(lambda dt: self._process_safe(message, topic))
 
     def _process_safe (self, message, topic):
@@ -785,18 +785,18 @@ class MainScreen(Screen):
 
     # ========== Callbacks MQTT BACKEND (notifications du site web) ==========
     def on_connect_backend(self, client, userdata, flags, rc):
-        """Connexion au broker backend pour les notifications"""
+        """Connect to backend broker for notifications."""
         if rc == 0:
-            print("[MQTT BACKEND] ✓ Abonnement à 'videollamada' et 'tarjeta'")
+            print("[MQTT BACKEND] Subscribed to 'videollamada' and 'tarjeta'")
             client.subscribe(self.mqtt_topic_general)
         else:
-            print(f"[MQTT BACKEND] ✗ Échec connexion, code: {rc}")
+            print(f"[MQTT BACKEND] Connection failed, code: {rc}")
 
     def on_message_backend(self, client, userdata, msg):
-        """Traite les notifications du backend"""
+        """Handle backend notifications."""
         message = msg.payload.decode()
         topic = msg.topic
-        print(f"[MQTT BACKEND] 📩 Reçu sur {topic}: {message}")
+        print(f"[MQTT BACKEND] Message received on {topic}: {message}")
         Clock.schedule_once(lambda dt: self.process_backend_notification(message, topic))
 
     # ---------------- Fecha/Hora ----------------

@@ -386,6 +386,10 @@ load_env_file() {
   fi
 }
 
+is_existing_installation_ready() {
+  [[ -f "$ENV_FILE" && -d "$VENV_DIR" ]]
+}
+
 setup_environment() {
   check_paths
   install_system_deps_fn
@@ -538,6 +542,7 @@ print_dry_run() {
 }
 
 run_full_flow() {
+  local reuse_existing_installation="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     echo "========================================"
     echo "CoBien Ubuntu setup assistant"
@@ -565,6 +570,11 @@ run_full_flow() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { echo "Frontend repository not found at: $FRONTEND_REPO"; exit 1; }
   [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
 
+  if is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
+    reuse_existing_installation="1"
+    INSTALL_SYSTEM_DEPS="0"
+  fi
+
   if detect_python311; then
     echo "Python 3.11 detected: $(command -v python3.11)"
   else
@@ -577,7 +587,16 @@ run_full_flow() {
     fi
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" && "$INSTALL_SYSTEM_DEPS" != "1" ]]; then
+  if [[ "$NON_INTERACTIVE" != "1" && "$reuse_existing_installation" == "1" ]]; then
+    if ask_yes_no "An existing installation was detected. Do you want to reuse it without running setup again" "y"; then
+      reuse_existing_installation="1"
+      INSTALL_SYSTEM_DEPS="0"
+    else
+      reuse_existing_installation="0"
+    fi
+  fi
+
+  if [[ "$NON_INTERACTIVE" != "1" && "$INSTALL_SYSTEM_DEPS" != "1" && "$reuse_existing_installation" != "1" ]]; then
     if ask_yes_no "Do you want to reinstall or verify system dependencies anyway" "y"; then
       INSTALL_SYSTEM_DEPS="1"
     fi
@@ -607,6 +626,7 @@ run_full_flow() {
   echo
   echo "Summary:"
   echo "  Workspace:        $WORKSPACE_ROOT"
+  echo "  Reuse install:    $reuse_existing_installation"
   echo "  Install deps:     $INSTALL_SYSTEM_DEPS"
   echo "  Recreate .venv:   $RECREATE_VENV"
   echo "  One-shot update:  $RUN_UPDATE_ONCE"
@@ -623,8 +643,12 @@ run_full_flow() {
   fi
 
   echo
-  echo "[1/4] Preparing environment..."
-  setup_environment
+  if [[ "$reuse_existing_installation" == "1" ]]; then
+    echo "[1/4] Reusing existing installation..."
+  else
+    echo "[1/4] Preparing environment..."
+    setup_environment
+  fi
 
   echo
   echo "[2/4] Loading configuration..."

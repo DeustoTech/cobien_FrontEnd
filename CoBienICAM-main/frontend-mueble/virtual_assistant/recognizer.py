@@ -74,7 +74,7 @@ class SpeechRecognizer:
         print(f"[ASR] Input device: {self.input_device_name or 'default'}")
 
     def _clear_queue(self):
-        """Méthode pour vider la file d'attente des sons parasites."""
+        """Clear queued audio frames."""
         while not self.q.empty():
             try:
                 self.q.get_nowait()
@@ -89,7 +89,7 @@ class SpeechRecognizer:
 
     # Version non blocking of liste_and_transcribe
     def listen_and_transcribe(self, timeout=15, stop_event=None):
-        print("Habla ahora...")
+        print("[ASR] Speak now...")
         self.recognizer.Reset()
 
         self._clear_queue()
@@ -120,7 +120,7 @@ class SpeechRecognizer:
                     break
 
                 if time.time() - start_time > timeout:
-                    print("[VOSK] Timeout écoute")
+                    print("[VOSK] Listening timeout")
                     break
 
                 try:
@@ -136,13 +136,13 @@ class SpeechRecognizer:
                     text = (result_json.get("text") or "").strip()
 
                     if len(text) < 2:
-                        print("[VOSK] Résultat vide ignoré")
+                        print("[VOSK] Ignoring empty result")
                         continue
 
                     result = text
                     break
 
-        print("Texto detectado:", result)
+        print("[ASR] Detected text:", result)
         return result if result else None
 
     """
