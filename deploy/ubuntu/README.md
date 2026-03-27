@@ -106,6 +106,6 @@ Si quieres actualizar solo a ciertas horas:
 
 ## Notas
 
-- El relanzado del sistema usa `start_cobien.sh`.
-- `cobien-launcher.sh` es el unico script que debe invocarse manualmente.
+- `cobien-launcher.sh` es el unico punto de entrada operativo.
+- `start_cobien.sh` se mantiene solo como wrapper de compatibilidad.
 - El sistema solo actualiza si la rama actual coincide con `development_fix`.
