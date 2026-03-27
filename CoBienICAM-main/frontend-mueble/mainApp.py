@@ -67,6 +67,9 @@ from notifications.notification_manager import NotificationManager
 
 Builder.load_string(PINBACK_BUTTON_KV)
 
+RUNTIME_STATE_DIR = os.path.join(os.path.dirname(__file__), "runtime_state")
+UPDATE_MARKER_FILE = os.path.join(RUNTIME_STATE_DIR, "system_updated.json")
+
 # Ventana
 Window.fullscreen = 'auto'
 Window.clearcolor = (1, 1, 1, 1)
@@ -1674,10 +1677,39 @@ class MyApp(App):
     def on_start(self):
         self._start_orchestrator()
         self._start_proximity_logger()
+        Clock.schedule_once(lambda dt: self._show_pending_system_update_notification(), 1.0)
 
     def on_stop(self):
         self._stop_orchestrator()
         self._stop_proximity_logger()
+
+    def _show_pending_system_update_notification(self):
+        if not os.path.exists(UPDATE_MARKER_FILE):
+            return
+
+        try:
+            with open(UPDATE_MARKER_FILE, "r", encoding="utf-8") as marker_file:
+                payload = json.load(marker_file)
+        except Exception as exc:
+            print(f"[APP] Failed to read update marker: {exc}")
+            payload = {}
+
+        try:
+            os.remove(UPDATE_MARKER_FILE)
+        except OSError as exc:
+            print(f"[APP] Failed to remove update marker: {exc}")
+
+        title_text = _("System updated")
+        message_text = payload.get("message") or _("The system has been updated.")
+
+        try:
+            if getattr(self.main_ref, "notification_manager", None):
+                self.main_ref.notification_manager.show_system_info_notification(
+                    title_text=title_text,
+                    message_text=message_text,
+                )
+        except Exception as exc:
+            print(f"[APP] Failed to show update notification: {exc}")
 
     def _reset_idle_timer(self, *args, **kwargs):
         """

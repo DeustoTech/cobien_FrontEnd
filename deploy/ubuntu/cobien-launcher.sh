@@ -81,6 +81,8 @@ resolve_paths() {
   SELF_SCRIPT="$FRONTEND_REPO/deploy/ubuntu/cobien-launcher.sh"
   FRONTEND_REPO_ROOT="$FRONTEND_REPO"
   LOG_DIR="${COBIEN_LOG_DIR:-$FRONTEND_REPO_ROOT/logs}"
+  RUNTIME_STATE_DIR="$FRONTEND_APP_DIR/runtime_state"
+  UPDATE_MARKER_FILE="$RUNTIME_STATE_DIR/system_updated.json"
 }
 
 runtime_can_command() {
@@ -110,6 +112,11 @@ runtime_app_command() {
   cat <<EOF
 echo '[APP] Launching frontend with uv'
 cd "$FRONTEND_APP_DIR" || exit
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
 if command -v "$UV_BIN" >/dev/null 2>&1; then
   "$UV_BIN" run --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR" mainApp.py
 else
@@ -360,6 +367,11 @@ prepare_venv() {
 }
 
 write_env_file() {
+  local settings_pin_line=""
+  if [[ -n "${COBIEN_SETTINGS_PIN:-}" ]]; then
+    settings_pin_line="COBIEN_SETTINGS_PIN=${COBIEN_SETTINGS_PIN}"
+  fi
+
   cat > "$ENV_FILE" <<EOF
 COBIEN_FRONTEND_REPO=$FRONTEND_REPO
 COBIEN_MQTT_REPO=$MQTT_REPO
@@ -374,6 +386,7 @@ COBIEN_UV_PYTHON=$PYTHON_REQUEST
 COBIEN_FRONTEND_APP_DIR=$FRONTEND_APP_DIR
 COBIEN_BRIDGE_DIR=$BRIDGE_DIR
 COBIEN_CAN_CONFIG=$CAN_CONFIG
+$settings_pin_line
 EOF
   log "Environment file generated: $ENV_FILE"
 }
@@ -384,6 +397,14 @@ load_env_file() {
     source "$ENV_FILE"
     set +a
   fi
+}
+
+mark_update_applied() {
+  mkdir -p "$RUNTIME_STATE_DIR"
+  cat > "$UPDATE_MARKER_FILE" <<EOF
+{"updated_at":"$(date -Iseconds)","message":"The system has been updated."}
+EOF
+  log "Update marker written: $UPDATE_MARKER_FILE"
 }
 
 is_existing_installation_ready() {
@@ -461,6 +482,7 @@ update_repo_if_needed() {
   git -C "$repo" pull --ff-only "$REMOTE_NAME" "$BRANCH_NAME"
 
   if repo_updates_launcher "$repo"; then
+    mark_update_applied
     handoff_to_updated_launcher "$handoff_mode"
   fi
 
@@ -488,6 +510,7 @@ run_update_once() {
   fi
 
   if [[ "$updated" -eq 1 ]]; then
+    mark_update_applied
     restart_software
   else
     log "No changes to deploy"

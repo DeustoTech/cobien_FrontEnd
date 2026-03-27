@@ -932,6 +932,117 @@ class NotificationManager:
         for popup in self.active_notifications:
             popup.dismiss()
         self.active_notifications.clear()
+
+    def show_system_info_notification(self, title_text, message_text):
+        """Show a generic system information popup with an OK button."""
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+        from kivy.metrics import dp, sp
+        from kivy.graphics import Color, RoundedRectangle, Line
+
+        print("[NOTIF] ========================================")
+        print("[NOTIF] System info notification")
+        print(f"[NOTIF]    Title: {title_text}")
+        print(f"[NOTIF]    Message: {message_text}")
+        print("[NOTIF] ========================================")
+
+        popup = ModalView(
+            size_hint=(None, None),
+            size=(dp(980), dp(520)),
+            auto_dismiss=False,
+            background='',
+            background_color=(0, 0, 0, 0.7)
+        )
+
+        container = BoxLayout(
+            orientation='vertical',
+            padding=dp(40),
+            spacing=dp(25)
+        )
+
+        with container.canvas.before:
+            Color(1, 1, 1, 1)
+            bg = RoundedRectangle(
+                pos=container.pos,
+                size=container.size,
+                radius=[dp(24)]
+            )
+            Color(0, 0, 0, 0.2)
+            border = Line(
+                rounded_rectangle=(
+                    container.x, container.y,
+                    container.width, container.height,
+                    dp(24)
+                ),
+                width=3
+            )
+
+        def _update_bg(*args):
+            bg.pos = container.pos
+            bg.size = container.size
+            border.rounded_rectangle = (
+                container.x, container.y,
+                container.width, container.height,
+                dp(24)
+            )
+
+        container.bind(pos=_update_bg, size=_update_bg)
+
+        container.add_widget(BoxLayout(size_hint_y=0.15))
+        container.add_widget(Label(
+            text=title_text,
+            font_size=sp(42),
+            bold=True,
+            color=(0, 0, 0, 1),
+            size_hint_y=None,
+            height=dp(60),
+            halign="center",
+            valign="middle"
+        ))
+        container.add_widget(Label(
+            text=message_text,
+            font_size=sp(30),
+            color=(0.2, 0.2, 0.2, 1),
+            size_hint_y=None,
+            height=dp(90),
+            halign="center",
+            valign="middle"
+        ))
+        container.add_widget(BoxLayout(size_hint_y=0.2))
+
+        btn_ok = Button(
+            text="OK",
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            background_normal='',
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(34),
+            bold=True
+        )
+
+        def _close(*args):
+            popup.dismiss()
+            print("[NOTIF] System info notification closed")
+
+        btn_ok.bind(on_release=_close)
+
+        btn_wrapper = BoxLayout(size_hint_y=None, height=dp(75))
+        btn_wrapper.add_widget(BoxLayout())
+        btn_wrapper.add_widget(btn_ok)
+        btn_wrapper.add_widget(BoxLayout())
+        container.add_widget(btn_wrapper)
+
+        popup.add_widget(container)
+        popup.open()
+
+        app = App.get_running_app()
+        if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
+            app.black_overlay.dismiss()
+            if hasattr(app, "_on_wakeup"):
+                app._on_wakeup()
     
     def show_missed_call_notification(self, caller: str, time_str: str):
         """
