@@ -1,183 +1,111 @@
-# Despliegue Ubuntu y auto-actualizacion
+# Despliegue Ubuntu
 
-Este directorio deja preparado el mueble Ubuntu para:
+Este directorio usa un unico punto de entrada:
 
-- relanzar el software con rutas configurables
-- actualizar `cobien_FrontEnd` y `cobien_MQTT_Dictionnary`
-- hacerlo una sola vez o en modo polling cada minuto
+- `cobien-launcher.sh`
 
-## Uso recomendado
+Ese script se encarga de:
 
-Si una persona no tecnica va a usarlo, el punto de entrada recomendado es solo uno:
+- preparar el entorno
+- instalar dependencias del sistema
+- instalar `uv`
+- asegurar `Python 3.11`
+- crear o recrear `.venv`
+- generar `cobien-update.env`
+- lanzar el sistema del mueble
+- actualizar repos y relanzar
+- vigilar cambios cada minuto
+- instalar una tarea cron
 
-```bash
-bash cobien-first-run.sh
-```
-
-Ese asistente pregunta:
-
-- donde estan los proyectos
-- si hay que instalar dependencias del sistema
-- si hay que borrar el `.venv` anterior
-- si quieres hacer una comprobacion de actualizacion antes de lanzar
-- si quieres vigilancia cada minuto
-- si quieres instalar una tarea cron a ciertas horas
-
-Y despues hace el resto automaticamente.
-
-## Modo desatendido
-
-El mismo script tambien puede ejecutarse sin preguntas, por ejemplo desde `bashrc`, `cron` o un servicio:
+## Uso normal
 
 ```bash
-bash cobien-first-run.sh \
-  --non-interactive \
-  --yes \
-  --workspace /home/cobien/cobien \
-  --run-update-once
+bash cobien-launcher.sh
 ```
 
-Opciones utiles en modo desatendido:
+Si se ejecuta sin parametros:
 
-- `--non-interactive`
-- `--yes`
-- `--workspace /ruta`
-- `--recreate-venv`
-- `--skip-system-deps`
-- `--run-update-once`
-- `--enable-watch`
-- `--install-cron`
-- `--cron-schedule "0 3,15 * * *"`
+- pregunta si quieres usar modo desatendido
+- si respondes que no, entra en modo guiado
+- si respondes que si, usa los valores por defecto
 
-## Archivos
+## Modos
 
-- `cobien-bootstrap.sh`
-- `cobien-update.sh`
-- `cobien-update.env.example`
-
-## Bootstrap inicial
-
-Si los dos repos ya estan descargados, puedes preparar todo desde `deploy/ubuntu` con:
+Flujo completo:
 
 ```bash
-bash cobien-bootstrap.sh --workspace /home/cobien/cobien
+bash cobien-launcher.sh
 ```
 
-Eso:
+Flujo completo desatendido:
 
-- verifica rutas
-- instala dependencias del sistema
-- crea `.venv` del frontend
-- instala dependencias Python
-- deja generado `cobien-update.env`
-- deja listos el launcher y el updater
+```bash
+bash cobien-launcher.sh --non-interactive --yes --workspace /home/cobien/cobien
+```
+
+Solo preparar entorno:
+
+```bash
+bash cobien-launcher.sh --mode setup --workspace /home/cobien/cobien
+```
+
+Solo lanzar el sistema:
+
+```bash
+bash cobien-launcher.sh --mode launch --workspace /home/cobien/cobien
+```
+
+Actualizar una vez:
+
+```bash
+bash cobien-launcher.sh --mode update-once --workspace /home/cobien/cobien
+```
+
+Vigilar cambios:
+
+```bash
+bash cobien-launcher.sh --mode watch --workspace /home/cobien/cobien
+```
+
+Ver configuracion resuelta:
+
+```bash
+bash cobien-launcher.sh --mode dry-run --workspace /home/cobien/cobien
+```
 
 ## Version de Python
 
-El frontend actualmente debe desplegarse con `Python 3.11`.
+El frontend debe desplegarse con `Python 3.11`.
 
-El bootstrap:
+El launcher:
 
 - usa `python3.11` si esta disponible
-- instala `python3.11` y `python3.11-venv` cuando Ubuntu lo ofrece
-- aborta si solo encuentra `Python 3.12+`, porque varias dependencias fijadas del proyecto no son compatibles
+- intenta instalarlo si Ubuntu lo ofrece
+- usa `uv` para gestionar Python y el entorno
 
 ## Entorno con uv
 
-El bootstrap ya no usa `pip install -r requirements.txt` como camino principal.
+El despliegue usa:
 
-Ahora:
+- instalador oficial de Astral para `uv`
+- `uv python install`
+- `uv venv`
+- `uv sync`
 
-- instala `uv` si no existe
-- crea `.venv` con `uv venv`
-- sincroniza dependencias desde [pyproject.toml](/home/aritz/Development/DT/Projects/cobien/cobien_FrontEnd/CoBienICAM-main/frontend-mueble/pyproject.toml) usando `uv sync`
+Dependencias del frontend:
 
-Esto hace el despliegue mas reproducible y reduce problemas de resolucion del entorno.
-
-## Primera ejecucion automatizada
-
-Si quieres hacer todo en una sola orden, usa:
-
-```bash
-bash cobien-first-run.sh --workspace /home/cobien/cobien
-```
-
-Eso ejecuta:
-
-- `cobien-bootstrap.sh`
-- carga `cobien-update.env`
-- `cobien-update.sh --dry-run`
-- `start_cobien.sh`
-
-Si ademas quieres forzar una pasada de actualizacion antes del lanzamiento:
-
-```bash
-bash cobien-first-run.sh --workspace /home/cobien/cobien --run-update-once
-```
-
-Pero para uso normal no hace falta pasar parametros: el script ya pregunta de forma interactiva.
-
-## Objetivo
-
-La idea es que una persona no tecnica pueda entrar en `deploy/ubuntu` y ejecutar solo:
-
-```bash
-bash cobien-first-run.sh
-```
-
-Desde ese mismo script se puede:
-
-- preparar el entorno
-- reinstalar el `.venv`
-- lanzar el mueble
-- hacer una actualizacion puntual
-- activar vigilancia cada minuto
-- instalar cron para actualizacion a ciertas horas
-
-## Modo puntual
-
-Pensado para cron o ejecucion manual:
-
-```bash
-bash deploy/ubuntu/cobien-update.sh --once
-```
-
-## Modo watch
-
-Consulta Git cada minuto y, si hay cambios en `development_fix`, hace `git pull --ff-only` y relanza el mueble:
-
-```bash
-bash deploy/ubuntu/cobien-update.sh --watch
-```
+- [pyproject.toml](/home/aritz/Development/DT/Projects/cobien/cobien_FrontEnd/CoBienICAM-main/frontend-mueble/pyproject.toml)
 
 ## Cron
 
-Para ejecutarlo solo a ciertas horas, usa cron y llama al modo `--once`.
-
-Ejemplo:
+Si quieres actualizar solo a ciertas horas:
 
 ```cron
-0 3,15 * * * /bin/bash /home/ubuntu/cobien/cobien_FrontEnd/deploy/ubuntu/cobien-update.sh --once >> /home/ubuntu/cobien-update.log 2>&1
+0 3,15 * * * /bin/bash /home/cobien/cobien/cobien_FrontEnd/deploy/ubuntu/cobien-launcher.sh --mode update-once --workspace /home/cobien/cobien >> /home/cobien/cobien-update.log 2>&1
 ```
-
-Eso lo ejecuta a las `03:00` y `15:00`.
-
-## Variables de entorno
-
-Puedes copiar `cobien-update.env.example` a un fichero real y exportarlo antes de lanzar el script.
-
-Variables principales:
-
-- `COBIEN_FRONTEND_REPO`
-- `COBIEN_MQTT_REPO`
-- `COBIEN_LAUNCH_SCRIPT`
-- `COBIEN_UPDATE_REMOTE`
-- `COBIEN_UPDATE_BRANCH`
-- `COBIEN_UPDATE_INTERVAL_SEC`
-- `COBIEN_VENV_ACTIVATE`
 
 ## Notas
 
-- El relanzado usa `start_cobien.sh`.
-- `start_cobien.sh` ya no depende de rutas hardcodeadas del escritorio antiguo.
-- El script solo actualiza si la rama actual coincide con `COBIEN_UPDATE_BRANCH`.
+- El relanzado del sistema usa `start_cobien.sh`.
+- `cobien-launcher.sh` es el unico script que debe invocarse manualmente.
+- El sistema solo actualiza si la rama actual coincide con `development_fix`.
