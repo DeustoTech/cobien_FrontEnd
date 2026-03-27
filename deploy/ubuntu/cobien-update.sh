@@ -18,8 +18,8 @@ case "${1:---once}" in
     shift
     ;;
   -h|--help)
-    exec /bin/bash "$SCRIPT_DIR/cobien-first-run.sh" --help
+    exec /bin/bash "$SCRIPT_DIR/cobien-launcher.sh" --help
     ;;
 esac
 
-exec /bin/bash "$SCRIPT_DIR/cobien-first-run.sh" --mode "$MODE" "$@"
+exec /bin/bash "$SCRIPT_DIR/cobien-launcher.sh" --mode "$MODE" "$@"
