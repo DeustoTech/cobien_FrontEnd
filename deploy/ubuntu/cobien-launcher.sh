@@ -351,7 +351,11 @@ prepare_venv() {
     rm -rf "$VENV_DIR"
   fi
 
-  "$UV_BIN" venv --python "$PYTHON_REQUEST" "$VENV_DIR"
+  if [[ -d "$VENV_DIR" ]]; then
+    "$UV_BIN" venv --clear --python "$PYTHON_REQUEST" "$VENV_DIR"
+  else
+    "$UV_BIN" venv --python "$PYTHON_REQUEST" "$VENV_DIR"
+  fi
   "$UV_BIN" sync --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR"
 }
 
