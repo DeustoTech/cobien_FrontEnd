@@ -77,7 +77,7 @@ resolve_paths() {
   VENV_DIR="$FRONTEND_REPO/.venv"
   ENV_FILE="$FRONTEND_REPO/deploy/ubuntu/cobien-update.env"
   BRIDGE_DIR="$MQTT_REPO/Interface_MQTT_CAN_c"
-  CAN_CONFIG="$BRIDGE_DIR/config/conversion.json"
+  CAN_CONFIG="$BRIDGE_DIR/conversion.json"
   SELF_SCRIPT="$FRONTEND_REPO/deploy/ubuntu/cobien-launcher.sh"
   FRONTEND_REPO_ROOT="$FRONTEND_REPO"
   LOG_DIR="${COBIEN_LOG_DIR:-$FRONTEND_REPO_ROOT/logs}"
@@ -99,10 +99,9 @@ runtime_bridge_command() {
   cat <<EOF
 echo '[BRIDGE] Build and launch'
 cd "$BRIDGE_DIR" || exit
-rm -rf build
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build -j
-./build/cobien-bridge "$CAN_CONFIG"
+make clean
+make -j
+./cobien_bridge "$CAN_CONFIG"
 exec bash
 EOF
 }
@@ -172,6 +171,9 @@ launch_runtime() {
       wmctrl -ic "$window_id" >/dev/null 2>&1 || true
     fi
   done
+  pkill -f "candump can0" >/dev/null 2>&1 || true
+  pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
+  pkill -f "mainApp.py" >/dev/null 2>&1 || true
 
   sleep 1
 
