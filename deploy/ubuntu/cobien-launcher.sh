@@ -397,8 +397,35 @@ check_repo() {
   [[ -d "$repo/.git" ]]
 }
 
+repo_updates_launcher() {
+  local repo="$1"
+  [[ "$repo" == "$FRONTEND_REPO" ]] || return 1
+  git -C "$repo" diff --name-only HEAD FETCH_HEAD | grep -Fxq "deploy/ubuntu/cobien-launcher.sh"
+}
+
+handoff_to_updated_launcher() {
+  local next_mode="$1"
+  local command_text log_file
+
+  log "Launcher script changed; handing off to a fresh unattended launcher process"
+  command_text="/bin/bash \"$SELF_SCRIPT\" --non-interactive --yes --mode \"$next_mode\" --workspace \"$WORKSPACE_ROOT\" --frontend-name \"$FRONTEND_REPO_NAME\" --mqtt-name \"$MQTT_REPO_NAME\""
+
+  if runtime_can_open_terminals; then
+    gnome-terminal --title="COBIEN LAUNCHER" -- bash -lc "$command_text; exec bash" >/dev/null 2>&1 || true
+  else
+    mkdir -p "$LOG_DIR"
+    log_file="$LOG_DIR/launcher-handoff.log"
+    nohup bash -lc "$command_text" >"$log_file" 2>&1 &
+    log "Launcher handoff log: $log_file"
+  fi
+
+  log "Current launcher process will exit now"
+  exit 0
+}
+
 update_repo_if_needed() {
   local repo="$1"
+  local handoff_mode="${2:-launch}"
 
   if ! check_repo "$repo"; then
     log "Invalid repository: $repo"
@@ -424,6 +451,11 @@ update_repo_if_needed() {
 
   log "Updating $repo"
   git -C "$repo" pull --ff-only "$REMOTE_NAME" "$BRANCH_NAME"
+
+  if repo_updates_launcher "$repo"; then
+    handoff_to_updated_launcher "$handoff_mode"
+  fi
+
   return 0
 }
 
@@ -433,16 +465,17 @@ restart_software() {
 }
 
 run_update_once() {
+  local handoff_mode="${1:-launch}"
   local updated=0
 
   check_paths
   load_env_file
 
-  if update_repo_if_needed "$FRONTEND_REPO"; then
+  if update_repo_if_needed "$FRONTEND_REPO" "$handoff_mode"; then
     updated=1
   fi
 
-  if update_repo_if_needed "$MQTT_REPO"; then
+  if update_repo_if_needed "$MQTT_REPO" "$handoff_mode"; then
     updated=1
   fi
 
@@ -458,7 +491,7 @@ run_watch_loop() {
   load_env_file
   log "Watch mode enabled; interval ${POLL_INTERVAL_SEC}s"
   while true; do
-    if ! run_update_once; then
+    if ! run_update_once watch; then
       log "Execution failed; retrying in ${POLL_INTERVAL_SEC}s"
     fi
     sleep "$POLL_INTERVAL_SEC"
@@ -723,7 +756,7 @@ main() {
       setup_environment
       ;;
     update-once)
-      run_update_once
+      run_update_once launch
       ;;
     watch)
       run_watch_loop
