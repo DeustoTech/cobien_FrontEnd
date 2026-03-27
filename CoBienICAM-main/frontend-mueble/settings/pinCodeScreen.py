@@ -1,9 +1,4 @@
-"""
-pinCodeScreen.py - Écran de saisie du code PIN pour accéder aux Settings
-Auteur: Assistant Claude
-Date: 15 décembre 2024
-Version: Avec traduction améliorée
-"""
+"""PIN entry screen for accessing settings."""
 
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -22,6 +17,7 @@ from translation import _, get_current_language
 
 # Configuration du chemin du fichier PIN
 PIN_FILE_PATH = os.path.join(os.path.dirname(__file__), "pin.txt")
+PIN_ENV_VAR = "COBIEN_SETTINGS_PIN"
 
 
 class PinDisplay(BoxLayout):
@@ -154,8 +150,13 @@ class PinCodeScreen(Screen):
         Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
     
     def load_pin(self):
-        """Charge le code PIN depuis le fichier txt"""
+        """Load the settings PIN from env first, then file fallback."""
         try:
+            env_pin = os.getenv(PIN_ENV_VAR, "").strip()
+            if env_pin:
+                print(f"[PIN] Settings PIN loaded from environment variable {PIN_ENV_VAR}")
+                return env_pin
+
             settings_dir = os.path.dirname(PIN_FILE_PATH)
             if not os.path.exists(settings_dir):
                 os.makedirs(settings_dir)
@@ -164,17 +165,17 @@ class PinCodeScreen(Screen):
                 with open(PIN_FILE_PATH, 'r') as f:
                     pin = f.read().strip()
                     if pin:
-                        print(f"[PIN] Code chargé depuis {PIN_FILE_PATH}")
+                        print(f"[PIN] Settings PIN loaded from {PIN_FILE_PATH}")
                         return pin
             
             default_pin = "1234"
             with open(PIN_FILE_PATH, 'w') as f:
                 f.write(default_pin)
-            print(f"[PIN] Code par défaut créé: {default_pin}")
+            print(f"[PIN] Default settings PIN created: {default_pin}")
             return default_pin
             
         except Exception as e:
-            print(f"[PIN] Erreur chargement PIN: {e}")
+            print(f"[PIN] Failed to load settings PIN: {e}")
             return "1234"
     
     def update_labels(self):
