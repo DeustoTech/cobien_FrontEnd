@@ -353,27 +353,6 @@ prepare_venv() {
   "$UV_BIN" sync --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR"
 }
 
-ensure_assistant_model_assets() {
-  local model_dir
-  model_dir="$FRONTEND_APP_DIR/virtual_assistant/roberta_model"
-
-  if [[ -f "$model_dir/model.safetensors" || -f "$model_dir/pytorch_model.bin" || -f "$model_dir/tf_model.h5" || -f "$model_dir/model.ckpt.index" || -f "$model_dir/flax_model.msgpack" ]]; then
-    log "Assistant model weights already present in $model_dir"
-    return
-  fi
-
-  log "Provisioning assistant model weights into $model_dir"
-  "$UV_BIN" run --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR" python - <<PY
-from pathlib import Path
-from transformers import AutoModel
-
-target = Path(r"$model_dir")
-target.mkdir(parents=True, exist_ok=True)
-model = AutoModel.from_pretrained("roberta-base")
-model.save_pretrained(target)
-PY
-}
-
 write_env_file() {
   cat > "$ENV_FILE" <<EOF
 COBIEN_FRONTEND_REPO=$FRONTEND_REPO
@@ -408,7 +387,6 @@ setup_environment() {
   checkout_branch "$FRONTEND_REPO"
   checkout_branch "$MQTT_REPO"
   prepare_venv
-  ensure_assistant_model_assets
   write_env_file
 }
 

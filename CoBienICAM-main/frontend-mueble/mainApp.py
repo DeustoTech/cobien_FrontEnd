@@ -50,7 +50,6 @@ from icso_data.wakeup_logger import log_wakeup
 # Virtual assistant
 from virtual_assistant.actions import ActionExecutor
 from virtual_assistant.recognizer import SpeechRecognizer
-from virtual_assistant.nlp_processor import IntentClassifier
 from virtual_assistant.main_assistant import AssistantOrchestrator
 
 # Sleep screen
@@ -558,7 +557,6 @@ class MainScreen(Screen):
         
         self.action_executor = None
         #self.recognizer = SpeechRecognizer()
-        self.classifier = IntentClassifier()
         # ========== MQTT LOCAL (pour les capteurs du meuble) ==========
         random_id = "kivy_local_client"
         self.mqtt_client_local = mqtt.Client(client_id=random_id, clean_session=True)

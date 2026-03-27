@@ -1,7 +1,6 @@
 # frontend-mueble/virtual_assistant/main_assistant.py
 
 from virtual_assistant.recognizer import SpeechRecognizer
-from virtual_assistant.nlp_processor import IntentClassifier
 from virtual_assistant.actions import ActionExecutor
 from kivy.uix.screenmanager import Screen
 ############# SIMONA
@@ -27,7 +26,6 @@ class AssistantOrchestrator:
         
         # On évite le chargement des modèles vosk au démarrage
         #self.recognizer = SpeechRecognizer(app_path)
-        self.classifier = IntentClassifier()
         self.executor = ActionExecutor(app_reference)
 
         # Motor TTS de respaldo
