@@ -15,8 +15,9 @@ from kivy.properties import ListProperty, StringProperty, ObjectProperty, Boolea
 from kivy.clock import Clock
 from translation import _
 from kivy.app import App
-from kivy.uix.popup import Popup
+from kivy.uix.modalview import ModalView
 from kivy.uix.label import Label
+from kivy.graphics import Color, RoundedRectangle
 from app_config import AppConfig
 
 # Voz
@@ -650,6 +651,23 @@ class DayEventsScreen(Screen):
     def _set_voice_flow_popup(self, active: bool, message: str):
         if active:
             if not hasattr(self, "_voice_flow_popup") or self._voice_flow_popup is None:
+                card = BoxLayout(
+                    orientation="vertical",
+                    size_hint=(None, None),
+                    size=(dp(980), dp(500)),
+                    pos_hint={"center_x": 0.5, "center_y": 0.5},
+                    spacing=dp(16),
+                    padding=dp(24),
+                )
+                with card.canvas.before:
+                    Color(1, 1, 1, 0.98)
+                    self._voice_flow_card_bg = RoundedRectangle(
+                        pos=card.pos,
+                        size=card.size,
+                        radius=[dp(24)],
+                    )
+                card.bind(pos=self._sync_voice_flow_card_bg, size=self._sync_voice_flow_card_bg)
+
                 title_label = Label(
                     text=_("Asistente de voz activo"),
                     color=(0, 0, 0, 1),
@@ -671,16 +689,16 @@ class DayEventsScreen(Screen):
                 )
                 self._voice_flow_label.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
-                content = BoxLayout(orientation="vertical", spacing=dp(16), padding=dp(20))
-                content.add_widget(title_label)
-                content.add_widget(self._voice_flow_label)
+                card.add_widget(title_label)
+                card.add_widget(self._voice_flow_label)
 
-                self._voice_flow_popup = Popup(
-                    title=_("Añadir evento personal (voz)"),
-                    content=content,
+                self._voice_flow_popup = ModalView(
                     auto_dismiss=False,
-                    size_hint=(0.62, 0.42),
+                    size_hint=(1, 1),
+                    background="",
+                    background_color=(0, 0, 0, 0.55),
                 )
+                self._voice_flow_popup.add_widget(card)
 
             self._voice_flow_label.text = message or ""
             if not self._voice_flow_popup.parent:
@@ -689,6 +707,11 @@ class DayEventsScreen(Screen):
 
         if hasattr(self, "_voice_flow_popup") and self._voice_flow_popup and self._voice_flow_popup.parent:
             self._voice_flow_popup.dismiss()
+
+    def _sync_voice_flow_card_bg(self, widget, *_args):
+        if hasattr(self, "_voice_flow_card_bg") and self._voice_flow_card_bg is not None:
+            self._voice_flow_card_bg.pos = widget.pos
+            self._voice_flow_card_bg.size = widget.size
     
     def _after_event_added(self):
         self.speak(_("Evento añadido."))

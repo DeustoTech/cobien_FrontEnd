@@ -1,6 +1,7 @@
 import os
 import json
 import math
+import time
 from datetime import datetime
 
 from events.event_bus import event_bus
@@ -110,6 +111,30 @@ def cargar_eventos_locales():
     print(f"{len(eventos)} eventos cargados desde archivo local (location='{LOCATION_NAME}').")
     return eventos
 
+
+def _append_personal_event_local(day_date, title, description, location=None, device_name=None):
+    """Guarda un evento personal en cache local como fallback cuando Mongo no está disponible."""
+    target_location = location or LOCATION_NAME
+    target_device = device_name or DEVICE_NAME
+    fecha_str = day_date.strftime("%d-%m-%Y")
+    local_id = f"local-{int(time.time() * 1000)}"
+
+    local_events = cargar_eventos_locales() or []
+    local_events.append({
+        "id": local_id,
+        "date": fecha_str,
+        "title": str(title).strip() if title else "Sin título",
+        "description": str(description).strip() if description else "Sin descripción",
+        "location": target_location,
+        "audience": "device",
+        "target_device": target_device,
+        "color": AUDIENCE_COLORS["device"],
+        "created_by": "local_fallback",
+    })
+    guardar_eventos_localmente(local_events)
+    event_bus.notify_events_changed()
+    return local_id
+
 # ------------------------
 # MONGO: FETCH
 # ------------------------
@@ -179,6 +204,18 @@ def delete_event_mongo(event_id: str) -> bool:
     """
     if not event_id:
         return False
+    if str(event_id).startswith("local-"):
+        try:
+            local_events = cargar_eventos_locales() or []
+            new_events = [e for e in local_events if str(e.get("id") or "") != str(event_id)]
+            if len(new_events) == len(local_events):
+                return False
+            guardar_eventos_localmente(new_events)
+            event_bus.notify_events_changed()
+            return True
+        except Exception as e:
+            print(f"[DELETE] Error borrando evento local {event_id}: {e}")
+            return False
     try:
         client = get_mongo_client()
         db = client["LabasAppDB"]
@@ -234,7 +271,19 @@ def add_personal_event_mongo(day_date, title, description, location=None, device
         return str(res.inserted_id)
     except Exception as e:
         print(f"[MONGO] Error insertando evento personal: {e}")
-        return None
+        try:
+            fallback_id = _append_personal_event_local(
+                day_date=day_date,
+                title=title,
+                description=description,
+                location=location,
+                device_name=device_name,
+            )
+            print(f"[MONGO] Evento personal guardado en cache local como fallback: {fallback_id}")
+            return fallback_id
+        except Exception as local_error:
+            print(f"[LOCAL] Error guardando fallback local del evento personal: {local_error}")
+            return None
 
 
 # ------------------------
