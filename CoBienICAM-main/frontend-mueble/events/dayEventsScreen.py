@@ -1,6 +1,7 @@
 # events/dayEventsScreen.py
 from datetime import datetime, timedelta, date
 import os, json
+import threading
 
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
@@ -14,6 +15,10 @@ from kivy.properties import ListProperty, StringProperty, ObjectProperty, Boolea
 from kivy.clock import Clock
 from translation import _
 from kivy.app import App
+from kivy.uix.popup import Popup
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
 from app_config import AppConfig
 
 # Voz
@@ -606,20 +611,36 @@ class DayEventsScreen(Screen):
 
 
     def _voice_add_worker(self):
-        title = self.listen(_("Di el título del evento personal"))
-
+        title_voice = self.listen(_("Di el título del evento personal"))
+        title = self._ask_text_popup(
+            question=_("Título del evento personal"),
+            initial_text=title_voice or "",
+            allow_empty=False,
+            multiline=False,
+        )
         if title is None:
-            from kivy.clock import Clock
-            Clock.schedule_once(
-                lambda dt: self.speak(_("No he entendido el título."))
-            )
+            Clock.schedule_once(lambda dt: self.speak(_("Operación cancelada.")))
+            return
+        if not title.strip():
+            Clock.schedule_once(lambda dt: self.speak(_("No he entendido el título.")))
             return
 
-        desc = self.listen(_("Di la descripción del evento")) or _("Sin descripción")
+        desc_voice = self.listen(_("Di la descripción del evento"))
+        desc = self._ask_text_popup(
+            question=_("Descripción del evento"),
+            initial_text=desc_voice or "",
+            allow_empty=True,
+            multiline=True,
+        )
+        if desc is None:
+            Clock.schedule_once(lambda dt: self.speak(_("Operación cancelada.")))
+            return
+        if not desc.strip():
+            desc = _("Sin descripción")
 
         ok = add_personal_event_mongo(
             day_date=self.current_day,
-            title=title,
+            title=title.strip(),
             description=desc,
             location=self.current_location,
             device_name=self.cfg.get_device_id()
@@ -632,6 +653,71 @@ class DayEventsScreen(Screen):
             Clock.schedule_once(
                 lambda dt: self.speak(_("Ha ocurrido un error al añadir el evento."))
             )
+
+    def _ask_text_popup(self, question: str, initial_text: str = "", allow_empty: bool = False, multiline: bool = False):
+        result = {"value": None}
+        done = threading.Event()
+
+        def _open_popup(_dt):
+            root = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(20))
+
+            lbl = Label(
+                text=question,
+                color=(0, 0, 0, 1),
+                font_size=sp(28),
+                halign="left",
+                valign="middle",
+                size_hint_y=None,
+                height=dp(70),
+            )
+            lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
+            ti = TextInput(
+                text=initial_text or "",
+                multiline=multiline,
+                font_size=sp(24),
+                size_hint_y=None,
+                height=dp(170) if multiline else dp(70),
+            )
+
+            btns = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
+            btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
+            btn_ok = Button(text=_("Aceptar"), font_size=sp(22))
+
+            popup = Popup(
+                title=_("Añadir evento personal (voz)"),
+                content=root,
+                auto_dismiss=False,
+                size_hint=(None, None),
+                size=(dp(980), dp(520)),
+            )
+
+            def _cancel(_btn):
+                result["value"] = None
+                popup.dismiss()
+                done.set()
+
+            def _accept(_btn):
+                value = (ti.text or "").strip()
+                if not value and not allow_empty:
+                    return
+                result["value"] = value
+                popup.dismiss()
+                done.set()
+
+            btn_cancel.bind(on_release=_cancel)
+            btn_ok.bind(on_release=_accept)
+
+            btns.add_widget(btn_cancel)
+            btns.add_widget(btn_ok)
+            root.add_widget(lbl)
+            root.add_widget(ti)
+            root.add_widget(btns)
+            popup.open()
+
+        Clock.schedule_once(_open_popup, 0)
+        done.wait()
+        return result["value"]
     
     def _after_event_added(self):
         self.speak(_("Evento añadido."))
