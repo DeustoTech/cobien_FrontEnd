@@ -13,6 +13,9 @@ from kivy.lang import Builder
 from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, BooleanProperty
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.modalview import ModalView
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
 
 
 # Voz (si la usas en tu orquestador)
@@ -647,6 +650,8 @@ class MainScreen(Screen):
         
         # ✅ ÉTAPE 7 : Mettre à jour les labels traduits
         self.update_labels()
+
+        self._assistant_overlay = AssistantOverlay()
 
        
     def _maybe_refresh_joke(self, force=False):
@@ -1615,10 +1620,60 @@ class MainScreen(Screen):
         if hasattr(app, "speak"):
             app.speak(text)
 
-    
+    def set_assistant_overlay(self, active: bool, message: str = ""):
+        if active:
+            self._assistant_overlay.set_message(message or _("Escuchando…"))
+            if not self._assistant_overlay.parent:
+                self._assistant_overlay.open()
+            return
 
+        if self._assistant_overlay.parent:
+            self._assistant_overlay.dismiss()
+
+
+    
 class Root(ScreenManager):
     pass
+
+
+class AssistantOverlay(ModalView):
+    def __init__(self, **kwargs):
+        super().__init__(auto_dismiss=False, background="", **kwargs)
+        self.size_hint = (1, 1)
+
+        content = BoxLayout(
+            orientation="vertical",
+            padding=[dp(60), dp(40), dp(60), dp(40)],
+            spacing=dp(20),
+        )
+
+        self._title = Label(
+            text="Asistente",
+            font_size=sp(68),
+            bold=True,
+            color=(1, 1, 1, 1),
+            halign="center",
+            valign="middle",
+            size_hint_y=None,
+            height=dp(120),
+        )
+        self._title.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+
+        self._message = Label(
+            text="",
+            font_size=sp(48),
+            color=(1, 1, 1, 1),
+            halign="center",
+            valign="middle",
+        )
+        self._message.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+
+        content.add_widget(self._title)
+        content.add_widget(self._message)
+        self.add_widget(content)
+
+    def set_message(self, message: str):
+        self._message.text = message
 
 
 class MyApp(App):

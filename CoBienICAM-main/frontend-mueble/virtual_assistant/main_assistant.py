@@ -198,6 +198,11 @@ class AssistantOrchestrator:
 
     def _actualizar_label(self, texto: str):
         """Actualiza la etiqueta result_label si existe."""
+        try:
+            Clock.schedule_once(lambda dt, t=texto: self.app.set_assistant_overlay(True, t), 0)
+        except Exception:
+            pass
+
         if hasattr(self.app, "result_label"):
             try:
                 self.app.result_label.text = texto
@@ -227,6 +232,8 @@ class AssistantOrchestrator:
 
     def _run_assistant(self):
         try:
+            Clock.schedule_once(lambda dt: self.app.set_assistant_overlay(True, _("Escuchando…")), 0)
+
             # Initial user feedback
             #self._actualizar_label("Escuchando…")
             language = self.app.cfg.data["language"]
@@ -287,6 +294,7 @@ class AssistantOrchestrator:
             self._actualizar_label("Ha ocurrido un error")
             self._speak(_("Lo siento, ha ocurrido un error"))
         finally:
+            Clock.schedule_once(lambda dt: self.app.set_assistant_overlay(False, ""), 0)
             self._running = False
             self._listening = False
             self._stop_event.clear()
