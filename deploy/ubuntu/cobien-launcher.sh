@@ -523,22 +523,15 @@ repo_updates_launcher() {
 
 handoff_to_updated_launcher() {
   local next_mode="$1"
-  local command_text log_file
 
-  log "Launcher script changed; handing off to a fresh unattended launcher process"
-  command_text="/bin/bash \"$SELF_SCRIPT\" --non-interactive --yes --mode \"$next_mode\" --workspace \"$WORKSPACE_ROOT\" --frontend-name \"$FRONTEND_REPO_NAME\" --mqtt-name \"$MQTT_REPO_NAME\""
-
-  if runtime_can_open_terminals; then
-    gnome-terminal --title="COBIEN LAUNCHER" -- bash -lc "$command_text; exec bash" >/dev/null 2>&1 || true
-  else
-    mkdir -p "$LOG_DIR"
-    log_file="$LOG_DIR/launcher-handoff.log"
-    nohup bash -lc "$command_text" >"$log_file" 2>&1 &
-    log "Launcher handoff log: $log_file"
-  fi
-
-  log "Current launcher process will exit now"
-  exit 0
+  log "Launcher script changed; re-executing updated launcher in current terminal"
+  exec /bin/bash "$SELF_SCRIPT" \
+    --non-interactive \
+    --yes \
+    --mode "$next_mode" \
+    --workspace "$WORKSPACE_ROOT" \
+    --frontend-name "$FRONTEND_REPO_NAME" \
+    --mqtt-name "$MQTT_REPO_NAME"
 }
 
 update_repo_if_needed() {
