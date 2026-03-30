@@ -155,6 +155,7 @@ runtime_launch_background() {
 launch_runtime() {
   local relaunch_after_update="${1:-0}"
   check_paths
+  ensure_runtime_dependencies
   resolve_python_bin
   resolve_uv_bin
   mkdir -p "$LOG_DIR"
@@ -295,6 +296,38 @@ install_system_deps_fn() {
   fi
 }
 
+ensure_runtime_dependencies() {
+  local missing_packages=()
+  local apt_updated="0"
+
+  command -v git >/dev/null 2>&1 || missing_packages+=("git")
+  command -v curl >/dev/null 2>&1 || missing_packages+=("curl")
+  command -v wget >/dev/null 2>&1 || missing_packages+=("wget")
+  command -v make >/dev/null 2>&1 || missing_packages+=("build-essential")
+  command -v gcc >/dev/null 2>&1 || missing_packages+=("build-essential")
+  command -v cmake >/dev/null 2>&1 || missing_packages+=("cmake")
+  command -v candump >/dev/null 2>&1 || missing_packages+=("can-utils")
+  command -v ip >/dev/null 2>&1 || missing_packages+=("iproute2")
+  command -v mosquitto >/dev/null 2>&1 || missing_packages+=("mosquitto" "mosquitto-clients")
+
+  if [[ "${#missing_packages[@]}" -gt 0 ]]; then
+    log "Missing runtime dependencies detected: ${missing_packages[*]}"
+    log "Installing missing runtime dependencies (sudo may ask for password)..."
+    sudo apt update
+    apt_updated="1"
+    sudo apt install -y "${missing_packages[@]}"
+  fi
+
+  if ! command -v python3.11 >/dev/null 2>&1 && apt-cache show python3.11 >/dev/null 2>&1; then
+    log "Python 3.11 not found. Installing runtime Python dependencies..."
+    if [[ "$apt_updated" != "1" ]]; then
+      sudo apt update
+      apt_updated="1"
+    fi
+    sudo apt install -y python3.11 python3.11-venv python3.11-dev
+  fi
+}
+
 ensure_mosquitto_running() {
   if pgrep -x mosquitto >/dev/null 2>&1; then
     log "Mosquitto already running (process detected)"
@@ -302,8 +335,13 @@ ensure_mosquitto_running() {
   fi
 
   if ! command -v mosquitto >/dev/null 2>&1; then
-    log "Mosquitto binary not found. Install it first (apt install mosquitto)."
-    return
+    log "Mosquitto binary not found. Installing it now (sudo may ask for password)..."
+    sudo apt update
+    sudo apt install -y mosquitto mosquitto-clients
+    if ! command -v mosquitto >/dev/null 2>&1; then
+      log "Mosquitto installation failed or binary still unavailable."
+      return
+    fi
   fi
 
   if command -v systemctl >/dev/null 2>&1; then
