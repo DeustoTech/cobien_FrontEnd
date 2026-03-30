@@ -281,7 +281,7 @@ install_system_deps_fn() {
     git curl wget build-essential cmake pkg-config \
     python3 python3-venv python3-pip \
     wmctrl gnome-terminal can-utils iproute2 \
-    pulseaudio-utils pavucontrol \
+    pulseaudio-utils pipewire-pulse wireplumber pavucontrol \
     mosquitto mosquitto-clients \
     libasound2-dev portaudio19-dev \
     libgl1 libegl1 libglib2.0-0 \
@@ -311,6 +311,8 @@ ensure_runtime_dependencies() {
   command -v candump >/dev/null 2>&1 || missing_packages+=("can-utils")
   command -v ip >/dev/null 2>&1 || missing_packages+=("iproute2")
   command -v pactl >/dev/null 2>&1 || missing_packages+=("pulseaudio-utils")
+  dpkg -s pipewire-pulse >/dev/null 2>&1 || missing_packages+=("pipewire-pulse")
+  dpkg -s wireplumber >/dev/null 2>&1 || missing_packages+=("wireplumber")
   command -v mosquitto >/dev/null 2>&1 || missing_packages+=("mosquitto" "mosquitto-clients")
 
   if [[ "${#missing_packages[@]}" -gt 0 ]]; then
@@ -332,14 +334,23 @@ ensure_runtime_dependencies() {
 }
 
 configure_audio_input_defaults() {
+  local settings_file
+  settings_file="$FRONTEND_APP_DIR/settings/settings.json"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user restart pipewire pipewire-pulse wireplumber >/dev/null 2>&1 || true
+    sleep 1
+  fi
+
   if ! command -v pactl >/dev/null 2>&1; then
     log "Audio: pactl not available, skipping audio routing setup"
     return
   fi
 
-  local usb_card hda_source
+  local usb_card hda_source fallback_source
   usb_card="$(pactl list short cards 2>/dev/null | awk 'tolower($0) ~ /usb/ {print $2; exit}')"
   hda_source="$(pactl list short sources 2>/dev/null | awk 'tolower($0) ~ /hda|pci/ && tolower($0) ~ /input/ {print $2; exit}')"
+  fallback_source="$(pactl list short sources 2>/dev/null | awk 'tolower($0) ~ /input/ && tolower($0) !~ /usb/ {print $2; exit}')"
 
   if [[ -n "$usb_card" ]]; then
     if pactl set-card-profile "$usb_card" output:analog-stereo >/dev/null 2>&1; then
@@ -357,8 +368,21 @@ configure_audio_input_defaults() {
     else
       log "Audio: could not set default source '$hda_source'"
     fi
+  elif [[ -n "$fallback_source" ]]; then
+    if pactl set-default-source "$fallback_source" >/dev/null 2>&1; then
+      log "Audio: default input source set to fallback '$fallback_source'"
+    else
+      log "Audio: could not set fallback source '$fallback_source'"
+    fi
   else
     log "Audio: no HDA/PCH input source found"
+  fi
+
+  if [[ -f "$settings_file" ]]; then
+    if grep -q '"microphone_device"' "$settings_file"; then
+      sed -i 's/"microphone_device":[[:space:]]*"[^"]*"/"microphone_device": ""/' "$settings_file" || true
+      log "Audio: reset microphone_device in settings.json to use system default source"
+    fi
   fi
 }
 
