@@ -650,24 +650,36 @@ class DayEventsScreen(Screen):
     def _set_voice_flow_popup(self, active: bool, message: str):
         if active:
             if not hasattr(self, "_voice_flow_popup") or self._voice_flow_popup is None:
+                title_label = Label(
+                    text=_("Asistente de voz activo"),
+                    color=(0, 0, 0, 1),
+                    font_size=sp(28),
+                    bold=True,
+                    halign="center",
+                    valign="middle",
+                    size_hint_y=None,
+                    height=dp(50),
+                )
+                title_label.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
                 self._voice_flow_label = Label(
                     text="",
                     color=(0, 0, 0, 1),
-                    font_size=sp(30),
-                    halign="left",
+                    font_size=sp(24),
+                    halign="center",
                     valign="middle",
                 )
                 self._voice_flow_label.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
-                content = BoxLayout(orientation="vertical", padding=dp(20))
+                content = BoxLayout(orientation="vertical", spacing=dp(16), padding=dp(20))
+                content.add_widget(title_label)
                 content.add_widget(self._voice_flow_label)
 
                 self._voice_flow_popup = Popup(
                     title=_("Añadir evento personal (voz)"),
                     content=content,
                     auto_dismiss=False,
-                    size_hint=(None, None),
-                    size=(dp(980), dp(460)),
+                    size_hint=(0.62, 0.42),
                 )
 
             self._voice_flow_label.text = message or ""
