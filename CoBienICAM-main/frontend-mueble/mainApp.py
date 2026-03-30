@@ -1716,6 +1716,9 @@ class MyApp(App):
         Réinitialise le timer de veille.
         Recharge le timeout depuis settings.json à chaque appel.
         """
+        # Sleep/black overlay por inactividad deshabilitado temporalmente.
+        return
+        """
         # Si l'overlay est déjà affiché, ne rien faire
         if getattr(self, "black_overlay", None) and self.black_overlay.parent:
             return
@@ -1734,8 +1737,12 @@ class MyApp(App):
         
         from kivy.clock import Clock
         self._idle_event = Clock.schedule_once(self._show_black_overlay, timeout)
+        """
 
     def _on_first_user_input(self, *args):
+        # Sleep/black overlay por inactividad deshabilitado temporalmente.
+        return
+        """
         Window.unbind(
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
@@ -1749,9 +1756,13 @@ class MyApp(App):
         )
 
         self._reset_idle_timer()
+        """
 
 
     def _show_black_overlay(self, *args):
+        # Sleep/black overlay por inactividad deshabilitado temporalmente.
+        return
+        """
         if suspend_system():
             Clock.schedule_once(lambda dt: self._on_wakeup(), 1)
             return
@@ -1761,9 +1772,11 @@ class MyApp(App):
         if self.black_overlay.parent:
             return
         self.black_overlay.open()
+        """
 
     def _on_wakeup(self):
-        Clock.schedule_once(lambda dt: self._reset_idle_timer(), 0)
+        # Sleep/black overlay por inactividad deshabilitado temporalmente.
+        # Clock.schedule_once(lambda dt: self._reset_idle_timer(), 0)
         log_wakeup()
 
 
@@ -1793,14 +1806,17 @@ class MyApp(App):
 
 
     def build(self):
-        self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
+        # Sleep/black overlay por inactividad deshabilitado temporalmente.
+        # self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
+        self.black_overlay = None
         self._idle_event = None
 
-        Window.bind(
-            on_touch_down=self._on_first_user_input,
-            on_touch_move=self._on_first_user_input,
-            on_key_down=self._on_first_user_input
-)
+        # Sleep/black overlay por inactividad deshabilitado temporalmente.
+        # Window.bind(
+        #     on_touch_down=self._on_first_user_input,
+        #     on_touch_move=self._on_first_user_input,
+        #     on_key_down=self._on_first_user_input
+        # )
         # Charger config et traduction
         self.cfg = AppConfig()
 
