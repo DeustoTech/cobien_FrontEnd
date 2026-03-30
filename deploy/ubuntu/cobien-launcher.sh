@@ -156,6 +156,7 @@ launch_runtime() {
   local relaunch_after_update="${1:-0}"
   check_paths
   ensure_runtime_dependencies
+  configure_audio_input_defaults
   resolve_python_bin
   resolve_uv_bin
   mkdir -p "$LOG_DIR"
@@ -280,6 +281,7 @@ install_system_deps_fn() {
     git curl wget build-essential cmake pkg-config \
     python3 python3-venv python3-pip \
     wmctrl gnome-terminal can-utils iproute2 \
+    pulseaudio-utils pavucontrol \
     mosquitto mosquitto-clients \
     libasound2-dev portaudio19-dev \
     libgl1 libegl1 libglib2.0-0 \
@@ -308,6 +310,7 @@ ensure_runtime_dependencies() {
   command -v cmake >/dev/null 2>&1 || missing_packages+=("cmake")
   command -v candump >/dev/null 2>&1 || missing_packages+=("can-utils")
   command -v ip >/dev/null 2>&1 || missing_packages+=("iproute2")
+  command -v pactl >/dev/null 2>&1 || missing_packages+=("pulseaudio-utils")
   command -v mosquitto >/dev/null 2>&1 || missing_packages+=("mosquitto" "mosquitto-clients")
 
   if [[ "${#missing_packages[@]}" -gt 0 ]]; then
@@ -325,6 +328,37 @@ ensure_runtime_dependencies() {
       apt_updated="1"
     fi
     sudo apt install -y python3.11 python3.11-venv python3.11-dev
+  fi
+}
+
+configure_audio_input_defaults() {
+  if ! command -v pactl >/dev/null 2>&1; then
+    log "Audio: pactl not available, skipping audio routing setup"
+    return
+  fi
+
+  local usb_card hda_source
+  usb_card="$(pactl list short cards 2>/dev/null | awk 'tolower($0) ~ /usb/ {print $2; exit}')"
+  hda_source="$(pactl list short sources 2>/dev/null | awk 'tolower($0) ~ /hda|pci/ && tolower($0) ~ /input/ {print $2; exit}')"
+
+  if [[ -n "$usb_card" ]]; then
+    if pactl set-card-profile "$usb_card" output:analog-stereo >/dev/null 2>&1; then
+      log "Audio: set USB card '$usb_card' profile to output:analog-stereo"
+    else
+      log "Audio: could not set USB profile on '$usb_card'"
+    fi
+  else
+    log "Audio: no USB card found for profile override"
+  fi
+
+  if [[ -n "$hda_source" ]]; then
+    if pactl set-default-source "$hda_source" >/dev/null 2>&1; then
+      log "Audio: default input source set to '$hda_source'"
+    else
+      log "Audio: could not set default source '$hda_source'"
+    fi
+  else
+    log "Audio: no HDA/PCH input source found"
   fi
 }
 
