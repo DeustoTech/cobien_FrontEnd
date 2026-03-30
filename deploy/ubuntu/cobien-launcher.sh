@@ -153,9 +153,11 @@ runtime_launch_background() {
 }
 
 launch_runtime() {
+  local relaunch_after_update="${1:-0}"
   check_paths
   resolve_python_bin
   resolve_uv_bin
+  ensure_mosquitto_running
   mkdir -p "$LOG_DIR"
 
   echo "=== Launching CoBien System ==="
@@ -171,18 +173,21 @@ launch_runtime() {
     echo "[TERM] No graphical terminal available, using fallback mode"
   fi
 
-  echo "[CLEAN] Closing previous CoBien terminals..."
-  for title in "CAN BUS" "MQTT-CAN BRIDGE" "COBIEN APP"; do
-    window_id="$(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1; exit}')"
-    if [[ -n "${window_id:-}" ]]; then
-      wmctrl -ic "$window_id" >/dev/null 2>&1 || true
-    fi
-  done
-  pkill -f "candump can0" >/dev/null 2>&1 || true
-  pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
-  pkill -f "mainApp.py" >/dev/null 2>&1 || true
-
-  sleep 1
+  if [[ "$relaunch_after_update" == "1" ]]; then
+    echo "[CLEAN] Closing previous CoBien terminals (update detected)..."
+    for title in "CAN BUS" "MQTT-CAN BRIDGE" "COBIEN APP"; do
+      window_id="$(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1; exit}')"
+      if [[ -n "${window_id:-}" ]]; then
+        wmctrl -ic "$window_id" >/dev/null 2>&1 || true
+      fi
+    done
+    pkill -f "candump can0" >/dev/null 2>&1 || true
+    pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
+    pkill -f "mainApp.py" >/dev/null 2>&1 || true
+    sleep 1
+  else
+    echo "[CLEAN] No update detected; keeping current launcher terminal/session."
+  fi
 
   if ! runtime_launch_named_terminal "CAN BUS" "$(runtime_can_command)"; then
     runtime_launch_background "can-bus" "$(runtime_can_command)"
@@ -274,6 +279,7 @@ install_system_deps_fn() {
     git curl wget build-essential cmake pkg-config \
     python3 python3-venv python3-pip \
     wmctrl gnome-terminal can-utils iproute2 \
+    mosquitto mosquitto-clients \
     libasound2-dev portaudio19-dev \
     libgl1 libegl1 libglib2.0-0 \
     libgstreamer1.0-0 gstreamer1.0-plugins-base \
@@ -286,6 +292,30 @@ install_system_deps_fn() {
 
   if apt-cache show python3.11 >/dev/null 2>&1; then
     sudo apt install -y python3.11 python3.11-venv python3.11-dev
+  fi
+}
+
+ensure_mosquitto_running() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    log "systemctl not available; skipping Mosquitto service check"
+    return
+  fi
+
+  if sudo systemctl is-active --quiet mosquitto; then
+    log "Mosquitto already running"
+    return
+  fi
+
+  log "Starting Mosquitto service"
+  if ! sudo systemctl enable --now mosquitto; then
+    log "Failed to start Mosquitto with systemctl"
+    return
+  fi
+
+  if sudo systemctl is-active --quiet mosquitto; then
+    log "Mosquitto started successfully"
+  else
+    log "Mosquitto service is not active after startup"
   fi
 }
 
@@ -490,8 +520,9 @@ update_repo_if_needed() {
 }
 
 restart_software() {
+  local relaunch_after_update="${1:-0}"
   log "Relaunching furniture software"
-  launch_runtime
+  launch_runtime "$relaunch_after_update"
 }
 
 run_update_once() {
@@ -511,7 +542,7 @@ run_update_once() {
 
   if [[ "$updated" -eq 1 ]]; then
     mark_update_applied
-    restart_software
+    restart_software 1
   else
     log "No changes to deploy"
   fi
