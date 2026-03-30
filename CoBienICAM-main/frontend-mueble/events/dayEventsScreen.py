@@ -17,8 +17,6 @@ from translation import _
 from kivy.app import App
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.textinput import TextInput
 from app_config import AppConfig
 
 # Voz
@@ -611,113 +609,74 @@ class DayEventsScreen(Screen):
 
 
     def _voice_add_worker(self):
-        title_voice = self.listen(_("Di el título del evento personal"))
-        title = self._ask_text_popup(
-            question=_("Título del evento personal"),
-            initial_text=title_voice or "",
-            allow_empty=False,
-            multiline=False,
-        )
-        if title is None:
-            Clock.schedule_once(lambda dt: self.speak(_("Operación cancelada.")))
-            return
-        if not title.strip():
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Preparando asistente de voz…")))
+
+        title_prompt = _("Di el título del evento personal")
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, title_prompt))
+        title_voice = self.listen(title_prompt)
+
+        if not title_voice or not title_voice.strip():
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("No he entendido el título.")))
             Clock.schedule_once(lambda dt: self.speak(_("No he entendido el título.")))
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(False, ""))
             return
 
-        desc_voice = self.listen(_("Di la descripción del evento"))
-        desc = self._ask_text_popup(
-            question=_("Descripción del evento"),
-            initial_text=desc_voice or "",
-            allow_empty=True,
-            multiline=True,
-        )
-        if desc is None:
-            Clock.schedule_once(lambda dt: self.speak(_("Operación cancelada.")))
-            return
-        if not desc.strip():
-            desc = _("Sin descripción")
+        title = title_voice.strip()
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Título detectado:") + f"\n{title}"))
+
+        desc_prompt = _("Di la descripción del evento")
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, desc_prompt))
+        desc_voice = self.listen(desc_prompt)
+        desc = (desc_voice or "").strip() or _("Sin descripción")
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Descripción detectada:") + f"\n{desc}"))
 
         ok = add_personal_event_mongo(
             day_date=self.current_day,
-            title=title.strip(),
+            title=title,
             description=desc,
             location=self.current_location,
             device_name=self.cfg.get_device_id()
         )
 
-        from kivy.clock import Clock
         if ok:
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Guardando evento…")))
             Clock.schedule_once(lambda dt: self._after_event_added())
         else:
-            Clock.schedule_once(
-                lambda dt: self.speak(_("Ha ocurrido un error al añadir el evento."))
-            )
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Ha ocurrido un error al añadir el evento.")))
+            Clock.schedule_once(lambda dt: self.speak(_("Ha ocurrido un error al añadir el evento.")))
 
-    def _ask_text_popup(self, question: str, initial_text: str = "", allow_empty: bool = False, multiline: bool = False):
-        result = {"value": None}
-        done = threading.Event()
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(False, ""), 1.0)
 
-        def _open_popup(_dt):
-            root = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(20))
+    def _set_voice_flow_popup(self, active: bool, message: str):
+        if active:
+            if not hasattr(self, "_voice_flow_popup") or self._voice_flow_popup is None:
+                self._voice_flow_label = Label(
+                    text="",
+                    color=(0, 0, 0, 1),
+                    font_size=sp(30),
+                    halign="left",
+                    valign="middle",
+                )
+                self._voice_flow_label.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
-            lbl = Label(
-                text=question,
-                color=(0, 0, 0, 1),
-                font_size=sp(28),
-                halign="left",
-                valign="middle",
-                size_hint_y=None,
-                height=dp(70),
-            )
-            lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+                content = BoxLayout(orientation="vertical", padding=dp(20))
+                content.add_widget(self._voice_flow_label)
 
-            ti = TextInput(
-                text=initial_text or "",
-                multiline=multiline,
-                font_size=sp(24),
-                size_hint_y=None,
-                height=dp(170) if multiline else dp(70),
-            )
+                self._voice_flow_popup = Popup(
+                    title=_("Añadir evento personal (voz)"),
+                    content=content,
+                    auto_dismiss=False,
+                    size_hint=(None, None),
+                    size=(dp(980), dp(460)),
+                )
 
-            btns = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
-            btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
-            btn_ok = Button(text=_("Aceptar"), font_size=sp(22))
+            self._voice_flow_label.text = message or ""
+            if not self._voice_flow_popup.parent:
+                self._voice_flow_popup.open()
+            return
 
-            popup = Popup(
-                title=_("Añadir evento personal (voz)"),
-                content=root,
-                auto_dismiss=False,
-                size_hint=(None, None),
-                size=(dp(980), dp(520)),
-            )
-
-            def _cancel(_btn):
-                result["value"] = None
-                popup.dismiss()
-                done.set()
-
-            def _accept(_btn):
-                value = (ti.text or "").strip()
-                if not value and not allow_empty:
-                    return
-                result["value"] = value
-                popup.dismiss()
-                done.set()
-
-            btn_cancel.bind(on_release=_cancel)
-            btn_ok.bind(on_release=_accept)
-
-            btns.add_widget(btn_cancel)
-            btns.add_widget(btn_ok)
-            root.add_widget(lbl)
-            root.add_widget(ti)
-            root.add_widget(btns)
-            popup.open()
-
-        Clock.schedule_once(_open_popup, 0)
-        done.wait()
-        return result["value"]
+        if hasattr(self, "_voice_flow_popup") and self._voice_flow_popup and self._voice_flow_popup.parent:
+            self._voice_flow_popup.dismiss()
     
     def _after_event_added(self):
         self.speak(_("Evento añadido."))
