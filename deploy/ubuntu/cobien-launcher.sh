@@ -18,7 +18,7 @@ BRANCH_NAME="${COBIEN_UPDATE_BRANCH:-$BRANCH_NAME_DEFAULT}"
 RUN_UPDATE_ONCE="${COBIEN_RUN_UPDATE_ONCE:-0}"
 INSTALL_SYSTEM_DEPS="${COBIEN_INSTALL_SYSTEM_DEPS:-1}"
 RECREATE_VENV="${COBIEN_RECREATE_VENV:-0}"
-ENABLE_WATCH="${COBIEN_ENABLE_WATCH:-0}"
+ENABLE_WATCH="${COBIEN_ENABLE_WATCH:-1}"
 INSTALL_CRON="${COBIEN_INSTALL_CRON:-0}"
 CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE_DEFAULT}"
 NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-0}"
@@ -727,7 +727,7 @@ run_full_flow() {
     RUN_UPDATE_ONCE="1"
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to keep a watcher that checks for changes every minute" "n"; then
+  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to keep a watcher that checks for changes every minute" "y"; then
     ENABLE_WATCH="1"
   fi
 
@@ -906,6 +906,8 @@ main() {
       check_paths
       load_env_file
       restart_software
+      log "Launch mode keeps watcher active by default."
+      run_watch_loop
       ;;
     dry-run)
       print_dry_run
