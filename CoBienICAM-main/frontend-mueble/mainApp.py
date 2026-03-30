@@ -3,6 +3,7 @@ import json
 import random
 import subprocess
 import sys
+import unicodedata
 from glob import glob
 from datetime import date, datetime
 
@@ -1504,7 +1505,7 @@ class MainScreen(Screen):
             print(f"[BACKEND_NOTIF] ========================================")
 
     def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
-        d = destino.lower()
+        d = self._normalize_nav_text(destino)
         target = None
         if "tiempo" in d or "météo" in d:
             target = "weather"
@@ -1517,9 +1518,61 @@ class MainScreen(Screen):
         elif "main" in d or "acceuil" in d:
             target = "main"
         if target:
+            if target == "contacts":
+                if not self.sm.has_screen("contacts"):
+                    self._show_nav_reason_popup(_("La pantalla de videollamada no está disponible."))
+                    return
+
+                contacts_screen = self.sm.get_screen("contacts")
+                contacts = getattr(contacts_screen, "contacts", [])
+                if not contacts:
+                    self._show_nav_reason_popup(_("No hay contactos configurados para videollamada."))
+                    return
+
             # Log with the originating source (touchscreen by default).
             log_navigation(source, target, recognized_text)
             self.sm.current = target
+
+    def _normalize_nav_text(self, text: str) -> str:
+        if text is None:
+            return ""
+        base = str(text).strip().lower()
+        return "".join(
+            c for c in unicodedata.normalize("NFD", base)
+            if unicodedata.category(c) != "Mn"
+        )
+
+    def _show_nav_reason_popup(self, message: str):
+        popup = ModalView(
+            auto_dismiss=True,
+            size_hint=(1, 1),
+            background="",
+            background_color=(0, 0, 0, 0.55),
+        )
+        card = BoxLayout(
+            orientation="vertical",
+            size_hint=(None, None),
+            size=(dp(920), dp(360)),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            padding=dp(28),
+        )
+        with card.canvas.before:
+            Color(1, 1, 1, 0.98)
+            bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(24)])
+        card.bind(pos=lambda inst, *_: setattr(bg, "pos", inst.pos))
+        card.bind(size=lambda inst, *_: setattr(bg, "size", inst.size))
+
+        lbl = Label(
+            text=message or _("No se puede abrir esta opción."),
+            font_size=sp(36),
+            color=(0.08, 0.08, 0.08, 1),
+            halign="center",
+            valign="middle",
+        )
+        lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        card.add_widget(lbl)
+        popup.add_widget(card)
+        popup.open()
     """
     def start_assistant(self):
         # Configuration to wakeup the app if needed
