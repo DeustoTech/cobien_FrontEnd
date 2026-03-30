@@ -434,6 +434,9 @@ msgstr "No hay mensajes por ahora."
 msgid "Llamame"
 msgstr "Llamame"
 
+msgid "Llámame"
+msgstr "Llámame"
+
 msgid "Chiste del día"
 msgstr "Chiste del día"
 
@@ -467,6 +470,15 @@ msgstr "Desconocido"
 
 msgid "Nuevo evento"
 msgstr "Nuevo evento"
+
+msgid "La pantalla de videollamada no está disponible."
+msgstr "La pantalla de videollamada no está disponible."
+
+msgid "No hay contactos configurados para videollamada."
+msgstr "No hay contactos configurados para videollamada."
+
+msgid "No se puede abrir esta opción."
+msgstr "No se puede abrir esta opción."
 
 msgid "Cerrar"
 msgstr "Cerrar"

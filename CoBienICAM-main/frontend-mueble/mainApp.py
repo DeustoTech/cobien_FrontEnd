@@ -1507,15 +1507,15 @@ class MainScreen(Screen):
     def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
         d = self._normalize_nav_text(destino)
         target = None
-        if "tiempo" in d or "météo" in d:
+        if "tiempo" in d or "meteo" in d:
             target = "weather"
-        elif "eventos" in d or "événements" in d:
+        elif "eventos" in d or "evenements" in d:
             target = "events"
         elif "pizarra" in d or "galerie" in d:
             target = "board"
         elif "llamame" in d or "appelle" in d:
             target = "contacts"
-        elif "main" in d or "acceuil" in d:
+        elif "main" in d or "acceuil" in d or "accueil" in d:
             target = "main"
         if target:
             if target == "contacts":

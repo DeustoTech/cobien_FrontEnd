@@ -435,6 +435,9 @@ msgstr "Pas de messages pour le moment."
 msgid "Llamame"
 msgstr "Appelle-moi"
 
+msgid "Llámame"
+msgstr "Appelle-moi"
+
 msgid "Chiste del día"
 msgstr "Phrase du jour"
 
@@ -468,6 +471,15 @@ msgstr "Inconnu"
 
 msgid "Nuevo evento"
 msgstr "Nouvel Événement"
+
+msgid "La pantalla de videollamada no está disponible."
+msgstr "L'écran de visioconférence n'est pas disponible."
+
+msgid "No hay contactos configurados para videollamada."
+msgstr "Aucun contact n'est configuré pour la visioconférence."
+
+msgid "No se puede abrir esta opción."
+msgstr "Cette option ne peut pas être ouverte."
 
 msgid "Cerrar"
 msgstr "Fermer"
