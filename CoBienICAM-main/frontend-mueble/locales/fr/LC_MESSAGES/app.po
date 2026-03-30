@@ -481,6 +481,18 @@ msgstr "Aucun contact n'est configuré pour la visioconférence."
 msgid "No se puede abrir esta opción."
 msgstr "Cette option ne peut pas être ouverte."
 
+msgid "¿Seguro que quieres eliminar este evento?"
+msgstr "Voulez-vous vraiment supprimer cet événement ?"
+
+msgid "¿Seguro que quieres eliminar este mensaje?"
+msgstr "Voulez-vous vraiment supprimer ce message ?"
+
+msgid "¿Seguro que quieres eliminar esta tarjeta RFID?"
+msgstr "Voulez-vous vraiment supprimer cette carte RFID ?"
+
+msgid "Confirmar borrado"
+msgstr "Confirmer la suppression"
+
 msgid "Cerrar"
 msgstr "Fermer"
 

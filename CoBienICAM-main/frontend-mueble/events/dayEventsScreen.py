@@ -17,6 +17,8 @@ from translation import _
 from kivy.app import App
 from kivy.uix.modalview import ModalView
 from kivy.uix.label import Label
+from kivy.uix.popup import Popup
+from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle
 from app_config import AppConfig
 
@@ -725,6 +727,40 @@ class DayEventsScreen(Screen):
 
 
     # ---------- Eliminar ----------
+    def _confirm_delete_event(self, event_id: str):
+        if not event_id:
+            return
+
+        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(20))
+        lbl = Label(
+            text=_("¿Seguro que quieres eliminar este evento?"),
+            color=(0, 0, 0, 1),
+            font_size=sp(26),
+            halign="center",
+            valign="middle",
+        )
+        lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
+        buttons = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        buttons.add_widget(btn_cancel)
+        buttons.add_widget(btn_confirm)
+
+        content.add_widget(lbl)
+        content.add_widget(buttons)
+
+        popup = Popup(
+            title=_("Confirmar borrado"),
+            content=content,
+            auto_dismiss=False,
+            size_hint=(0.6, 0.38),
+        )
+
+        btn_cancel.bind(on_release=popup.dismiss)
+        btn_confirm.bind(on_release=lambda *_: (popup.dismiss(), self._delete_event(event_id)))
+        popup.open()
+
     def _delete_event(self, event_id: str):
         if not event_id:
             return
@@ -820,7 +856,7 @@ class DayEventsScreen(Screen):
                 show_trash=(aud=="device"),
                 event_id=str(e.get("id") or "")
             )
-            row.bind(on_trash=lambda inst,_id=row.event_id:self._delete_event(_id))
+            row.bind(on_trash=lambda inst,_id=row.event_id:self._confirm_delete_event(_id))
             box.add_widget(row)
 
     # ---------- Voz ----------

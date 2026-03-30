@@ -240,7 +240,7 @@ class RFIDCardWidget(BoxLayout):
             font_size=sp(20),
             background_color=(0.9, 0.2, 0.2, 1)
         )
-        btn_delete.bind(on_release=lambda x: self.parent_screen.remove_card(self.card_id))
+        btn_delete.bind(on_release=lambda x: self.parent_screen.confirm_remove_card(self.card_id))
         
         header.add_widget(lbl_id)
         header.add_widget(btn_delete)
@@ -961,6 +961,34 @@ class RFIDActionsScreen(Screen):
             
             self.remove_from_config(card_id)
             self.publish_rfid_reload_event()
+
+    def confirm_remove_card(self, card_id):
+        content = BoxLayout(orientation='vertical', spacing=dp(14), padding=dp(20))
+        content.add_widget(Label(
+            text=_("¿Seguro que quieres eliminar esta tarjeta RFID?"),
+            font_size=sp(24),
+            color=(0, 0, 0, 1),
+            halign="center",
+            valign="middle"
+        ))
+
+        buttons = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        buttons.add_widget(btn_cancel)
+        buttons.add_widget(btn_confirm)
+        content.add_widget(buttons)
+
+        popup = Popup(
+            title=_("Confirmar borrado"),
+            content=content,
+            size_hint=(0.62, 0.4),
+            auto_dismiss=False
+        )
+
+        btn_cancel.bind(on_release=popup.dismiss)
+        btn_confirm.bind(on_release=lambda *_: (popup.dismiss(), self.remove_card(card_id)))
+        popup.open()
     
     def remove_from_config(self, card_id):
         """Supprime une carte du fichier config_rfid.txt"""

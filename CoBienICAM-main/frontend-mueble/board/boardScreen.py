@@ -9,6 +9,10 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.factory import Factory
 from kivy.metrics import dp, sp
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.popup import Popup
+from kivy.uix.button import Button
+from kivy.uix.label import Label
 from translation import _
 from kivy.app import App
 
@@ -246,7 +250,7 @@ KV = r"""
                                     icon_source: "images/trash.png"
                                     opacity: 0.4
                                     disabled: True
-                                    on_release: root.parent_widget.delete_current()
+                                    on_release: root.parent_widget.confirm_delete_current()
                             Label:
                                 id: lbl_body
                                 text: ""
@@ -398,6 +402,40 @@ class BoardScreen(Screen):
             Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
         except Exception as e:
             print(f"[BOARD] Error borrando mensaje {post_id}: {e}")
+
+    def confirm_delete_current(self):
+        if not self.items:
+            return
+
+        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(20))
+        lbl = Label(
+            text=_("¿Seguro que quieres eliminar este mensaje?"),
+            color=(0, 0, 0, 1),
+            font_size=sp(26),
+            halign="center",
+            valign="middle",
+        )
+        lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
+        actions = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        actions.add_widget(btn_cancel)
+        actions.add_widget(btn_confirm)
+
+        content.add_widget(lbl)
+        content.add_widget(actions)
+
+        popup = Popup(
+            title=_("Confirmar borrado"),
+            content=content,
+            auto_dismiss=False,
+            size_hint=(0.6, 0.38),
+        )
+
+        btn_cancel.bind(on_release=popup.dismiss)
+        btn_confirm.bind(on_release=lambda *_: (popup.dismiss(), self.delete_current()))
+        popup.open()
 
     # ------- Navegación flechas -------
     def goto_prev(self):
