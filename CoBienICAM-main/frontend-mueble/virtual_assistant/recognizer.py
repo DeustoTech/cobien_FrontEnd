@@ -2,6 +2,7 @@ import os
 import queue
 import sounddevice as sd
 import json
+import audioop
 from vosk import Model, KaldiRecognizer
 import time
 
@@ -88,7 +89,7 @@ class SpeechRecognizer:
 
 
     # Version non blocking of liste_and_transcribe
-    def listen_and_transcribe(self, timeout=15, stop_event=None):
+    def listen_and_transcribe(self, timeout=15, stop_event=None, level_callback=None):
         print("[ASR] Speak now...")
         self.recognizer.Reset()
 
@@ -130,6 +131,15 @@ class SpeechRecognizer:
                         print("[VOSK] Cancelled while waiting for audio")
                         break
                     continue
+
+                if callable(level_callback):
+                    try:
+                        rms = audioop.rms(data, 2)
+                        # Empirical normalization for 16-bit mono stream
+                        norm = min(1.0, float(rms) / 3500.0)
+                        level_callback(norm)
+                    except Exception:
+                        pass
 
                 if self.recognizer.AcceptWaveform(data):
                     result_json = json.loads(self.recognizer.Result())

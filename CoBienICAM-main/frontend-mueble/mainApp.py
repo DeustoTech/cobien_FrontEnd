@@ -16,6 +16,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
+from kivy.graphics import Color, RoundedRectangle
 
 
 # Voz (si la usas en tu orquestador)
@@ -1629,6 +1630,10 @@ class MainScreen(Screen):
 
         if self._assistant_overlay.parent:
             self._assistant_overlay.dismiss()
+        self._assistant_overlay.set_level(0.0)
+
+    def update_assistant_audio_level(self, level: float):
+        self._assistant_overlay.set_level(level)
 
 
     
@@ -1638,20 +1643,28 @@ class Root(ScreenManager):
 
 class AssistantOverlay(ModalView):
     def __init__(self, **kwargs):
-        super().__init__(auto_dismiss=False, background="", **kwargs)
+        super().__init__(auto_dismiss=False, **kwargs)
         self.size_hint = (1, 1)
+        self.background_color = (0, 0, 0, 0.55)
 
-        content = BoxLayout(
+        card = BoxLayout(
             orientation="vertical",
-            padding=[dp(60), dp(40), dp(60), dp(40)],
+            size_hint=(None, None),
+            size=(dp(980), dp(520)),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            padding=[dp(60), dp(50), dp(60), dp(50)],
             spacing=dp(20),
         )
+        with card.canvas.before:
+            Color(1, 1, 1, 0.98)
+            self._card_bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(24)])
+        card.bind(pos=self._sync_card_bg, size=self._sync_card_bg)
 
         self._title = Label(
             text="Asistente",
             font_size=sp(68),
             bold=True,
-            color=(1, 1, 1, 1),
+            color=(0.08, 0.08, 0.08, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
@@ -1662,18 +1675,46 @@ class AssistantOverlay(ModalView):
         self._message = Label(
             text="",
             font_size=sp(48),
-            color=(1, 1, 1, 1),
+            color=(0.12, 0.12, 0.12, 1),
             halign="center",
             valign="middle",
+            size_hint_y=None,
+            height=dp(200),
         )
         self._message.bind(size=lambda inst, value: setattr(inst, "text_size", value))
 
-        content.add_widget(self._title)
-        content.add_widget(self._message)
-        self.add_widget(content)
+        self._level = Label(
+            text="Mic: [..........] 0%",
+            markup=False,
+            font_size=sp(34),
+            color=(0.18, 0.18, 0.18, 1),
+            halign="center",
+            valign="middle",
+            size_hint_y=None,
+            height=dp(80),
+        )
+        self._level.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+
+        card.add_widget(self._title)
+        card.add_widget(self._message)
+        card.add_widget(self._level)
+        self.add_widget(card)
 
     def set_message(self, message: str):
         self._message.text = message
+
+    def set_level(self, level: float):
+        try:
+            value = max(0.0, min(1.0, float(level)))
+        except Exception:
+            value = 0.0
+        filled = int(round(value * 10))
+        bar = ("#" * filled) + ("." * (10 - filled))
+        self._level.text = f"Mic: [{bar}] {int(value * 100)}%"
+
+    def _sync_card_bg(self, widget, *_args):
+        self._card_bg.pos = widget.pos
+        self._card_bg.size = widget.size
 
 
 class MyApp(App):

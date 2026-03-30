@@ -209,6 +209,12 @@ class AssistantOrchestrator:
             except Exception as e:
                 print(f"[WARN] No se pudo actualizar result_label: {e}")
 
+    def _on_audio_level(self, level: float):
+        try:
+            Clock.schedule_once(lambda dt, v=level: self.app.update_assistant_audio_level(v), 0)
+        except Exception:
+            pass
+
     # -------------------------
     # Flujo principal
     # -------------------------
@@ -248,7 +254,10 @@ class AssistantOrchestrator:
 
             # Blocking call running inside a thread
             self._listening = True
-            texto = self.recognizer.listen_and_transcribe(stop_event=self._stop_event)
+            texto = self.recognizer.listen_and_transcribe(
+                stop_event=self._stop_event,
+                level_callback=self._on_audio_level,
+            )
             self._listening = False
             if self._stop_event.is_set():
                 self._actualizar_label(_("Assistant cancelled"))
