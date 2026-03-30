@@ -157,8 +157,8 @@ launch_runtime() {
   check_paths
   resolve_python_bin
   resolve_uv_bin
-  ensure_mosquitto_running
   mkdir -p "$LOG_DIR"
+  ensure_mosquitto_running
 
   echo "=== Launching CoBien System ==="
   echo "[PATHS] FRONTEND_REPO_ROOT=$FRONTEND_REPO_ROOT"
@@ -296,26 +296,47 @@ install_system_deps_fn() {
 }
 
 ensure_mosquitto_running() {
-  if ! command -v systemctl >/dev/null 2>&1; then
-    log "systemctl not available; skipping Mosquitto service check"
+  if pgrep -x mosquitto >/dev/null 2>&1; then
+    log "Mosquitto already running (process detected)"
     return
   fi
 
-  if sudo systemctl is-active --quiet mosquitto; then
-    log "Mosquitto already running"
+  if ! command -v mosquitto >/dev/null 2>&1; then
+    log "Mosquitto binary not found. Install it first (apt install mosquitto)."
     return
   fi
 
-  log "Starting Mosquitto service"
-  if ! sudo systemctl enable --now mosquitto; then
-    log "Failed to start Mosquitto with systemctl"
-    return
-  fi
+  if command -v systemctl >/dev/null 2>&1; then
+    if sudo systemctl list-unit-files --no-legend 2>/dev/null | grep -q "^mosquitto.service"; then
+      if sudo systemctl is-active --quiet mosquitto; then
+        log "Mosquitto already running (systemd service)"
+        return
+      fi
 
-  if sudo systemctl is-active --quiet mosquitto; then
-    log "Mosquitto started successfully"
+      log "Starting Mosquitto service"
+      if sudo systemctl enable --now mosquitto && sudo systemctl is-active --quiet mosquitto; then
+        log "Mosquitto started successfully via systemd"
+        return
+      fi
+
+      log "Could not start Mosquitto via systemd, trying local process fallback"
+    else
+      log "mosquitto.service not found, using local process fallback"
+    fi
   else
-    log "Mosquitto service is not active after startup"
+    log "systemctl not available, using local process fallback"
+  fi
+
+  local mosq_log_dir="${LOG_DIR:-/tmp}"
+  local mosq_log_file="$mosq_log_dir/mosquitto-local.log"
+  mkdir -p "$mosq_log_dir"
+  nohup mosquitto -p 1883 >"$mosq_log_file" 2>&1 &
+  sleep 1
+
+  if pgrep -x mosquitto >/dev/null 2>&1; then
+    log "Mosquitto started as local background process (log: $mosq_log_file)"
+  else
+    log "Failed to start Mosquitto local process. Check log: $mosq_log_file"
   fi
 }
 
