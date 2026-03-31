@@ -49,7 +49,7 @@ def _fix_image_orientation(image_path: str) -> None:
         img = Image.open(image_path)
         
         # Check if the image has EXIF data
-            if not hasattr(img, '_getexif') or img._getexif() is None:
+        if not hasattr(img, '_getexif') or img._getexif() is None:
             return
         
         exif = img._getexif()
