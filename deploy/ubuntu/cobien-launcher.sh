@@ -9,6 +9,7 @@ MQTT_REPO_NAME_DEFAULT="cobien_MQTT_Dictionnary"
 BRANCH_NAME_DEFAULT="development_fix"
 CRON_SCHEDULE_DEFAULT="0 1 * * *"
 POLL_INTERVAL_DEFAULT="60"
+CAN_LOG_ENABLE_DEFAULT="1"
 
 MODE="run"
 WORKSPACE_ROOT="${COBIEN_WORKSPACE_ROOT:-$WORKSPACE_ROOT_DEFAULT}"
@@ -25,6 +26,7 @@ NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-0}"
 AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-0}"
 REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-origin}"
 POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_DEFAULT}"
+CAN_LOG_ENABLE="${COBIEN_CAN_LOG_ENABLE:-$CAN_LOG_ENABLE_DEFAULT}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
@@ -170,16 +172,28 @@ normalize_device_identity() {
   fi
 }
 
-runtime_can_command() {
-  cat <<EOF
-echo '[CAN] Initializing the CAN bus'
-sudo -n /sbin/ip link set can0 down
-sudo -n /sbin/ip link set can0 type can bitrate ${COBIEN_CAN_BITRATE:-500000}
-sudo -n /sbin/ip link set can0 up
-echo '[CAN] candump active'
-candump can0
-exec bash
-EOF
+setup_can_bus() {
+  echo "[CAN] Initializing the CAN bus"
+  sudo -n /sbin/ip link set can0 down
+  sudo -n /sbin/ip link set can0 type can bitrate "${COBIEN_CAN_BITRATE:-500000}"
+  sudo -n /sbin/ip link set can0 up
+}
+
+start_can_logger_background() {
+  if [[ "$CAN_LOG_ENABLE" != "1" ]]; then
+    echo "[CAN] Logging disabled (COBIEN_CAN_LOG_ENABLE=$CAN_LOG_ENABLE)"
+    return 0
+  fi
+
+  if ! command -v candump >/dev/null 2>&1; then
+    echo "[CAN] candump not available; skipping CAN logging"
+    return 0
+  fi
+
+  local can_log_file="$LOG_DIR/can-bus.log"
+  pkill -f "candump can0" >/dev/null 2>&1 || true
+  nohup candump can0 >"$can_log_file" 2>&1 &
+  echo "[CAN] Logging CAN traffic to: $can_log_file"
 }
 
 runtime_bridge_command() {
@@ -278,9 +292,8 @@ launch_runtime() {
     echo "[CLEAN] No update detected; keeping current launcher terminal/session."
   fi
 
-  if ! runtime_launch_named_terminal "CAN BUS" "$(runtime_can_command)"; then
-    runtime_launch_background "can-bus" "$(runtime_can_command)"
-  fi
+  setup_can_bus
+  start_can_logger_background
 
   sleep 2
 
