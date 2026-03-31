@@ -19,6 +19,7 @@ import json
 from datetime import datetime
 import paho.mqtt.publish as publish
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from popup_style import wrap_popup_content, popup_theme_kwargs
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -693,10 +694,11 @@ class WeatherChoice(FloatLayout):
 
         popup = Popup(
             title=_("Nueva ciudad"),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(None, None),
             size=(dp(560), dp(290)),
             auto_dismiss=False,
+            **popup_theme_kwargs()
         )
 
         def _close(*_args):

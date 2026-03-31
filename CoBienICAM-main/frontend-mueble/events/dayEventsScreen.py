@@ -14,6 +14,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.properties import ListProperty, StringProperty, ObjectProperty, BooleanProperty
 from kivy.clock import Clock
 from translation import _
+from popup_style import wrap_popup_content, popup_theme_kwargs
 from kivy.app import App
 from kivy.uix.modalview import ModalView
 from kivy.uix.label import Label
@@ -752,9 +753,10 @@ class DayEventsScreen(Screen):
 
         popup = Popup(
             title=_("Confirmar borrado"),
-            content=content,
+            content=wrap_popup_content(content),
             auto_dismiss=False,
             size_hint=(0.6, 0.38),
+            **popup_theme_kwargs()
         )
 
         btn_cancel.bind(on_release=popup.dismiss)

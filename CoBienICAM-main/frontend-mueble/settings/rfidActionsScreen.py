@@ -16,6 +16,7 @@ from kivy.metrics import dp, sp
 from kivy.app import App
 from kivy.clock import Clock
 from translation import _, get_current_language, change_language
+from popup_style import wrap_popup_content, popup_theme_kwargs
 import json
 import paho.mqtt.client as mqtt
 import os
@@ -613,9 +614,10 @@ class RFIDActionsScreen(Screen):
         
         self.config_popup = Popup(
             title=_("Esperando tarjeta RFID"),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.6, 0.4),
-            auto_dismiss=False
+            auto_dismiss=False,
+            **popup_theme_kwargs()
         )
         
         def cancel_config(instance):
@@ -677,9 +679,10 @@ class RFIDActionsScreen(Screen):
         
         self.config_popup = Popup(
             title=_("Seleccionar Acción"),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.7, 0.7),
-            auto_dismiss=False
+            auto_dismiss=False,
+            **popup_theme_kwargs()
         )
         
         def cancel_config(instance):
@@ -753,9 +756,10 @@ class RFIDActionsScreen(Screen):
         
         self.config_popup = Popup(
             title=_("Configuración Tiempo"),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.6, 0.5),
-            auto_dismiss=False
+            auto_dismiss=False,
+            **popup_theme_kwargs()
         )
         
         def on_confirm(instance):
@@ -822,9 +826,10 @@ class RFIDActionsScreen(Screen):
 
         self.config_popup = Popup(
             title=_("Seleccionar Contacto"),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.6, 0.5),
-            auto_dismiss=False
+            auto_dismiss=False,
+            **popup_theme_kwargs()
         )
 
         def on_confirm(instance):
@@ -863,9 +868,10 @@ class RFIDActionsScreen(Screen):
         )
         msg_popup = Popup(
             title=_("Configuración Exitosa"),
-            content=msg_content,
+            content=wrap_popup_content(msg_content, padding=22),
             size_hint=(0.5, 0.3),
-            auto_dismiss=True
+            auto_dismiss=True,
+            **popup_theme_kwargs()
         )
         msg_popup.open()
         Clock.schedule_once(lambda dt: msg_popup.dismiss(), 2)
@@ -981,9 +987,10 @@ class RFIDActionsScreen(Screen):
 
         popup = Popup(
             title=_("Confirmar borrado"),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.62, 0.4),
-            auto_dismiss=False
+            auto_dismiss=False,
+            **popup_theme_kwargs()
         )
 
         btn_cancel.bind(on_release=popup.dismiss)

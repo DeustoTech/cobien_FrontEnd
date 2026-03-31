@@ -16,6 +16,7 @@ from kivy.utils import get_color_from_hex
 from kivy.metrics import dp, sp
 from kivy.app import App
 from translation import _
+from popup_style import wrap_popup_content, popup_theme_kwargs
 import json
 import paho.mqtt.client as mqtt
 import os
@@ -733,9 +734,10 @@ class ButtonColorsScreen(Screen):
         
         self.color_popup = Popup(
             title=_('Seleccionar Color') + f" - {button_id}",
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.7, 0.8),
-            auto_dismiss=True
+            auto_dismiss=True,
+            **popup_theme_kwargs()
         )
         
         close_btn.bind(on_release=self.color_popup.dismiss)

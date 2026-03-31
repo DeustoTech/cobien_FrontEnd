@@ -30,6 +30,7 @@ from notifications.notification_runtime import (
     save_notification_config as runtime_save_notification_config,
     stop_ringtone as runtime_stop_ringtone,
 )
+from popup_style import wrap_popup_content, popup_theme_kwargs
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -623,9 +624,10 @@ class StripCard(BoxLayout):
         
         self.color_popup = Popup(
             title=_('Seleccionar Color'),
-            content=content,
+            content=wrap_popup_content(content),
             size_hint=(0.7, 0.8),
-            auto_dismiss=True
+            auto_dismiss=True,
+            **popup_theme_kwargs()
         )
         
         close_btn.bind(on_release=self.color_popup.dismiss)

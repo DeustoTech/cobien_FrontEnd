@@ -14,6 +14,7 @@ from kivy.uix.popup import Popup
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from translation import _
+from popup_style import wrap_popup_content, popup_theme_kwargs
 from kivy.app import App
 
 from board.loadBoard import delete_board_item, fetch_board_items_from_mongo
@@ -428,9 +429,10 @@ class BoardScreen(Screen):
 
         popup = Popup(
             title=_("Confirmar borrado"),
-            content=content,
+            content=wrap_popup_content(content),
             auto_dismiss=False,
             size_hint=(0.6, 0.38),
+            **popup_theme_kwargs()
         )
 
         btn_cancel.bind(on_release=popup.dismiss)
