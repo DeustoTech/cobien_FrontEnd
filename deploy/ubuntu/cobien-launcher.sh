@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-WORKSPACE_ROOT_DEFAULT="/home/cobien/cobien"
+WORKSPACE_ROOT_DEFAULT="${HOME}/cobien"
 FRONTEND_REPO_NAME_DEFAULT="cobien_FrontEnd"
 MQTT_REPO_NAME_DEFAULT="cobien_MQTT_Dictionnary"
 BRANCH_NAME_DEFAULT="development_fix"
