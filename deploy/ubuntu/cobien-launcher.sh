@@ -27,6 +27,7 @@ AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-0}"
 REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-origin}"
 POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_DEFAULT}"
 CAN_LOG_ENABLE="${COBIEN_CAN_LOG_ENABLE:-$CAN_LOG_ENABLE_DEFAULT}"
+RELAUNCH_AFTER_UPDATE="${COBIEN_RELAUNCH_AFTER_UPDATE:-0}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
@@ -278,15 +279,16 @@ launch_runtime() {
 
   if [[ "$relaunch_after_update" == "1" ]]; then
     echo "[CLEAN] Closing previous CoBien terminals (update detected)..."
-    for title in "CAN BUS" "MQTT-CAN BRIDGE" "COBIEN APP"; do
-      window_id="$(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1; exit}')"
-      if [[ -n "${window_id:-}" ]]; then
+    for title in "MQTT-CAN BRIDGE" "COBIEN APP"; do
+      while IFS= read -r window_id; do
+        [[ -n "${window_id:-}" ]] || continue
         wmctrl -ic "$window_id" >/dev/null 2>&1 || true
-      fi
+      done < <(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1}')
     done
     pkill -f "candump can0" >/dev/null 2>&1 || true
     pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
     pkill -f "mainApp.py" >/dev/null 2>&1 || true
+    pkill -f "uv run --python .* mainApp.py" >/dev/null 2>&1 || true
     sleep 1
   else
     echo "[CLEAN] No update detected; keeping current launcher terminal/session."
@@ -727,6 +729,7 @@ handoff_to_updated_launcher() {
   exec /bin/bash "$SELF_SCRIPT" \
     --non-interactive \
     --yes \
+    --relaunch-after-update \
     --mode "$next_mode" \
     --workspace "$WORKSPACE_ROOT" \
     --frontend-name "$FRONTEND_REPO_NAME" \
@@ -776,17 +779,21 @@ update_repo_if_needed() {
 restart_software() {
   local relaunch_after_update="${1:-0}"
   log "Relaunching furniture software"
-  /bin/bash "$SELF_SCRIPT" \
-    --non-interactive \
-    --yes \
-    --mode launch \
-    --workspace "$WORKSPACE_ROOT" \
-    --frontend-name "$FRONTEND_REPO_NAME" \
-    --mqtt-name "$MQTT_REPO_NAME" \
-    --device-id "$DEVICE_ID" \
-    --videocall-room "$VIDEOCALL_ROOM" \
-    --device-location "$DEVICE_LOCATION" \
-    --branch "$BRANCH_NAME"
+  if [[ "$relaunch_after_update" == "1" ]]; then
+    exec /bin/bash "$SELF_SCRIPT" \
+      --non-interactive \
+      --yes \
+      --relaunch-after-update \
+      --mode launch \
+      --workspace "$WORKSPACE_ROOT" \
+      --frontend-name "$FRONTEND_REPO_NAME" \
+      --mqtt-name "$MQTT_REPO_NAME" \
+      --device-id "$DEVICE_ID" \
+      --videocall-room "$VIDEOCALL_ROOM" \
+      --device-location "$DEVICE_LOCATION" \
+      --branch "$BRANCH_NAME"
+  fi
+  launch_runtime 0
 }
 
 run_update_once() {
@@ -1099,6 +1106,10 @@ parse_args() {
         NON_INTERACTIVE="1"
         shift
         ;;
+      --relaunch-after-update)
+        RELAUNCH_AFTER_UPDATE="1"
+        shift
+        ;;
       --yes)
         AUTO_CONFIRM="1"
         NON_INTERACTIVE="1"
@@ -1158,7 +1169,7 @@ main() {
       check_paths
       load_env_file
       normalize_device_identity
-      restart_software
+      launch_runtime "$RELAUNCH_AFTER_UPDATE"
       log "Launch mode keeps watcher active by default."
       run_watch_loop
       ;;
