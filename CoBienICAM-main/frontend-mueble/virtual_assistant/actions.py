@@ -2,11 +2,17 @@
 
 from kivy.clock import Clock
 from datetime import datetime
+import os
 import requests
 from reminders.reminders import RecordatorioManager
 from bs4 import BeautifulSoup
 import re
 from googletrans import Translator
+
+HTTP_TIMEOUT = float(os.getenv("COBIEN_HTTP_TIMEOUT", "8"))
+OWM_API_KEY = (os.getenv("OWM_API_KEY") or "").strip()
+NEWS_API_KEY = (os.getenv("NEWS_API_KEY") or "").strip()
+SPOONACULAR_API_KEY = (os.getenv("SPOONACULAR_API_KEY") or "").strip()
 
 
 class ActionExecutor:
@@ -136,10 +142,12 @@ class ActionExecutor:
         print(texto)
 
         try:
-            api_key = "6128e2f97c533ad711be849699cb4d47"
+            if not OWM_API_KEY:
+                return "No he podido obtener el clima: falta la clave OWM_API_KEY."
             ciudad = "Bilbao"
-            url = f"https://api.openweathermap.org/data/2.5/weather?q={ciudad}&appid={api_key}&units=metric&lang=es"
-            respuesta = requests.get(url)
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={ciudad}&appid={OWM_API_KEY}&units=metric&lang=es"
+            respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
+            respuesta.raise_for_status()
             datos = respuesta.json()
 
             if datos.get("weather"):
@@ -159,10 +167,12 @@ class ActionExecutor:
         print(texto)
 
         try:
-            api_key = "6128e2f97c533ad711be849699cb4d47"
+            if not OWM_API_KEY:
+                return "No he podido obtener el pronóstico: falta la clave OWM_API_KEY."
             ciudad = "Bilbao"
-            url = f"https://api.openweathermap.org/data/2.5/forecast?q={ciudad}&appid={api_key}&units=metric&lang=es"
-            respuesta = requests.get(url)
+            url = f"https://api.openweathermap.org/data/2.5/forecast?q={ciudad}&appid={OWM_API_KEY}&units=metric&lang=es"
+            respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
+            respuesta.raise_for_status()
             datos = respuesta.json()
 
             if "list" in datos:
@@ -218,9 +228,11 @@ class ActionExecutor:
         print(texto)
 
         try:
-            api_key = "9edb8e12e0f040038a79a7c18d71b017"
-            url = f"https://newsapi.org/v2/top-headlines?country=es&category=general&apiKey={api_key}"
-            respuesta = requests.get(url)
+            if not NEWS_API_KEY:
+                return "No he podido obtener noticias: falta la clave NEWS_API_KEY."
+            url = f"https://newsapi.org/v2/top-headlines?country=es&category=general&apiKey={NEWS_API_KEY}"
+            respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
+            respuesta.raise_for_status()
             datos = respuesta.json()
 
             if "articles" in datos and len(datos["articles"]) > 0:
@@ -250,15 +262,19 @@ class ActionExecutor:
         print(texto)
 
         try:
-            api_key = "b5be2f3b6e2d457bbf7bdd1c2dbc0b10"
-            url = f"https://api.spoonacular.com/recipes/complexSearch?query={receta}&number=1&apiKey={api_key}"
-            respuesta = requests.get(url)
+            if not SPOONACULAR_API_KEY:
+                return "No he podido obtener la receta: falta la clave SPOONACULAR_API_KEY."
+            url = f"https://api.spoonacular.com/recipes/complexSearch?query={receta}&number=1&apiKey={SPOONACULAR_API_KEY}"
+            respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
+            respuesta.raise_for_status()
             datos = respuesta.json()
 
             if "results" in datos and len(datos["results"]) > 0:
                 receta_id = datos["results"][0]["id"]
-                receta_url = f"https://api.spoonacular.com/recipes/{receta_id}/information?apiKey={api_key}"
-                receta_info = requests.get(receta_url).json()
+                receta_url = f"https://api.spoonacular.com/recipes/{receta_id}/information?apiKey={SPOONACULAR_API_KEY}"
+                receta_resp = requests.get(receta_url, timeout=HTTP_TIMEOUT)
+                receta_resp.raise_for_status()
+                receta_info = receta_resp.json()
 
                 nombre = receta_info.get("title", "Receta desconocida")
                 instrucciones_html = receta_info.get("instructions", "No hay instrucciones disponibles.")

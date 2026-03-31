@@ -7,7 +7,6 @@ from datetime import datetime
 from events.event_bus import event_bus
 
 from pymongo import MongoClient
-from bson.objectid import ObjectId
 from bson import ObjectId
 
 from app_config import AppConfig
@@ -31,11 +30,9 @@ AUDIENCE_COLORS = {
 # CONEXIÓN A MONGODB
 # ------------------------
 def get_mongo_client():
-    uri = os.getenv(
-        "MONGO_URI",
-        "mongodb+srv://usuarioCoBien:passwordCoBien@clustercobienevents."
-        "j8ev5.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true",
-    )
+    uri = (os.getenv("MONGO_URI") or "").strip()
+    if not uri:
+        raise RuntimeError("MONGO_URI no configurado")
     return MongoClient(uri, serverSelectionTimeoutMS=3000)  # corta si no conecta en 3s
 
 # ------------------------

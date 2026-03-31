@@ -5,7 +5,8 @@ from kivy.event import EventDispatcher
 from kivy.properties import DictProperty
 
 
-CONFIG_PATH = "settings/settings.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
 MQTT_LOCAL_BROKER = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
 MQTT_LOCAL_PORT = int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883"))
 BACKEND_BASE_URL = os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu")
