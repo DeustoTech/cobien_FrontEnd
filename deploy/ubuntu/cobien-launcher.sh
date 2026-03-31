@@ -10,6 +10,7 @@ BRANCH_NAME_DEFAULT="development_fix"
 CRON_SCHEDULE_DEFAULT="0 1 * * *"
 POLL_INTERVAL_DEFAULT="60"
 CAN_LOG_ENABLE_DEFAULT="1"
+LOG_RETENTION_DAYS_DEFAULT="365"
 
 MODE="run"
 WORKSPACE_ROOT="${COBIEN_WORKSPACE_ROOT:-$WORKSPACE_ROOT_DEFAULT}"
@@ -27,6 +28,7 @@ AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-0}"
 REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-origin}"
 POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_DEFAULT}"
 CAN_LOG_ENABLE="${COBIEN_CAN_LOG_ENABLE:-$CAN_LOG_ENABLE_DEFAULT}"
+LOG_RETENTION_DAYS="${COBIEN_LOG_RETENTION_DAYS:-$LOG_RETENTION_DAYS_DEFAULT}"
 RELAUNCH_AFTER_UPDATE="${COBIEN_RELAUNCH_AFTER_UPDATE:-0}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
@@ -191,9 +193,11 @@ start_can_logger_background() {
     return 0
   fi
 
-  local can_log_file="$LOG_DIR/can-bus.log"
+  cleanup_old_logs "can-bus"
+  local can_log_file
+  can_log_file="$(build_dated_log_path "can-bus")"
   pkill -f "candump can0" >/dev/null 2>&1 || true
-  nohup candump can0 >"$can_log_file" 2>&1 &
+  nohup candump can0 >>"$can_log_file" 2>&1 &
   echo "[CAN] Logging CAN traffic to: $can_log_file"
 }
 
@@ -247,9 +251,25 @@ runtime_launch_named_terminal() {
 runtime_launch_background() {
   local name="$1"
   local command_text="$2"
-  local log_file="$LOG_DIR/${name}.log"
+  local log_file
+  log_file="$(build_dated_log_path "$name")"
+  cleanup_old_logs "$name"
   echo "[FALLBACK] Launching $name in background. Log: $log_file"
-  nohup bash -lc "$command_text" >"$log_file" 2>&1 &
+  nohup bash -lc "$command_text" >>"$log_file" 2>&1 &
+}
+
+build_dated_log_path() {
+  local name="$1"
+  local stamp
+  stamp="$(date +%Y%m%d)"
+  echo "$LOG_DIR/${name}-${stamp}.log"
+}
+
+cleanup_old_logs() {
+  local name="$1"
+  if [[ -d "$LOG_DIR" ]]; then
+    find "$LOG_DIR" -maxdepth 1 -type f -name "${name}-*.log" -mtime +"$LOG_RETENTION_DAYS" -delete >/dev/null 2>&1 || true
+  fi
 }
 
 close_runtime_windows() {
