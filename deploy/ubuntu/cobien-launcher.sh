@@ -196,6 +196,7 @@ start_can_logger_background() {
   cleanup_old_logs "can-bus"
   local can_log_file
   can_log_file="$(build_dated_log_path "can-bus")"
+  printf '[%s] [CAN] Starting candump on can0\n' "$(date '+%Y-%m-%d %H:%M:%S')" >>"$can_log_file"
   pkill -f "candump can0" >/dev/null 2>&1 || true
   nohup candump can0 2>&1 | awk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush(); }' >>"$can_log_file" &
   echo "[CAN] Logging CAN traffic to: $can_log_file"
@@ -255,6 +256,7 @@ runtime_launch_background() {
   log_file="$(build_dated_log_path "$name")"
   cleanup_old_logs "$name"
   echo "[FALLBACK] Launching $name in background. Log: $log_file"
+  printf '[%s] [%s] Starting background command\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$name" >>"$log_file"
   nohup bash -lc "$command_text" 2>&1 | awk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush(); }' >>"$log_file" &
 }
 
