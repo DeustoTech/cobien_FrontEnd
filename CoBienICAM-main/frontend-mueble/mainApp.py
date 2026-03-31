@@ -1935,12 +1935,20 @@ class MyApp(App):
         defaults = localized_defaults.get(lang, localized_defaults["es"])
         title_text = payload.get(f"title_{lang}") or defaults["title"]
         message_text = payload.get(f"message_{lang}") or defaults["message"]
+        version_text = "unknown"
+        try:
+            version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+            with open(version_path, "r", encoding="utf-8") as vf:
+                version_text = (vf.read().strip() or "unknown")
+        except Exception:
+            pass
 
         try:
             if getattr(self.main_ref, "notification_manager", None):
                 self.main_ref.notification_manager.show_system_info_notification(
                     title_text=title_text,
                     message_text=message_text,
+                    version_text=version_text,
                 )
         except Exception as exc:
             print(f"[APP] Failed to show update notification: {exc}")

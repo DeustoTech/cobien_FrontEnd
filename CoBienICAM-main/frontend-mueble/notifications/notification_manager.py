@@ -934,7 +934,7 @@ class NotificationManager:
             popup.dismiss()
         self.active_notifications.clear()
 
-    def show_system_info_notification(self, title_text, message_text):
+    def show_system_info_notification(self, title_text, message_text, version_text=None):
         """Show a generic system information popup with an OK button."""
         from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout
@@ -1011,6 +1011,16 @@ class NotificationManager:
             halign="center",
             valign="middle"
         ))
+        if version_text:
+            container.add_widget(Label(
+                text=f"v{version_text}",
+                font_size=sp(24),
+                color=(0.3, 0.3, 0.3, 1),
+                size_hint_y=None,
+                height=dp(40),
+                halign="center",
+                valign="middle"
+            ))
         container.add_widget(BoxLayout(size_hint_y=0.2))
 
         btn_ok = Button(
