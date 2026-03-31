@@ -27,7 +27,7 @@ class IconBadge(ButtonBehavior, AnchorLayout):
     icon_source = StringProperty("")
 
 class CityCard(BoxLayout):
-    def __init__(self, city_name, is_active, callback, **kwargs):
+    def __init__(self, city_name, is_active, callback, delete_callback, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "horizontal"
         self.spacing = dp(20)
@@ -37,6 +37,7 @@ class CityCard(BoxLayout):
         self.is_active = is_active
         self.city_name = city_name
         self.callback = callback
+        self.delete_callback = delete_callback
         
         # Background - TOUJOURS BLANC
         from kivy.graphics import Color, RoundedRectangle, Line
@@ -61,7 +62,7 @@ class CityCard(BoxLayout):
         self.add_widget(lbl)
         
         # Bouton toggle
-        btn_box = BoxLayout(size_hint_x=None, width=dp(200), spacing=dp(10))
+        btn_box = BoxLayout(size_hint_x=None, width=dp(340), spacing=dp(10))
         
         # ✅ Utiliser traduction
         self.btn = Button(
@@ -82,7 +83,27 @@ class CityCard(BoxLayout):
         self.btn.bind(pos=self.update_btn_bg, size=self.update_btn_bg)
         self.btn.bind(on_release=lambda x: callback(city_name))
         
+        self.btn_delete = Button(
+            text=_("Eliminar"),
+            font_size=sp(20),
+            size_hint_x=1,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+        )
+        self.btn_delete_bg_rect = None
+        with self.btn_delete.canvas.before:
+            Color(0.86, 0.2, 0.2, 1)
+            self.btn_delete_bg_rect = RoundedRectangle(
+                pos=self.btn_delete.pos,
+                size=self.btn_delete.size,
+                radius=[dp(12)],
+            )
+
+        self.btn_delete.bind(pos=self.update_btn_delete_bg, size=self.update_btn_delete_bg)
+        self.btn_delete.bind(on_release=lambda x: delete_callback(city_name))
+        
         btn_box.add_widget(self.btn)
+        btn_box.add_widget(self.btn_delete)
         self.add_widget(btn_box)
     
     def update_text(self):
@@ -98,6 +119,11 @@ class CityCard(BoxLayout):
         if self.btn_bg_rect:
             self.btn_bg_rect.pos = btn.pos
             self.btn_bg_rect.size = btn.size
+
+    def update_btn_delete_bg(self, btn, *args):
+        if self.btn_delete_bg_rect:
+            self.btn_delete_bg_rect.pos = btn.pos
+            self.btn_delete_bg_rect.size = btn.size
 
 
 class WeatherChoice(FloatLayout):
@@ -549,7 +575,8 @@ class WeatherChoice(FloatLayout):
                 card = CityCard(
                     city_name=city,
                     is_active=is_active,
-                    callback=self.toggle_city
+                    callback=self.toggle_city,
+                    delete_callback=self.confirm_delete_city,
                 )
                 box.add_widget(card)
                 shown_count += 1
@@ -666,6 +693,86 @@ class WeatherChoice(FloatLayout):
                 f.write("\n")
             f.write(f"{city_name}\n")
         self.last_mtime = os.path.getmtime(self.config_path)
+
+    def _remove_city_from_config(self, city_name):
+        if not os.path.exists(self.config_path):
+            return False
+
+        removed = False
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        filtered_lines = []
+        for line in lines:
+            stripped = line.strip()
+            normalized = stripped[1:].strip() if stripped.startswith("#") else stripped
+            if normalized == city_name:
+                removed = True
+                continue
+            filtered_lines.append(line)
+
+        if not removed:
+            return False
+
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            f.writelines(filtered_lines)
+
+        self.last_mtime = os.path.getmtime(self.config_path)
+        return True
+
+    def confirm_delete_city(self, city_name):
+        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(16))
+        title = Label(
+            text=_("Confirmar borrado"),
+            size_hint_y=None,
+            height=dp(36),
+            font_size=sp(20),
+            color=(0, 0, 0, 1),
+        )
+        message = Label(
+            text=_("¿Seguro que quieres eliminar esta ciudad?"),
+            size_hint_y=None,
+            height=dp(48),
+            font_size=sp(18),
+            color=(0, 0, 0, 1),
+        )
+        actions = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(48))
+        btn_cancel = Button(text=_("Cancelar"))
+        btn_delete = Button(text=_("Eliminar"))
+        actions.add_widget(btn_cancel)
+        actions.add_widget(btn_delete)
+        content.add_widget(title)
+        content.add_widget(message)
+        content.add_widget(actions)
+
+        popup = Popup(
+            title=_("Eliminar ciudad"),
+            content=wrap_popup_content(content),
+            size_hint=(None, None),
+            size=(dp(560), dp(300)),
+            auto_dismiss=False,
+            **popup_theme_kwargs()
+        )
+
+        def _close(*_args):
+            popup.dismiss()
+
+        def _confirm(*_args):
+            try:
+                if self._remove_city_from_config(city_name):
+                    self.load_available_cities()
+                    self.refresh_cities()
+                    self.publish_reload_event()
+                    print(f"[WEATHER CHOICE] ✅ Removed city from UI: {city_name}")
+                else:
+                    print(f"[WEATHER CHOICE] ⚠️ City not found for deletion: {city_name}")
+            except Exception as exc:
+                print(f"[WEATHER CHOICE] ❌ Error deleting city '{city_name}': {exc}")
+            popup.dismiss()
+
+        btn_cancel.bind(on_release=_close)
+        btn_delete.bind(on_release=_confirm)
+        popup.open()
 
     def open_add_city_popup(self):
         content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(16))
