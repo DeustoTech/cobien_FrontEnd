@@ -17,7 +17,7 @@ SPOONACULAR_API_KEY = (os.getenv("SPOONACULAR_API_KEY") or "").strip()
 
 class ActionExecutor:
     def __init__(self, app_reference):
-        self.app = app_reference  # Referencia a la app Kivy principal
+        self.app = app_reference  # Reference to the main Kivy app
         self.recordatorio_manager = RecordatorioManager(app_reference)
 
     def ejecutar(self, intencion, *args):

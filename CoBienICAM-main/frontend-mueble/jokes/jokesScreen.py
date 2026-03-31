@@ -97,7 +97,7 @@ class JokesScreen(Screen):
             self.show_random_joke()
     
     def load_jokes(self):
-        """✅ Charge les chistes selon langue ET catégorie."""
+        """✅ Load jokes according to language AND category."""
         try:
             # Obtenir langue ACTUELLE
             lang = get_current_language()
@@ -107,10 +107,10 @@ class JokesScreen(Screen):
             jokes_file = f"jokes_{'fr' if lang == 'fr' else 'es'}.json"
             jokes_path = os.path.join(os.path.dirname(__file__), jokes_file)
             
-            print(f"[JOKES] 📖 Chargement: {jokes_file} (lang={lang}, cat={category})")
+            print(f"[JOKES] 📖 Loading: {jokes_file} (lang={lang}, cat={category})")
             
             if not os.path.exists(jokes_path):
-                print(f"[JOKES] ❌ Fichier introuvable: {jokes_path}")
+                print(f"[JOKES] ❌ File not found: {jokes_path}")
                 self.load_jokes_fallback()
                 return
             
@@ -120,14 +120,14 @@ class JokesScreen(Screen):
             # Charger catégorie demandée
             self.jokes = data.get(category, [])
             
-            # Fallback si catégorie vide
+            # Fallback if category is empty
             if not self.jokes and category != "general":
-                print(f"[JOKES] ⚠️ Catégorie '{category}' vide, fallback 'general'")
+                print(f"[JOKES] ⚠️ Category '{category}' empty, fallback 'general'")
                 self.jokes = data.get("general", [])
             
-            # Si toujours vide, prendre toutes les blagues
+            # If still empty, take all jokes
             if not self.jokes:
-                print(f"[JOKES] ⚠️ Chargement complet")
+                print(f"[JOKES] ⚠️ Full load")
                 self.jokes = []
                 for cat_jokes in data.values():
                     if isinstance(cat_jokes, list):
@@ -146,7 +146,7 @@ class JokesScreen(Screen):
             
             self.jokes = [j for j in normalized if j]
             
-            print(f"[JOKES] ✅ {len(self.jokes)} chistes chargés ({lang}, {category})")
+            print(f"[JOKES] ✅ {len(self.jokes)} jokes loaded ({lang}, {category})")
         
         except Exception as e:
             print(f"[JOKES] ❌ Erreur: {e}")
@@ -155,7 +155,7 @@ class JokesScreen(Screen):
             self.load_jokes_fallback()
     
     def load_jokes_fallback(self):
-        """Chistes por defecto si falla la carga."""
+        """Default jokes if loading fails."""
         lang = get_current_language()
         if lang == "fr":
             self.jokes = [
@@ -171,12 +171,12 @@ class JokesScreen(Screen):
             ]
     
     def show_random_joke(self):
-        """✅ AMÉLIORÉ : Affiche une blague différente de la précédente"""
+        """✅ IMPROVED: Show a joke different from the previous one"""
         if not self.jokes:
             self.joke_label.text = _("No hay chistes disponibles")
             return
         
-        # ✅ Éviter de réafficher la même blague
+        # ✅ Avoid re-displaying the same joke
         if len(self.jokes) > 1 and self.last_joke:
             available = [j for j in self.jokes if j != self.last_joke]
             if available:
@@ -188,18 +188,18 @@ class JokesScreen(Screen):
         
         self.last_joke = new_joke
         self.joke_label.text = new_joke
-        print(f"[JOKES] 🎭 Blague affichée: {new_joke[:50]}...")
+        print(f"[JOKES] 🎭 Joke displayed: {new_joke[:50]}...")
     
     def update_labels(self):
-        """✅ Actualiza las traducciones de los labels Y recarga chistes."""
-        print("[JOKES] 🔄 update_labels() appelé")
+        """✅ Update labels translations AND reload jokes."""
+        print("[JOKES] 🔄 update_labels() called")
         
-        # Mettre à jour les textes des boutons
+        # Update the button texts
         self.title_label.text = _("Frase del día")
         self.next_button.text = _("Otro chiste")
         self.back_button.text = _("Volver")
         
-        # ✅ RECHARGER les chistes avec le nouveau idioma/categoría
+        # ✅ RELOAD jokes with the new language/category
         self.load_jokes()
         
         # ✅ Afficher un nouveau chiste
@@ -209,10 +209,10 @@ class JokesScreen(Screen):
             self.joke_label.text = _("No hay chistes disponibles")
     
     def on_pre_enter(self):
-        """✅ Llamado antes de mostrar la pantalla."""
-        print("[JOKES] 📺 on_pre_enter() - Actualización antes de mostrar")
+        """✅ Called before showing the screen."""
+        print("[JOKES] 📺 on_pre_enter() - Pre-show update")
         self.update_labels()
     
     def go_back(self, instance):
-        """Vuelve a la pantalla principal."""
+        """Return to the main screen."""
         self.sm.current = 'main'

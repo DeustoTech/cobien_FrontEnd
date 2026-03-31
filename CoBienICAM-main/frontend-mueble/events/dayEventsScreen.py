@@ -30,7 +30,7 @@ from app_config import AppConfig
 
 from events.loadEvents import delete_event_mongo, add_personal_event_mongo
 
-# ✅ ÉTAPE 4 : Variable globale pour la traduction
+# ✅ STEP 4: Global variable for translation
 
 
 

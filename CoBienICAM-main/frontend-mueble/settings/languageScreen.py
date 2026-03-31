@@ -242,10 +242,10 @@ class LanguageScreen(Screen):
         """Sauvegarde la langue sélectionnée et recharge l'interface"""
         print(f"[LANGUAGE] 💾 Sauvegarde langue: {self.selected_lang}")
         
-        # 1. Récupérer l'app
+        # 1. Get the app
         app = App.get_running_app()
         
-        # 2. Sauvegarder dans config
+        # 2. Save to config
         app.cfg.data["language"] = self.selected_lang
         app.cfg.save()
         

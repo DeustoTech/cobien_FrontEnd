@@ -565,6 +565,7 @@ class NotificationManager:
         self.notification_history = {}
 
         # Tracker du popup d'appel entrant actif (case-sensitive)
+        # Tracker for the active incoming call popup (case-sensitive)
         self.active_videocall_popup = None
         self.active_call_process = None
         
@@ -611,9 +612,9 @@ class NotificationManager:
         print(f"[NOTIF]    Key: {notif_key}")
         print(f"[NOTIF] ========================================")
 
-        # Fermer popup précédent si existe
+        # Close previous popup if it exists
         if self.active_videocall_popup:
-            print("[NOTIF] 🧹 Fermeture popup précédent")
+            print("[NOTIF] 🧹 Closing previous popup")
             try:
                 self.active_videocall_popup.dismiss()
             except:
@@ -650,7 +651,7 @@ class NotificationManager:
                     callback=self._handle_videocall_action
                 )
 
-                # Sauvegarder référence
+                # Save reference
                 self.active_videocall_popup = popup
 
                 self.active_notifications.append(popup)
@@ -658,9 +659,9 @@ class NotificationManager:
 
                 # Disable sleep mode screen
                 app = App.get_running_app()
-                if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
+                    if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
                     app.black_overlay.dismiss()
-                    # relance timer + logs wakeup si tu l'as déjà dans MyApp
+                    # restart timer and wakeup logs if present in MyApp
                     if hasattr(app, "_on_wakeup"):
                         app._on_wakeup()
 

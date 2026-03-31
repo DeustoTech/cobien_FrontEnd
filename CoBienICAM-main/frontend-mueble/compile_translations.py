@@ -24,7 +24,7 @@ def compile_po_file(po_file, mo_file):
             raise Exception("msgfmt failed")
             
     except (FileNotFoundError, Exception):
-        # Fallback: utiliser le module polib si disponible
+        # Fallback: use the polib module if available
         try:
             import polib
             po = polib.pofile(po_file)
@@ -37,7 +37,7 @@ def compile_po_file(po_file, mo_file):
             return False
 
 def main():
-    """Compile tous les fichiers .po en .mo"""
+    """Compile all .po files into .mo"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     locales_dir = os.path.join(script_dir, 'locales')
     
@@ -58,7 +58,7 @@ def main():
             print(f"⚠️  {po_file} introuvable")
             continue
         
-        # Créer le dossier si nécessaire
+        # Create the folder if necessary
         os.makedirs(os.path.dirname(mo_file), exist_ok=True)
         
         if compile_po_file(po_file, mo_file):

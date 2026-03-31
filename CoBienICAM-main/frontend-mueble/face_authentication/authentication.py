@@ -24,7 +24,7 @@ def log_event(name, tipo="acceso"):
         file.write(f"{timestamp}, {name}, {tipo}\n")
 
 def reiniciar_programa():
-    """Reinicia el script."""
+    """Restart the script."""
     python = sys.executable
     os.execl(python, python, *sys.argv)
 

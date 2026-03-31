@@ -3,7 +3,7 @@
 # ==================================================
 # This module exposes a single translation manager instance
 # that can be imported and used across the whole application.
-# 
+#
 # Usage:
 #   from translation import _
 #   text = _("Bonjour")

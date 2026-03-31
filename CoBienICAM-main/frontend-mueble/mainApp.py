@@ -20,7 +20,7 @@ from kivy.uix.label import Label
 from kivy.graphics import Color, RoundedRectangle
 
 
-# Voz (si la usas en tu orquestador)
+# Voice (if you use it in your orchestrator)
 from vosk import Model, KaldiRecognizer  # noqa
 import pyaudio  # noqa
 import paho.mqtt.client as mqtt

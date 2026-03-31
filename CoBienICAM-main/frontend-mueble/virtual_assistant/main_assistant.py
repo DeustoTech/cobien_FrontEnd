@@ -70,13 +70,13 @@ class AssistantOrchestrator:
     """
     def _speak(self, text: str):
         
-        #Habla usando app.speak_text si existe; si no, usa pyttsx3.
-        #Si todo falla, imprime el texto.
+        # Speak using app.speak_text if it exists; otherwise use pyttsx3.
+        # If all fails, print the text.
         
         if not text:
             return
 
-        # Si la app tiene método speak_text
+        # If the app has method 'speak_text'
         if hasattr(self.app, "speak_text") and callable(getattr(self.app, "speak_text")):
             try:
                 self.app.speak_text(text)

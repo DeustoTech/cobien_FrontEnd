@@ -43,7 +43,7 @@ def _clone_default_config():
 
 class AppConfig(EventDispatcher):
     """
-    ✅ Configuration avec support du binding pour notifications de changements
+    ✅ Configuration with binding support for change notifications
     """
     data = DictProperty({})
     
@@ -53,29 +53,29 @@ class AppConfig(EventDispatcher):
         self.config_path = CONFIG_PATH
         self._last_mtime = None
         
-        # Créer dossier si nécessaire
+        # Create folder if necessary
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
         
-        # Charger ou créer config
+        # Load or create config
         if os.path.exists(self.config_path):
             self.load()
-            # Ajouter les nouveaux champs si manquants
+            # Add new fields if missing
             self._ensure_device_fields()
         else:
             self.data = self._default_config()
             self.save()
     
     def _default_config(self):
-        """Configuration par défaut"""
+        """Default configuration"""
         return _clone_default_config()
     
     def set_joke_category(self, category):
-        """Définit la catégorie de blagues."""
+        """Set the joke category."""
         self.data["joke_category"] = category
         self.save()
     
     def get_joke_category(self):
-        """Récupère la catégorie actuelle."""
+        """Get the current joke category."""
         return self.data.get("joke_category", "general")
     
     def _ensure_device_fields(self):
@@ -98,12 +98,12 @@ class AppConfig(EventDispatcher):
             self.save()
     
     def load(self):
-        """Charge la configuration"""
+        """Load configuration"""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 new_data = json.load(f)
             
-            # IMPORTANT : Assigner via la property pour déclencher les bindings
+            # IMPORTANT: Assign via the property to trigger bindings
             self.data = new_data
             self._last_mtime = os.path.getmtime(self.config_path)
             
@@ -113,7 +113,7 @@ class AppConfig(EventDispatcher):
             self.data = self._default_config()
     
     def save(self):
-        """Sauvegarde la configuration"""
+        """Save configuration"""
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, indent=4, ensure_ascii=False)

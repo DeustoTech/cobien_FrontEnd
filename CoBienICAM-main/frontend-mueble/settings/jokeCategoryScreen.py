@@ -10,11 +10,11 @@ from translation import _, get_current_language
 
 # ✅ Déclarer les classes composites AVANT le KV
 class CategoryButton(ButtonBehavior, BoxLayout):
-    """Bouton de catégorie cliquable"""
+    """Clickable category button"""
     pass
 
 class SettingsButton(ButtonBehavior, BoxLayout):
-    """Bouton retour paramètres"""
+    """Settings back button"""
     pass
 
 KV = """
@@ -156,8 +156,8 @@ class JokeCategoryScreen(Screen):
         self.root_view = Factory.JokeCategoryRoot()
         self.add_widget(self.root_view)
         
-        # ✅ Catégories avec clés EXACTES des fichiers .po
-        # Format: (ID technique, Clé gettext EXACTE)
+        # ✅ Categories with exact keys matching .po files
+        # Format: (technical ID, exact gettext key)
         self.categories = [
             ("general", "General"),        # ✅ Correspond à msgid "General"
             ("sport", "Deportes"),         # ✅ Correspond à msgid "Deportes"
@@ -167,27 +167,27 @@ class JokeCategoryScreen(Screen):
             ("jeux", "Juegos")             # ✅ Correspond à msgid "Juegos"
         ]
         
-        # ✅ Initialiser les labels et boutons
+        # ✅ Initialize labels and buttons
         Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
     
     def update_labels(self):
-        """✅ Met à jour toutes les traductions (titre + boutons via populate)"""
-        print("[JOKE_CATEGORY] 🔄 Mise à jour labels...")
+        """✅ Update all translations (title + buttons via populate)"""
+        print("[JOKE_CATEGORY] 🔄 Updating labels...")
         
         if hasattr(self.root_view, 'ids') and 'lbl_title' in self.root_view.ids:
-            # ✅ Titre de la page - Utilise "Categoría de Frases"
-            # 🇪🇸 ES: "Categoría de Frases"
-            # 🇫🇷 FR: "Catégorie de Phrases"
+            # ✅ Page title - Uses "Categoría de Frases"
+            # ES: "Categoría de Frases" (Spanish)
+            # FR: "Catégorie de Phrases" (French)
             self.root_view.ids.lbl_title.text = _("Categoría de Frases")
         
-        # ✅ IMPORTANT : Rafraîchir tous les boutons de catégories
+        # ✅ IMPORTANT: Refresh all category buttons
         self._refresh_all_category_buttons()
         
-        print("[JOKE_CATEGORY] ✅ Labels mis à jour")
+        print("[JOKE_CATEGORY] ✅ Labels updated")
     
     def _refresh_all_category_buttons(self):
-        """Recrée tous les boutons de catégories avec les nouvelles traductions"""
-        print("[JOKE_CATEGORY] 🔄 Rafraîchissement des boutons...")
+        """Recreate all category buttons with the new translations"""
+        print("[JOKE_CATEGORY] 🔄 Refreshing buttons...")
         
         if not hasattr(self.root_view, 'ids') or 'grid_categories' not in self.root_view.ids:
             print("[JOKE_CATEGORY] ⚠️ grid_categories non disponible")
@@ -196,10 +196,10 @@ class JokeCategoryScreen(Screen):
         # Recréer tous les boutons avec populate_categories()
         self.populate_categories()
         
-        print("[JOKE_CATEGORY] ✅ Boutons rafraîchis")
+        print("[JOKE_CATEGORY] ✅ Buttons refreshed")
     
     def populate_categories(self):
-        """✅ Remplit la grille avec les boutons traduits (recrée tout comme NotificationsScreen)"""
+        """✅ Fill the grid with translated buttons (recreates, like NotificationsScreen)"""
         if not hasattr(self.root_view, 'ids') or 'grid_categories' not in self.root_view.ids:
             print("[JOKE_CATEGORY] ⚠️ grid_categories non disponible")
             return
@@ -210,42 +210,42 @@ class JokeCategoryScreen(Screen):
         current_category = self.cfg.data.get("joke_category", "general")
         lang = get_current_language()
         
-        print(f"[JOKE_CATEGORY] 🌐 Langue actuelle: {lang}")
+        print(f"[JOKE_CATEGORY] 🌐 Current language: {lang}")
         
         for cat_id, cat_key in self.categories:
             btn = CategoryButton()
             btn.category_id = cat_id
             
-            # ✅ Traduire avec gettext en utilisant les clés EXACTES des .po
+            # ✅ Translate with gettext using the exact .po keys
             btn.category_name = _(cat_key)
             
-            # 🐛 DEBUG - Afficher la traduction obtenue
+            # 🐛 DEBUG - Show obtained translation
             print(f"[JOKE_CATEGORY] {cat_id}: '{cat_key}' → '{btn.category_name}' (lang={lang})")
             
             btn.is_selected = (cat_id == current_category)
             btn.bind(on_release=lambda x, cid=cat_id: self.select_category(cid))
             grid.add_widget(btn)
         
-        print(f"[JOKE_CATEGORY] ✅ {len(self.categories)} boutons créés")
+        print(f"[JOKE_CATEGORY] ✅ {len(self.categories)} buttons created")
     
     def select_category(self, category_id):
-        """✅ CORRIGÉ : Recharger config partout avant de l'utiliser"""
-        print(f"[JOKE_CATEGORY] 🎯 Catégorie sélectionnée: {category_id}")
+        """✅ FIXED: Reload config everywhere before using it"""
+        print(f"[JOKE_CATEGORY] 🎯 Category selected: {category_id}")
         
-        # 1️⃣ Sauvegarder dans config
+        # 1️⃣ Save to config
         old_category = self.cfg.data.get("joke_category", "general")
         self.cfg.data["joke_category"] = category_id
         self.cfg.save()
         print(f"[JOKE_CATEGORY]    {old_category} → {category_id} (sauvegardé)")
         
-        # 2️⃣ ✅ FORCER RECHARGEMENT de la config dans MainScreen
+        # 2️⃣ ✅ FORCE RELOAD of config in MainScreen
         app = App.get_running_app()
         if hasattr(app, 'main_ref'):
-            # ✅ RECHARGER la config depuis le disque
+            # ✅ RELOAD the config from disk
             app.main_ref.cfg.load()
             print(f"[JOKE_CATEGORY]    Config rechargée: {app.main_ref.cfg.data.get('joke_category')}")
             
-            # ✅ FORCER rechargement blague
+            # ✅ FORCE reload of joke
             if hasattr(app.main_ref, 'reload_joke'):
                 app.main_ref.reload_joke()
                 print("[JOKE_CATEGORY] ✅ MainScreen rechargé via reload_joke()")

@@ -4,6 +4,8 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.textinput import TextInput
+from kivy.uix.popup import Popup
 from kivy.lang import Builder
 from kivy.metrics import dp, sp
 from kivy.uix.anchorlayout import AnchorLayout
@@ -45,7 +47,7 @@ class CityCard(BoxLayout):
         
         self.bind(pos=self.update_graphics, size=self.update_graphics)
         
-        # Label de la ville
+        # City label
         lbl = Label(
             text=city_name,
             font_size=sp(28),
@@ -107,21 +109,23 @@ class WeatherChoice(FloatLayout):
         self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
         self.last_mtime = os.path.getmtime(self.config_path) if os.path.exists(self.config_path) else 0
         self._watch_event = None
+        self.selected_letter = None
+        self.letter_buttons = {}
         
-        print("[WEATHER CHOICE] __init__ appelé")
+        print("[WEATHER CHOICE] __init__ called")
 
-        # Charger les villes disponibles depuis le fichier
+        # Load available cities from the file
         self.load_available_cities()
         
-        print(f"[WEATHER CHOICE] Villes chargées: {self.available_cities}")
+        print(f"[WEATHER CHOICE] Cities loaded: {self.available_cities}")
         
-        # ✅ IMPORTANT : Construire l'interface manuellement
+        # ✅ IMPORTANT: Build the UI manually
         self.build_ui()
 
     
     def update_labels(self):
-        """✅ Met à jour tous les labels traduits"""
-        print("[WEATHER CHOICE] 🔄 Mise à jour labels...")
+        """✅ Update all translated labels"""
+        print("[WEATHER CHOICE] 🔄 Updating labels...")
         
         if hasattr(self, 'lbl_title'):
             self.lbl_title.text = _("Ciudades Meteorología")
@@ -129,8 +133,12 @@ class WeatherChoice(FloatLayout):
             self.lbl_instruction.text = _(
                 "Seleccione las ciudades a mostrar en la rotación de meteorología"
             )
+        if hasattr(self, "btn_add_city"):
+            self.btn_add_city.text = _("Añadir ciudad")
+        if hasattr(self, "btn_all_letters"):
+            self.btn_all_letters.text = _("Todas")
         
-        # ✅ Mettre à jour les boutons "Activa"/"Activar" de chaque carte
+        # ✅ Update the "Activa"/"Activar" buttons of each card
         if hasattr(self, 'list_cities'):
             for child in self.list_cities.children:
                 if isinstance(child, CityCard):
@@ -139,7 +147,7 @@ class WeatherChoice(FloatLayout):
         print("[WEATHER CHOICE] ✅ Labels mis à jour")
     
     def publish_reload_event(self):
-        """Publie un événement MQTT pour demander le rechargement"""
+        """Publish an MQTT event to request reload"""
         try:
             payload = {
                 "action": "reload",
@@ -153,17 +161,17 @@ class WeatherChoice(FloatLayout):
                 port=MQTT_LOCAL_PORT
             )
             
-            print("[TOGGLE] 📤 Événement MQTT 'weather/reload' publié")
+            print("[TOGGLE] 📤 MQTT event 'weather/reload' published")
         
         except Exception as e:
-            print(f"[TOGGLE] ⚠️ Erreur publication MQTT: {e}")
+            print(f"[TOGGLE] ⚠️ MQTT publish error: {e}")
 
     def go_back(self):
-        """Retour à l'écran settings"""
+        """Return to settings screen"""
         self.sm.current = "settings"
     
     def build_ui(self):
-        """Construit l'interface utilisateur manuellement"""
+        """Build the user interface manually"""
         from kivy.graphics import Color as ColorGraphics, Rectangle, RoundedRectangle, Line
         from kivy.uix.widget import Widget
         
@@ -220,14 +228,37 @@ class WeatherChoice(FloatLayout):
         
         header.add_widget(Widget())
         
-        # Bouton retour
+        # Boutons action
         btn_back_box = BoxLayout(
             orientation="horizontal",
             size_hint_x=None,
-            width=dp(90),
-            spacing=dp(6),
+            width=dp(320),
+            spacing=dp(12),
             padding=[0, 0, dp(10), 0]
         )
+
+        self.btn_add_city = Button(
+            text=_("Añadir ciudad"),
+            font_size=sp(18),
+            size_hint=(None, None),
+            size=(dp(190), dp(56)),
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+        )
+        from kivy.graphics import Color as BtnColor, RoundedRectangle as BtnRoundedRectangle
+        with self.btn_add_city.canvas.before:
+            BtnColor(0.15, 0.55, 0.95, 1)
+            self.btn_add_bg = BtnRoundedRectangle(
+                pos=self.btn_add_city.pos,
+                size=self.btn_add_city.size,
+                radius=[dp(12)]
+            )
+        self.btn_add_city.bind(
+            pos=lambda inst, val: setattr(self.btn_add_bg, "pos", val),
+            size=lambda inst, val: setattr(self.btn_add_bg, "size", val),
+            on_release=lambda *_: self.open_add_city_popup(),
+        )
+        btn_back_box.add_widget(self.btn_add_city)
         
         btn_back = IconBadge()
         btn_back.icon_source = app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
@@ -275,6 +306,25 @@ class WeatherChoice(FloatLayout):
         )
         self.lbl_instruction.bind(size=self.lbl_instruction.setter('text_size'))
         content_box.add_widget(self.lbl_instruction)
+
+        # Filtro alfabético táctil (sin teclado)
+        letters_scroll = ScrollView(
+            size_hint_y=None,
+            height=dp(64),
+            do_scroll_x=True,
+            do_scroll_y=False,
+            bar_width=dp(6),
+        )
+        self.letters_row = BoxLayout(
+            orientation="horizontal",
+            spacing=dp(8),
+            padding=[dp(4), dp(4), dp(4), dp(4)],
+            size_hint_x=None,
+            width=dp(1400),
+        )
+        letters_scroll.add_widget(self.letters_row)
+        content_box.add_widget(letters_scroll)
+        self._build_letter_filter_buttons()
         
         # ScrollView avec liste des villes
         scroll = ScrollView(
@@ -303,10 +353,70 @@ class WeatherChoice(FloatLayout):
         
         self.add_widget(main_box)
         
-        print("[WEATHER CHOICE] UI construite")
+        print("[WEATHER CHOICE] UI built")
         
-        # Charger les villes après un court délai
+        # Load cities after a short delay
         Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
+
+    def _build_letter_filter_buttons(self):
+        self.letters_row.clear_widgets()
+        self.letter_buttons = {}
+
+        self.btn_all_letters = Button(
+            text=_("Todas"),
+            size_hint=(None, None),
+            size=(dp(110), dp(52)),
+            font_size=sp(18),
+            background_color=(0.1, 0.1, 0.1, 1),
+            color=(1, 1, 1, 1),
+        )
+        self.btn_all_letters.bind(on_release=lambda *_: self._set_letter_filter(None))
+        self.letters_row.add_widget(self.btn_all_letters)
+
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            btn = Button(
+                text=letter,
+                size_hint=(None, None),
+                size=(dp(52), dp(52)),
+                font_size=sp(18),
+                background_color=(0.85, 0.85, 0.85, 1),
+                color=(0, 0, 0, 1),
+            )
+            btn.bind(on_release=lambda _b, l=letter: self._set_letter_filter(l))
+            self.letter_buttons[letter] = btn
+            self.letters_row.add_widget(btn)
+
+        self._refresh_letter_filter_ui()
+
+    def _set_letter_filter(self, letter):
+        self.selected_letter = letter
+        self._refresh_letter_filter_ui()
+        self.refresh_cities()
+
+    def _refresh_letter_filter_ui(self):
+        if hasattr(self, "btn_all_letters"):
+            if self.selected_letter is None:
+                self.btn_all_letters.background_color = (0.1, 0.1, 0.1, 1)
+                self.btn_all_letters.color = (1, 1, 1, 1)
+            else:
+                self.btn_all_letters.background_color = (0.85, 0.85, 0.85, 1)
+                self.btn_all_letters.color = (0, 0, 0, 1)
+
+        for letter, btn in self.letter_buttons.items():
+            if self.selected_letter == letter:
+                btn.background_color = (0.1, 0.1, 0.1, 1)
+                btn.color = (1, 1, 1, 1)
+            else:
+                btn.background_color = (0.85, 0.85, 0.85, 1)
+                btn.color = (0, 0, 0, 1)
+
+    def _city_matches_selected_letter(self, city):
+        if not self.selected_letter:
+            return True
+        city = (city or "").strip()
+        if not city:
+            return False
+        return city[0].upper() == self.selected_letter
     
     def _update_bg(self, *args):
         """Met à jour le background"""
@@ -427,7 +537,10 @@ class WeatherChoice(FloatLayout):
             print("[DEBUG] Message d'erreur ajouté")
             return
         
+        shown_count = 0
         for city in self.available_cities:
+            if not self._city_matches_selected_letter(city):
+                continue
             is_active = city in active_cities
             print(f"[DEBUG] Création carte: {city} (active: {is_active})")
             
@@ -438,10 +551,21 @@ class WeatherChoice(FloatLayout):
                     callback=self.toggle_city
                 )
                 box.add_widget(card)
+                shown_count += 1
             except Exception as e:
                 print(f"[DEBUG] Erreur carte {city}: {e}")
                 import traceback
                 traceback.print_exc()
+
+        if shown_count == 0:
+            empty_msg = _("No hay ciudades para esta letra.") if self.selected_letter else _("No hay ciudades disponibles.")
+            box.add_widget(Label(
+                text=empty_msg,
+                font_size=sp(24),
+                color=(0.2, 0.2, 0.2, 1),
+                size_hint_y=None,
+                height=dp(60)
+            ))
         
         print(f"[DEBUG] Total widgets: {len(box.children)}")
         print(f"[DEBUG] ========== FIN REFRESH ==========\n")
@@ -499,6 +623,7 @@ class WeatherChoice(FloatLayout):
                 with open(config_path, "w", encoding="utf-8") as f:
                     f.writelines(lines)
                     self.publish_reload_event()
+                self.last_mtime = os.path.getmtime(config_path)
                 
                 print(f"[TOGGLE] Fichier config_weather.txt sauvegardé")
                 
@@ -523,6 +648,82 @@ class WeatherChoice(FloatLayout):
             import traceback
             traceback.print_exc()
             print(f"[TOGGLE] ========== FIN TOGGLE (erreur) ==========\n")
+
+    def _normalize_city_name(self, raw_name):
+        city = (raw_name or "").strip()
+        return " ".join(city.split())
+
+    def _city_exists(self, city_name):
+        target = city_name.casefold()
+        return any(c.casefold() == target for c in self.available_cities)
+
+    def _append_city_to_config(self, city_name):
+        if not os.path.exists(self.config_path):
+            self.create_default_config(self.config_path)
+        with open(self.config_path, "a", encoding="utf-8") as f:
+            if os.path.getsize(self.config_path) > 0:
+                f.write("\n")
+            f.write(f"{city_name}\n")
+        self.last_mtime = os.path.getmtime(self.config_path)
+
+    def open_add_city_popup(self):
+        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(16))
+        title = Label(
+            text=_("Añadir ciudad a la rotación"),
+            size_hint_y=None,
+            height=dp(36),
+            font_size=sp(20),
+            color=(0, 0, 0, 1),
+        )
+        city_input = TextInput(
+            multiline=False,
+            hint_text=_("Nombre de la ciudad"),
+            size_hint_y=None,
+            height=dp(48),
+            font_size=sp(18),
+        )
+        actions = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(48))
+        btn_cancel = Button(text=_("Cancelar"))
+        btn_save = Button(text=_("Guardar"))
+        actions.add_widget(btn_cancel)
+        actions.add_widget(btn_save)
+        content.add_widget(title)
+        content.add_widget(city_input)
+        content.add_widget(actions)
+
+        popup = Popup(
+            title=_("Nueva ciudad"),
+            content=content,
+            size_hint=(None, None),
+            size=(dp(560), dp(290)),
+            auto_dismiss=False,
+        )
+
+        def _close(*_args):
+            popup.dismiss()
+
+        def _save(*_args):
+            city = self._normalize_city_name(city_input.text)
+            if not city:
+                print("[WEATHER CHOICE] Empty city ignored")
+                return
+            if self._city_exists(city):
+                print(f"[WEATHER CHOICE] City already exists: {city}")
+                popup.dismiss()
+                return
+            try:
+                self._append_city_to_config(city)
+                self.load_available_cities()
+                self.refresh_cities()
+                self.publish_reload_event()
+                print(f"[WEATHER CHOICE] ✅ Added city from UI: {city}")
+            except Exception as exc:
+                print(f"[WEATHER CHOICE] ❌ Error adding city '{city}': {exc}")
+            popup.dismiss()
+
+        btn_cancel.bind(on_release=_close)
+        btn_save.bind(on_release=_save)
+        popup.open()
     
     def on_pre_enter(self, *args):
         """Appelé avant d'afficher l'écran"""

@@ -18,7 +18,7 @@ class RadioScreen(BoxLayout):
 
         ###########
         #
-        # LINK PARA OBTENER URL DE RADIOS A TRAVES DE UN FORO
+        # LINK TO GET RADIO URLs FROM A FORUM
         #
         # https://www.mundoplus.tv/comunidad/viewtopic.php?t=79165&sid=38033df19e395551fb0b5a4815b1d8b6&start=1005
         #

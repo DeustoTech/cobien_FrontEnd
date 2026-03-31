@@ -788,7 +788,7 @@ class ButtonColorsScreen(Screen):
             mode = self.root_view.pic2_mode
             intensity = int(self.root_view.pic2_intensity)
         
-        # Sauvegarder dans la configuration
+        # Save to configuration
         if "button_colors" not in self.cfg.data:
             self.cfg.data["button_colors"] = {}
         

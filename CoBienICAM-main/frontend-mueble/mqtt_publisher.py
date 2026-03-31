@@ -119,13 +119,13 @@ def load_rfid_config(path="config/config_rfid.txt"):
                 action_text = right.strip().lower()
 
                 # --- Weather
-                # Charger la liste des villes valides depuis config_weather.txt
+                # Load the list of valid cities from config_weather.txt
                 valid_cities = []
                 try:
                     with open(WEATHER_CONFIG_PATH, "r", encoding="utf-8") as f:
                         for line in f:
                             line = line.strip()
-                            if not line or line.startswith("#"):  # lignes commentées = villes inactives
+                            if not line or line.startswith("#"):  # commented lines = inactive cities
                                 continue
                             valid_cities.append(line)
                 except Exception as e:
@@ -137,8 +137,8 @@ def load_rfid_config(path="config/config_rfid.txt"):
                         city = action_text.split(":", 1)[1].strip()
                         city = city[0].upper() + city[1:] if city else city
                         if city not in valid_cities:
-                            print(f"[WARN] Ville {city} ignorée (non listée dans config_weather.txt)")
-                            continue  # on saute cette carte
+                            print(f"[WARN] City {city} ignored (not listed in config_weather.txt)")
+                            continue  # skip this card
                         geo = geocode_city(city)
                         if geo:
                             actions[card_id] = {

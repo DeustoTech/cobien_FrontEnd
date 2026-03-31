@@ -12,7 +12,7 @@ from bson import ObjectId
 from app_config import AppConfig
 
 # ------------------------
-# CONFIGURACIÓN
+# CONFIGURATION
 # ------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 LOCAL_FILE = os.path.join(BASE_DIR, "events", "eventos_local.json")

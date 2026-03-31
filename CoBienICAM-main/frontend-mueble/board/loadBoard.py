@@ -8,17 +8,17 @@ import gridfs
 import requests
 from PIL import Image, ExifTags
 
-# Importa el cliente que ya usas en eventos
+# Import the client used in events
 from events.loadEvents import get_mongo_client
 from app_config import BACKEND_BASE_URL
 
-# === Configuración ===
+# === Configuration ===
 DB_NAME = "LabasAppDB"
 BUCKET = "pizarra_fs"  # colecciones pizarra_fs.files / pizarra_fs.chunks
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "board_cache")
 CACHE_INDEX_FILE = os.path.join(CACHE_DIR, "board_items.json")
 
-# Asegurar que existe un directorio cache local (si no, usar temporal)
+# Ensure a local cache directory exists (if not writable, use a temp dir)
 try:
     os.makedirs(CACHE_DIR, exist_ok=True)
 except Exception as e:
@@ -48,15 +48,15 @@ def _fix_image_orientation(image_path: str) -> None:
     try:
         img = Image.open(image_path)
         
-        # Vérifier si l'image a des données EXIF
-        if not hasattr(img, '_getexif') or img._getexif() is None:
+        # Check if the image has EXIF data
+            if not hasattr(img, '_getexif') or img._getexif() is None:
             return
         
         exif = img._getexif()
         if not exif:
             return
         
-        # Trouver la clé "Orientation"
+        # Find the "Orientation" key
         orientation_key = None
         for tag, value in ExifTags.TAGS.items():
             if value == 'Orientation':
@@ -68,7 +68,7 @@ def _fix_image_orientation(image_path: str) -> None:
         
         orientation = exif[orientation_key]
         
-        # Appliquer la rotation selon orientation
+        # Apply rotation according to orientation
         rotations = {
             3: 180,  # Upside down
             6: 270,  # Rotated 90° CCW
@@ -79,10 +79,10 @@ def _fix_image_orientation(image_path: str) -> None:
             angle = rotations[orientation]
             print(f"[BOARD] 🔄 Rotation image: {angle}° (EXIF orientation={orientation})")
             
-            # Pivoter l'image
+            # Rotate the image
             img = img.rotate(angle, expand=True)
             
-            # Sauvegarder en écrasant l'original
+            # Save by overwriting the original
             img.save(image_path, quality=95, optimize=True)
             
             print(f"[BOARD] ✅ Image corrigée: {image_path}")
