@@ -5,7 +5,7 @@ from kivy.uix.label import Label
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
-from kivy.uix.popup import Popup
+from kivy.uix.modalview import ModalView
 from kivy.lang import Builder
 from kivy.metrics import dp, sp
 from kivy.uix.anchorlayout import AnchorLayout
@@ -19,7 +19,6 @@ import json
 from datetime import datetime
 import paho.mqtt.publish as publish
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
-from popup_style import wrap_popup_content, popup_theme_kwargs
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -721,38 +720,80 @@ class WeatherChoice(FloatLayout):
         return True
 
     def confirm_delete_city(self, city_name):
-        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(16))
+        from kivy.graphics import Color, RoundedRectangle, Line
+        popup = ModalView(
+            size_hint=(None, None),
+            size=(dp(980), dp(520)),
+            auto_dismiss=False,
+            background="",
+            background_color=(0, 0, 0, 0.7),
+        )
+        content = BoxLayout(orientation="vertical", spacing=dp(24), padding=dp(40))
+        with content.canvas.before:
+            Color(1, 1, 1, 1)
+            bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(24)])
+            Color(0, 0, 0, 0.2)
+            border = Line(rounded_rectangle=(content.x, content.y, content.width, content.height, dp(24)), width=3)
+
+        def _sync_bg(*_args):
+            bg.pos = content.pos
+            bg.size = content.size
+            border.rounded_rectangle = (content.x, content.y, content.width, content.height, dp(24))
+
+        content.bind(pos=_sync_bg, size=_sync_bg)
+
         title = Label(
             text=_("Confirmar borrado"),
             size_hint_y=None,
-            height=dp(36),
-            font_size=sp(20),
+            height=dp(60),
+            font_size=sp(42),
+            bold=True,
             color=(0, 0, 0, 1),
+            halign="center",
+            valign="middle",
         )
+        title.bind(size=lambda inst, val: setattr(inst, "text_size", val))
         message = Label(
             text=_("¿Seguro que quieres eliminar esta ciudad?"),
             size_hint_y=None,
-            height=dp(48),
-            font_size=sp(18),
-            color=(0, 0, 0, 1),
+            height=dp(90),
+            font_size=sp(30),
+            color=(0.2, 0.2, 0.2, 1),
+            halign="center",
+            valign="middle",
         )
-        actions = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(48))
-        btn_cancel = Button(text=_("Cancelar"))
-        btn_delete = Button(text=_("Eliminar"))
+        message.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        actions = BoxLayout(orientation="horizontal", spacing=dp(20), size_hint_y=None, height=dp(75))
+        btn_cancel = Button(
+            text=_("Cancelar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(30),
+            bold=True,
+        )
+        btn_delete = Button(
+            text=_("Eliminar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(30),
+            bold=True,
+        )
+        actions.add_widget(BoxLayout())
         actions.add_widget(btn_cancel)
         actions.add_widget(btn_delete)
+        actions.add_widget(BoxLayout())
+        content.add_widget(BoxLayout(size_hint_y=0.15))
         content.add_widget(title)
         content.add_widget(message)
+        content.add_widget(BoxLayout(size_hint_y=0.2))
         content.add_widget(actions)
-
-        popup = Popup(
-            title=_("Eliminar ciudad"),
-            content=wrap_popup_content(content),
-            size_hint=(None, None),
-            size=(dp(560), dp(300)),
-            auto_dismiss=False,
-            **popup_theme_kwargs()
-        )
+        popup.add_widget(content)
 
         def _close(*_args):
             popup.dismiss()
@@ -775,38 +816,77 @@ class WeatherChoice(FloatLayout):
         popup.open()
 
     def open_add_city_popup(self):
-        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(16))
+        from kivy.graphics import Color, RoundedRectangle, Line
+        popup = ModalView(
+            size_hint=(None, None),
+            size=(dp(980), dp(520)),
+            auto_dismiss=False,
+            background="",
+            background_color=(0, 0, 0, 0.7),
+        )
+        content = BoxLayout(orientation="vertical", spacing=dp(24), padding=dp(40))
+        with content.canvas.before:
+            Color(1, 1, 1, 1)
+            bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(24)])
+            Color(0, 0, 0, 0.2)
+            border = Line(rounded_rectangle=(content.x, content.y, content.width, content.height, dp(24)), width=3)
+
+        def _sync_bg(*_args):
+            bg.pos = content.pos
+            bg.size = content.size
+            border.rounded_rectangle = (content.x, content.y, content.width, content.height, dp(24))
+
+        content.bind(pos=_sync_bg, size=_sync_bg)
+
         title = Label(
             text=_("Añadir ciudad a la rotación"),
             size_hint_y=None,
-            height=dp(36),
-            font_size=sp(20),
+            height=dp(60),
+            font_size=sp(42),
+            bold=True,
             color=(0, 0, 0, 1),
+            halign="center",
+            valign="middle",
         )
+        title.bind(size=lambda inst, val: setattr(inst, "text_size", val))
         city_input = TextInput(
             multiline=False,
             hint_text=_("Nombre de la ciudad"),
             size_hint_y=None,
-            height=dp(48),
-            font_size=sp(18),
+            height=dp(72),
+            font_size=sp(28),
         )
-        actions = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(48))
-        btn_cancel = Button(text=_("Cancelar"))
-        btn_save = Button(text=_("Guardar"))
+        actions = BoxLayout(orientation="horizontal", spacing=dp(20), size_hint_y=None, height=dp(75))
+        btn_cancel = Button(
+            text=_("Cancelar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(30),
+            bold=True,
+        )
+        btn_save = Button(
+            text=_("Guardar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(30),
+            bold=True,
+        )
+        actions.add_widget(BoxLayout())
         actions.add_widget(btn_cancel)
         actions.add_widget(btn_save)
+        actions.add_widget(BoxLayout())
+        content.add_widget(BoxLayout(size_hint_y=0.15))
         content.add_widget(title)
         content.add_widget(city_input)
+        content.add_widget(BoxLayout(size_hint_y=0.2))
         content.add_widget(actions)
-
-        popup = Popup(
-            title=_("Nueva ciudad"),
-            content=wrap_popup_content(content),
-            size_hint=(None, None),
-            size=(dp(560), dp(290)),
-            auto_dismiss=False,
-            **popup_theme_kwargs()
-        )
+        popup.add_widget(content)
 
         def _close(*_args):
             popup.dismiss()
