@@ -181,36 +181,35 @@ KV = r"""
                                 height: self.texture_size[1]
                                 text_size: (self.width, None)
 
-                        
-                        AnchorLayout:
-                            anchor_x: "right"
-                            anchor_y: "top"
-                            size_hint_x: None
-                            width: dp(200) if root.show_city_navigation else 0
-                            opacity: 1 if root.show_city_navigation else 0
-                        
-                            BoxLayout:
-                                orientation: "horizontal"
-                                spacing: dp(10)
-                                size_hint: None, None
-                                width: dp(200)
-                                height: dp(250)
+                    AnchorLayout:
+                        anchor_x: "right"
+                        anchor_y: "top"
+                        size_hint_x: None
+                        width: dp(200) if root.show_city_navigation else 0
+                        opacity: 1 if root.show_city_navigation else 0
+                    
+                        BoxLayout:
+                            orientation: "horizontal"
+                            spacing: dp(10)
+                            size_hint: None, None
+                            width: dp(200)
+                            height: dp(250)
 
-                                IconBtn:
-                                    disabled: not root.show_city_navigation
-                                    on_release: root.prev_city()
-                                    RoundedHeaderImage:
-                                        source: root.arrow_back
-                                        size_hint: None, None
-                                        size: dp(72), dp(72)
+                            IconBtn:
+                                disabled: not root.show_city_navigation
+                                on_release: root.prev_city()
+                                RoundedHeaderImage:
+                                    source: root.arrow_back
+                                    size_hint: None, None
+                                    size: dp(72), dp(72)
 
-                                IconBtn:
-                                    disabled: not root.show_city_navigation
-                                    on_release: root.next_city()
-                                    RoundedHeaderImage:
-                                        source: root.arrow_forward
-                                        size_hint: None, None
-                                        size: dp(72), dp(72)
+                            IconBtn:
+                                disabled: not root.show_city_navigation
+                                on_release: root.next_city()
+                                RoundedHeaderImage:
+                                    source: root.arrow_forward
+                                    size_hint: None, None
+                                    size: dp(72), dp(72)
                                     
                         AnchorLayout:
                             anchor_x: "right"
