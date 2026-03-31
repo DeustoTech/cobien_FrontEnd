@@ -17,6 +17,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
+from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle
 
 
@@ -1669,6 +1670,15 @@ class MainScreen(Screen):
                 pass
         self.assistant = None
 
+    def cancel_assistant(self):
+        assistant = getattr(self, "assistant", None)
+        if assistant is not None:
+            try:
+                assistant.cancel()
+            except Exception as exc:
+                print(f"[ASR] Cancel failed: {exc}")
+        self.set_assistant_overlay(False, "")
+
     # SIMONA
     # Méthode relais pour pouvoir appeler la méthode _speak définie dans l'assistant virtuel
     """
@@ -1793,9 +1803,22 @@ class AssistantOverlay(ModalView):
         )
         self._level.bind(size=lambda inst, value: setattr(inst, "text_size", value))
 
+        self._cancel_btn = Button(
+            text=_("Cancelar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(30),
+            bold=True,
+        )
+        self._cancel_btn.bind(on_release=self._cancel_assistant_now)
+
         card.add_widget(self._title)
         card.add_widget(self._message)
         card.add_widget(self._level)
+        card.add_widget(self._cancel_btn)
         self.add_widget(card)
 
     def set_message(self, message: str):
@@ -1813,6 +1836,12 @@ class AssistantOverlay(ModalView):
     def _sync_card_bg(self, widget, *_args):
         self._card_bg.pos = widget.pos
         self._card_bg.size = widget.size
+
+    def _cancel_assistant_now(self, *_args):
+        app = App.get_running_app()
+        main_ref = getattr(app, "main_ref", None)
+        if main_ref and hasattr(main_ref, "cancel_assistant"):
+            main_ref.cancel_assistant()
 
 
 class MyApp(App):
