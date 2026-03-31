@@ -1893,8 +1893,20 @@ class MyApp(App):
         except OSError as exc:
             print(f"[APP] Failed to remove update marker: {exc}")
 
-        title_text = _("System updated")
-        message_text = payload.get("message") or _("The system has been updated.")
+        lang = self.cfg.data.get("language", "es")
+        localized_defaults = {
+            "es": {
+                "title": "Sistema actualizado",
+                "message": "El sistema se ha actualizado.",
+            },
+            "fr": {
+                "title": "Système mis à jour",
+                "message": "Le système a été mis à jour.",
+            },
+        }
+        defaults = localized_defaults.get(lang, localized_defaults["es"])
+        title_text = payload.get(f"title_{lang}") or defaults["title"]
+        message_text = payload.get(f"message_{lang}") or defaults["message"]
 
         try:
             if getattr(self.main_ref, "notification_manager", None):
