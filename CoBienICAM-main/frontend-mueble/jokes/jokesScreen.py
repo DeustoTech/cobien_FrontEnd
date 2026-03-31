@@ -116,12 +116,19 @@ class JokesScreen(Screen):
             
             with open(jokes_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
-            # Charger catégorie demandée
-            self.jokes = data.get(category, [])
+
+            # Charger toutes les catégories si demandé
+            if category == "all":
+                self.jokes = []
+                for cat_jokes in data.values():
+                    if isinstance(cat_jokes, list):
+                        self.jokes.extend(cat_jokes)
+            else:
+                # Charger catégorie demandée
+                self.jokes = data.get(category, [])
             
             # Fallback if category is empty
-            if not self.jokes and category != "general":
+            if not self.jokes and category not in ("general", "all"):
                 print(f"[JOKES] ⚠️ Category '{category}' empty, fallback 'general'")
                 self.jokes = data.get("general", [])
             

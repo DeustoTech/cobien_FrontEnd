@@ -159,6 +159,7 @@ class JokeCategoryScreen(Screen):
         # ✅ Categories with exact keys matching .po files
         # Format: (technical ID, exact gettext key)
         self.categories = [
+            ("all", "Todas las categorías"),
             ("general", "General"),        # ✅ Correspond à msgid "General"
             ("sport", "Deportes"),         # ✅ Correspond à msgid "Deportes"
             ("nature", "Naturaleza"),      # ✅ Correspond à msgid "Naturaleza"
