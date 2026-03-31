@@ -43,6 +43,7 @@ from app_config import AppConfig
 from settings.languageScreen import LanguageScreen
 from settings.buttonColorsScreen import ButtonColorsScreen
 from settings.notificationsScreen import NotificationsScreen
+from settings.logsScreen import LogsMenuScreen, LogsViewerScreen
 from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from jokes.jokesScreen import JokesScreen
@@ -2153,6 +2154,20 @@ class MyApp(App):
         
         sm.add_widget(Screen(name='settings_notifications'))
         sm.get_screen('settings_notifications').add_widget(NotificationsScreen(sm, self.cfg))
+        sm.add_widget(Screen(name='settings_logs_menu'))
+        sm.get_screen('settings_logs_menu').add_widget(LogsMenuScreen(sm, self.cfg))
+        sm.add_widget(Screen(name='settings_logs_can'))
+        sm.get_screen('settings_logs_can').add_widget(
+            LogsViewerScreen(sm, self.cfg, log_prefix="can-bus", title_text="Log CAN Bus")
+        )
+        sm.add_widget(Screen(name='settings_logs_bridge'))
+        sm.get_screen('settings_logs_bridge').add_widget(
+            LogsViewerScreen(sm, self.cfg, log_prefix="mqtt-can-bridge", title_text="Log MQTT-CAN Bridge")
+        )
+        sm.add_widget(Screen(name='settings_logs_app'))
+        sm.get_screen('settings_logs_app').add_widget(
+            LogsViewerScreen(sm, self.cfg, log_prefix="cobien-app", title_text="Log Aplicación")
+        )
         sm.add_widget(Screen(name='joke_category'))
         sm.get_screen('joke_category').add_widget(JokeCategoryScreen(sm, self.cfg))
         sm.add_widget(Screen(name='jokes'))
@@ -2214,6 +2229,7 @@ class MyApp(App):
         screens_to_update = [
             'weather', 'events', 'day_events', 'board', 'contacts',
             'settings', 'button_colors', 'settings_notifications',
+            'settings_logs_menu', 'settings_logs_can', 'settings_logs_bridge', 'settings_logs_app',
             'settings_rfid', 'weather_choice', 'joke_category', 'jokes' , 'pin_code'
         ]
         

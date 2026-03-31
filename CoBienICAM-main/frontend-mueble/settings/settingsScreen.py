@@ -229,6 +229,18 @@ KV = """
                         icon_source: "images/joke.png"
                         text: ""
                         on_release: app.root.current = "joke_category"
+
+                BoxLayout:
+                    orientation: "horizontal"
+                    spacing: dp(20)
+                    size_hint_y: None
+                    height: dp(140)
+
+                    SettingsNavButton:
+                        id: btn_logs
+                        icon_source: "images/notif.png"
+                        text: ""
+                        on_release: app.root.current = "settings_logs_menu"
 """
 
 class SettingsScreen(Screen):
@@ -273,6 +285,7 @@ class SettingsScreen(Screen):
         self.root_view.ids.btn_colors.text = _("Colores Botones")
         self.root_view.ids.btn_notifications.text = _("Notificaciones")
         self.root_view.ids.btn_rfid.text = _("Tarjetas RFID")
+        self.root_view.ids.btn_logs.text = _("Logs del sistema")
         
         # ✅ Bouton blagues selon langue
         if lang == "fr":

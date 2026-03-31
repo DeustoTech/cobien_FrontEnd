@@ -39,6 +39,8 @@ PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
 ARGS_PROVIDED="0"
 GLOBAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cobien"
 LAST_RUN_CONFIG_FILE="$GLOBAL_CONFIG_DIR/launcher-last.env"
+LOCK_FILE="${COBIEN_LAUNCHER_LOCK_FILE:-/tmp/cobien-launcher.lock}"
+LOCK_FD=99
 
 usage() {
   cat <<EOF
@@ -81,6 +83,24 @@ EOF
 
 log() {
   echo "[COBIEN] $*"
+}
+
+acquire_single_instance_lock() {
+  if ! command -v flock >/dev/null 2>&1; then
+    log "flock not available; single-instance protection disabled"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$LOCK_FILE")"
+
+  eval "exec ${LOCK_FD}>\"$LOCK_FILE\""
+  if ! flock -n "$LOCK_FD"; then
+    log "Another cobien-launcher instance is already running. Exiting."
+    exit 0
+  fi
+
+  printf '%s\n' "$$" 1>&"$LOCK_FD" || true
+  log "Single-instance lock acquired: $LOCK_FILE"
 }
 
 save_last_run_config() {
@@ -291,6 +311,26 @@ stop_runtime_processes() {
   pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
   pkill -f "mainApp.py" >/dev/null 2>&1 || true
   pkill -f "uv run --python .* mainApp.py" >/dev/null 2>&1 || true
+  pkill -f "\\[APP\\] Launching frontend with uv" >/dev/null 2>&1 || true
+  pkill -f "\\[BRIDGE\\] Build and launch" >/dev/null 2>&1 || true
+  pkill -f "\\[CAN\\] Initializing the CAN bus" >/dev/null 2>&1 || true
+}
+
+count_running_runtime_processes() {
+  pgrep -af "candump can0|/cobien_bridge|mainApp.py|\\[APP\\] Launching frontend with uv|\\[BRIDGE\\] Build and launch|\\[CAN\\] Initializing the CAN bus" | wc -l
+}
+
+perform_preflight_runtime_cleanup() {
+  local running_count
+  running_count="$(count_running_runtime_processes | tr -d '[:space:]')"
+  if [[ "${running_count:-0}" -gt 0 ]]; then
+    echo "[CLEAN] Preflight detected ${running_count} existing runtime process(es). Cleaning before relaunch..."
+  else
+    echo "[CLEAN] Preflight detected no previous runtime processes."
+  fi
+  close_runtime_windows
+  stop_runtime_processes
+  sleep 1
 }
 
 launch_runtime() {
@@ -319,16 +359,11 @@ launch_runtime() {
   fi
 
   if [[ "$relaunch_after_update" == "1" ]]; then
-    echo "[CLEAN] Closing previous CoBien terminals (update detected)..."
-    close_runtime_windows
-    stop_runtime_processes
-    sleep 1
+    echo "[CLEAN] Update relaunch detected."
   else
-    echo "[CLEAN] Ensuring single runtime instance (closing any previous bridge/app processes)."
-    close_runtime_windows
-    stop_runtime_processes
-    sleep 1
+    echo "[CLEAN] Standard launch detected."
   fi
+  perform_preflight_runtime_cleanup
 
   setup_can_bus
   start_can_logger_background
@@ -867,18 +902,14 @@ install_cron_job() {
   local cron_line current_cron
   cron_line="$CRON_SCHEDULE /bin/bash \"$SELF_SCRIPT\" --mode update-once --workspace \"$WORKSPACE_ROOT\" --frontend-name \"$FRONTEND_REPO_NAME\" --mqtt-name \"$MQTT_REPO_NAME\" >> /home/cobien/cobien-update.log 2>&1"
   current_cron="$(crontab -l 2>/dev/null || true)"
-
-  if grep -Fq "$SELF_SCRIPT --mode update-once" <<<"$current_cron"; then
-    log "A cron job for updates already exists. Skipping duplicate."
-    return
-  fi
+  current_cron="$(printf '%s\n' "$current_cron" | awk -v script="$SELF_SCRIPT" 'index($0, script " --mode update-once")==0')"
 
   {
-    printf "%s\n" "$current_cron"
+    printf "%s\n" "$current_cron" | sed '/^[[:space:]]*$/d'
     printf "%s\n" "$cron_line"
   } | crontab -
 
-  log "Cron job installed:"
+  log "Cron job installed (deduplicated):"
   log "  $cron_line"
 }
 
@@ -1180,6 +1211,7 @@ parse_args() {
 
 main() {
   parse_args "$@"
+  acquire_single_instance_lock
   resolve_paths
   normalize_device_identity
 
