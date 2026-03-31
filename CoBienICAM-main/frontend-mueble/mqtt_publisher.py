@@ -30,6 +30,7 @@ BASE_DIR = os.path.dirname(__file__)
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
 WEATHER_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_weather.txt")
 RFID_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_rfid.txt")
+SETTINGS_CONFIG_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
 
 # Geocoding the cities in config_weather.txt
 def geocode_city(city_name):
@@ -52,6 +53,18 @@ def geocode_city(city_name):
         return None
 
 # Loading the cities in config_weather.txt
+def load_primary_weather_city():
+    try:
+        if not os.path.exists(SETTINGS_CONFIG_PATH):
+            return ""
+        with open(SETTINGS_CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return (data.get("weather_primary_city", "") or "").strip()
+    except Exception as e:
+        print(f"[CONFIG] Weather primary city read error: {e}")
+        return ""
+
+
 def load_weather_config(path="config/config_weather.txt"):
     cities = []
     path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
@@ -68,6 +81,12 @@ def load_weather_config(path="config/config_weather.txt"):
                 print(f"[CONFIG]   + Ville : {line}")
     except Exception as e:
         print("[CONFIG WEATHER ERROR]", e)
+
+    primary_city = load_primary_weather_city()
+    if primary_city and primary_city in cities:
+        cities = [primary_city] + [c for c in cities if c != primary_city]
+        print(f"[CONFIG] ⭐ Ville prioritaire météo: {primary_city}")
+
     return cities
 
 #Charging the contacts

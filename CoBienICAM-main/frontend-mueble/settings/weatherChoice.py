@@ -26,7 +26,7 @@ class IconBadge(ButtonBehavior, AnchorLayout):
     icon_source = StringProperty("")
 
 class CityCard(BoxLayout):
-    def __init__(self, city_name, is_active, callback, delete_callback, **kwargs):
+    def __init__(self, city_name, is_active, is_primary, callback, delete_callback, priority_callback, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "horizontal"
         self.spacing = dp(20)
@@ -34,9 +34,11 @@ class CityCard(BoxLayout):
         self.size_hint_y = None
         self.height = dp(120)
         self.is_active = is_active
+        self.is_primary = is_primary
         self.city_name = city_name
         self.callback = callback
         self.delete_callback = delete_callback
+        self.priority_callback = priority_callback
         
         # Background - TOUJOURS BLANC
         from kivy.graphics import Color, RoundedRectangle, Line
@@ -61,7 +63,7 @@ class CityCard(BoxLayout):
         self.add_widget(lbl)
         
         # Bouton toggle
-        btn_box = BoxLayout(size_hint_x=None, width=dp(340), spacing=dp(10))
+        btn_box = BoxLayout(size_hint_x=None, width=dp(510), spacing=dp(10))
         
         # ✅ Utiliser traduction
         self.btn = Button(
@@ -100,14 +102,37 @@ class CityCard(BoxLayout):
 
         self.btn_delete.bind(pos=self.update_btn_delete_bg, size=self.update_btn_delete_bg)
         self.btn_delete.bind(on_release=lambda x: delete_callback(city_name))
+
+        self.btn_priority = Button(
+            text=_("Prioritaria") if is_primary else _("Priorizar"),
+            font_size=sp(20),
+            size_hint_x=1,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+        )
+        self.btn_priority_bg_rect = None
+        with self.btn_priority.canvas.before:
+            if is_primary:
+                Color(0.95, 0.65, 0.15, 1)
+            else:
+                Color(0.35, 0.35, 0.35, 1)
+            self.btn_priority_bg_rect = RoundedRectangle(
+                pos=self.btn_priority.pos,
+                size=self.btn_priority.size,
+                radius=[dp(12)],
+            )
+        self.btn_priority.bind(pos=self.update_btn_priority_bg, size=self.update_btn_priority_bg)
+        self.btn_priority.bind(on_release=lambda x: priority_callback(city_name))
         
         btn_box.add_widget(self.btn)
         btn_box.add_widget(self.btn_delete)
+        btn_box.add_widget(self.btn_priority)
         self.add_widget(btn_box)
     
     def update_text(self):
         """✅ Met à jour le texte du bouton selon la langue"""
         self.btn.text = _("Activa") if self.is_active else _("Activar")
+        self.btn_priority.text = _("Prioritaria") if self.is_primary else _("Priorizar")
     
     def update_graphics(self, *args):
         self.bg_rect.pos = self.pos
@@ -124,6 +149,11 @@ class CityCard(BoxLayout):
             self.btn_delete_bg_rect.pos = btn.pos
             self.btn_delete_bg_rect.size = btn.size
 
+    def update_btn_priority_bg(self, btn, *args):
+        if self.btn_priority_bg_rect:
+            self.btn_priority_bg_rect.pos = btn.pos
+            self.btn_priority_bg_rect.size = btn.size
+
 
 class WeatherChoice(FloatLayout):
     def __init__(self, sm, cfg, **kwargs):
@@ -137,6 +167,7 @@ class WeatherChoice(FloatLayout):
         self._watch_event = None
         self.selected_letter = None
         self.letter_buttons = {}
+        self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
         
         print("[WEATHER CHOICE] __init__ called")
 
@@ -489,6 +520,7 @@ class WeatherChoice(FloatLayout):
                         print(f"[WEATHER CHOICE] Ville active: {stripped}")
             
             print(f"[WEATHER CHOICE] Total: {len(self.available_cities)} villes ({len(self.active_cities)} actives)")
+            self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
         
         except Exception as e:
             print(f"[WEATHER CHOICE] Erreur lors du chargement: {e}")
@@ -568,14 +600,17 @@ class WeatherChoice(FloatLayout):
             if not self._city_matches_selected_letter(city):
                 continue
             is_active = city in active_cities
+            is_primary = bool(self.primary_city) and city == self.primary_city
             print(f"[DEBUG] Création carte: {city} (active: {is_active})")
             
             try:
                 card = CityCard(
                     city_name=city,
                     is_active=is_active,
+                    is_primary=is_primary,
                     callback=self.toggle_city,
                     delete_callback=self.confirm_delete_city,
+                    priority_callback=self.set_primary_city,
                 )
                 box.add_widget(card)
                 shown_count += 1
@@ -693,6 +728,16 @@ class WeatherChoice(FloatLayout):
             f.write(f"{city_name}\n")
         self.last_mtime = os.path.getmtime(self.config_path)
 
+    def set_primary_city(self, city_name):
+        if not city_name:
+            return
+        self.primary_city = city_name
+        self.cfg.data["weather_primary_city"] = city_name
+        self.cfg.save()
+        print(f"[WEATHER CHOICE] ⭐ Primary city set: {city_name}")
+        self.refresh_cities()
+        self.publish_reload_event()
+
     def _remove_city_from_config(self, city_name):
         if not os.path.exists(self.config_path):
             return False
@@ -801,6 +846,10 @@ class WeatherChoice(FloatLayout):
         def _confirm(*_args):
             try:
                 if self._remove_city_from_config(city_name):
+                    if self.cfg.data.get("weather_primary_city", "") == city_name:
+                        self.cfg.data["weather_primary_city"] = ""
+                        self.cfg.save()
+                        self.primary_city = ""
                     self.load_available_cities()
                     self.refresh_cities()
                     self.publish_reload_event()

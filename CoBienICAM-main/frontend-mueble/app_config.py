@@ -16,6 +16,7 @@ DEFAULT_DEVICE_LOCATION = os.getenv("COBIEN_DEVICE_LOCATION", "Bilbao")
 DEFAULT_CONFIG = {
     "language": "es",
     "weather_cities": [],
+    "weather_primary_city": "",
     "button_colors": {},
     "rfid_actions": {},
     "microphone_device": "",
@@ -31,6 +32,7 @@ def _clone_default_config():
     return {
         "language": DEFAULT_CONFIG["language"],
         "weather_cities": list(DEFAULT_CONFIG["weather_cities"]),
+        "weather_primary_city": DEFAULT_CONFIG["weather_primary_city"],
         "button_colors": dict(DEFAULT_CONFIG["button_colors"]),
         "rfid_actions": dict(DEFAULT_CONFIG["rfid_actions"]),
         "microphone_device": DEFAULT_CONFIG["microphone_device"],
