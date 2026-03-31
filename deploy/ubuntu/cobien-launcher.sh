@@ -317,10 +317,7 @@ launch_runtime() {
 
   sleep 2
 
-  if ! runtime_launch_named_terminal "COBIEN APP" "$(runtime_app_command)"; then
-    echo "[APP] Launching in current shell"
-    bash -lc "$(runtime_app_command)"
-  fi
+  runtime_launch_background "cobien-app" "$(runtime_app_command)"
 }
 
 ask() {
