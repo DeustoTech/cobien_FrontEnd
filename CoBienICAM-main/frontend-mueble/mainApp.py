@@ -8,6 +8,9 @@ import random
 from glob import glob
 from datetime import date, datetime, timedelta
 
+from kivy.config import Config
+Config.set('kivy', 'exit_on_escape', '0')
+
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -1637,6 +1640,12 @@ class MyApp(App):
     mic_icon = StringProperty("images/voice.png")
     settings_icon = StringProperty("images/settings.png")
 
+    def on_keyboard(self, window, key, scancode, codepoint, modifiers):
+        if key == 113 and 'ctrl' in modifiers:  # 113 is 'q'
+            self.stop()
+            return True
+        return False
+
     def _start_orchestrator(self):
         script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")
         if not os.path.isfile(script):
@@ -1768,8 +1777,9 @@ class MyApp(App):
         Window.bind(
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
-            on_key_down=self._on_first_user_input
-)
+            on_key_down=self._on_first_user_input,
+            on_keyboard=self.on_keyboard
+        )
         # Charger config et traduction
         self.cfg = AppConfig()
 
