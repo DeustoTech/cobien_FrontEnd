@@ -313,9 +313,7 @@ launch_runtime() {
 
   sleep 2
 
-  if ! runtime_launch_named_terminal "MQTT-CAN BRIDGE" "$(runtime_bridge_command)"; then
-    runtime_launch_background "mqtt-can-bridge" "$(runtime_bridge_command)"
-  fi
+  runtime_launch_background "mqtt-can-bridge" "$(runtime_bridge_command)"
 
   sleep 2
 
