@@ -14,13 +14,11 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.properties import ListProperty, StringProperty, ObjectProperty, BooleanProperty
 from kivy.clock import Clock
 from translation import _
-from popup_style import wrap_popup_content, popup_theme_kwargs
 from kivy.app import App
 from kivy.uix.modalview import ModalView
 from kivy.uix.label import Label
-from kivy.uix.popup import Popup
 from kivy.uix.button import Button
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle, Line
 from app_config import AppConfig
 
 # Voz
@@ -732,32 +730,81 @@ class DayEventsScreen(Screen):
         if not event_id:
             return
 
-        content = BoxLayout(orientation="vertical", spacing=dp(14), padding=dp(20))
+        popup = ModalView(
+            size_hint=(None, None),
+            size=(dp(980), dp(520)),
+            auto_dismiss=False,
+            background="",
+            background_color=(0, 0, 0, 0.7),
+        )
+
+        content = BoxLayout(orientation="vertical", spacing=dp(24), padding=dp(40))
+        with content.canvas.before:
+            Color(1, 1, 1, 1)
+            bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(24)])
+            Color(0, 0, 0, 0.2)
+            border = Line(
+                rounded_rectangle=(content.x, content.y, content.width, content.height, dp(24)),
+                width=3,
+            )
+
+        def _sync_bg(*_args):
+            bg.pos = content.pos
+            bg.size = content.size
+            border.rounded_rectangle = (content.x, content.y, content.width, content.height, dp(24))
+
+        content.bind(pos=_sync_bg, size=_sync_bg)
+
+        title = Label(
+            text=_("Confirmar borrado"),
+            color=(0, 0, 0, 1),
+            font_size=sp(42),
+            bold=True,
+            size_hint_y=None,
+            height=dp(60),
+            halign="center",
+            valign="middle",
+        )
+        title.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
         lbl = Label(
             text=_("¿Seguro que quieres eliminar este evento?"),
             color=(0, 0, 0, 1),
-            font_size=sp(26),
+            font_size=sp(30),
+            size_hint_y=None,
+            height=dp(110),
             halign="center",
             valign="middle",
         )
         lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
-        buttons = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
-        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
-        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        buttons = BoxLayout(size_hint_y=None, height=dp(78), spacing=dp(18))
+        btn_cancel = Button(
+            text=_("Cancelar"),
+            font_size=sp(30),
+            bold=True,
+            background_normal="",
+            background_color=(0.55, 0.55, 0.55, 1),
+            color=(1, 1, 1, 1),
+        )
+        btn_confirm = Button(
+            text=_("Confirmar"),
+            font_size=sp(30),
+            bold=True,
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+        )
         buttons.add_widget(btn_cancel)
         buttons.add_widget(btn_confirm)
 
+        content.add_widget(BoxLayout(size_hint_y=0.15))
+        content.add_widget(title)
         content.add_widget(lbl)
+        content.add_widget(BoxLayout(size_hint_y=0.2))
         content.add_widget(buttons)
 
-        popup = Popup(
-            title=_("Confirmar borrado"),
-            content=wrap_popup_content(content),
-            auto_dismiss=False,
-            size_hint=(0.6, 0.38),
-            **popup_theme_kwargs()
-        )
+        popup.add_widget(content)
 
         btn_cancel.bind(on_release=popup.dismiss)
         btn_confirm.bind(on_release=lambda *_: (popup.dismiss(), self._delete_event(event_id)))
