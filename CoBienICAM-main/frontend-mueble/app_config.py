@@ -10,15 +10,18 @@ CONFIG_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
 MQTT_LOCAL_BROKER = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
 MQTT_LOCAL_PORT = int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883"))
 BACKEND_BASE_URL = os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu")
+DEFAULT_DEVICE_ID = os.getenv("COBIEN_DEVICE_ID", "CoBien1")
+DEFAULT_VIDEOCALL_ROOM = os.getenv("COBIEN_VIDEOCALL_ROOM", DEFAULT_DEVICE_ID)
+DEFAULT_DEVICE_LOCATION = os.getenv("COBIEN_DEVICE_LOCATION", "Bilbao")
 DEFAULT_CONFIG = {
     "language": "es",
     "weather_cities": [],
     "button_colors": {},
     "rfid_actions": {},
     "microphone_device": "",
-    "device_id": "CoBien1",
-    "videocall_room": "CoBien1",
-    "device_location": "Bilbao",
+    "device_id": DEFAULT_DEVICE_ID,
+    "videocall_room": DEFAULT_VIDEOCALL_ROOM,
+    "device_location": DEFAULT_DEVICE_LOCATION,
     "joke_category": "general",
     "idle_timeout_sec": 60,
 }
@@ -121,15 +124,15 @@ class AppConfig(EventDispatcher):
     
     def get_device_id(self):
         """Retourne l'identifiant du meuble"""
-        return self.data.get("device_id", "CoBien1")
+        return self.data.get("device_id", DEFAULT_DEVICE_ID)
     
     def get_videocall_room(self):
         """Retourne la room de videocall"""
-        return self.data.get("videocall_room", "CoBien1")
+        return self.data.get("videocall_room", DEFAULT_VIDEOCALL_ROOM)
     
     def get_device_location(self):
         """Retourne la localisation du meuble"""
-        return self.data.get("device_location", "Bilbao")
+        return self.data.get("device_location", DEFAULT_DEVICE_LOCATION)
     
     def get_idle_timeout(self):
         """

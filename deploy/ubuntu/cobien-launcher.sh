@@ -7,7 +7,7 @@ WORKSPACE_ROOT_DEFAULT="${HOME}/cobien"
 FRONTEND_REPO_NAME_DEFAULT="cobien_FrontEnd"
 MQTT_REPO_NAME_DEFAULT="cobien_MQTT_Dictionnary"
 BRANCH_NAME_DEFAULT="development_fix"
-CRON_SCHEDULE_DEFAULT="0 3,15 * * *"
+CRON_SCHEDULE_DEFAULT="0 1 * * *"
 POLL_INTERVAL_DEFAULT="60"
 
 MODE="run"
@@ -25,6 +25,9 @@ NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-0}"
 AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-0}"
 REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-origin}"
 POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_DEFAULT}"
+DEVICE_ID="${COBIEN_DEVICE_ID:-}"
+VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
+DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
@@ -57,7 +60,10 @@ Options:
   --run-update-once
   --enable-watch
   --install-cron
-  --cron-schedule "0 3,15 * * *"
+  --cron-schedule "0 1 * * *"
+  --device-id NAME
+  --videocall-room NAME
+  --device-location LOCATION
   --recreate-venv
   --skip-system-deps
   --non-interactive
@@ -83,6 +89,28 @@ resolve_paths() {
   LOG_DIR="${COBIEN_LOG_DIR:-$FRONTEND_REPO_ROOT/logs}"
   RUNTIME_STATE_DIR="$FRONTEND_APP_DIR/runtime_state"
   UPDATE_MARKER_FILE="$RUNTIME_STATE_DIR/system_updated.json"
+}
+
+derive_default_device_id() {
+  local hostname_value
+  hostname_value="$(hostname 2>/dev/null || echo "")"
+  if [[ -n "$hostname_value" && "$hostname_value" =~ ([0-9]+)$ ]]; then
+    echo "CoBien${BASH_REMATCH[1]}"
+  else
+    echo "CoBien1"
+  fi
+}
+
+normalize_device_identity() {
+  if [[ -z "$DEVICE_ID" ]]; then
+    DEVICE_ID="$(derive_default_device_id)"
+  fi
+  if [[ -z "$VIDEOCALL_ROOM" ]]; then
+    VIDEOCALL_ROOM="$DEVICE_ID"
+  fi
+  if [[ -z "$DEVICE_LOCATION" ]]; then
+    DEVICE_LOCATION="Bilbao"
+  fi
 }
 
 runtime_can_command() {
@@ -155,6 +183,8 @@ runtime_launch_background() {
 launch_runtime() {
   local relaunch_after_update="${1:-0}"
   check_paths
+  normalize_device_identity
+  ensure_device_identity_config
   ensure_runtime_dependencies
   configure_audio_input_defaults
   resolve_python_bin
@@ -331,6 +361,44 @@ ensure_runtime_dependencies() {
     fi
     sudo apt install -y python3.11 python3.11-venv python3.11-dev
   fi
+}
+
+ensure_device_identity_config() {
+  local settings_file
+  settings_file="$FRONTEND_APP_DIR/settings/settings.json"
+  mkdir -p "$(dirname "$settings_file")"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    log "Device identity: python3 unavailable, skipping settings.json identity sync"
+    return
+  fi
+
+  python3 - "$settings_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" <<'PY'
+import json
+import os
+import sys
+
+settings_file, device_id, videocall_room, device_location = sys.argv[1:5]
+data = {}
+if os.path.exists(settings_file):
+    try:
+        with open(settings_file, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:
+        data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+data["device_id"] = device_id
+data["videocall_room"] = videocall_room
+data["device_location"] = device_location
+
+with open(settings_file, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, indent=4, ensure_ascii=False)
+PY
+
+  log "Device identity synced: device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', location='$DEVICE_LOCATION'"
 }
 
 configure_audio_input_defaults() {
@@ -526,6 +594,9 @@ COBIEN_WORKSPACE_ROOT=$WORKSPACE_ROOT
 COBIEN_UPDATE_REMOTE=$REMOTE_NAME
 COBIEN_UPDATE_BRANCH=$BRANCH_NAME
 COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
+COBIEN_DEVICE_ID=$DEVICE_ID
+COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
+COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
 COBIEN_PYTHON_BIN=$PYTHON_BIN
 COBIEN_UV_BIN=$UV_BIN
@@ -589,7 +660,10 @@ handoff_to_updated_launcher() {
     --mode "$next_mode" \
     --workspace "$WORKSPACE_ROOT" \
     --frontend-name "$FRONTEND_REPO_NAME" \
-    --mqtt-name "$MQTT_REPO_NAME"
+    --mqtt-name "$MQTT_REPO_NAME" \
+    --device-id "$DEVICE_ID" \
+    --videocall-room "$VIDEOCALL_ROOM" \
+    --device-location "$DEVICE_LOCATION"
 }
 
 update_repo_if_needed() {
@@ -661,6 +735,7 @@ run_update_once() {
 run_watch_loop() {
   check_paths
   load_env_file
+  normalize_device_identity
   log "Watch mode enabled; interval ${POLL_INTERVAL_SEC}s"
   while true; do
     if ! run_update_once watch; then
@@ -692,6 +767,7 @@ install_cron_job() {
 print_dry_run() {
   check_paths
   load_env_file
+  normalize_device_identity
   log "MODE=$MODE"
   log "WORKSPACE_ROOT=$WORKSPACE_ROOT"
   log "FRONTEND_REPO=$FRONTEND_REPO"
@@ -700,6 +776,9 @@ print_dry_run() {
   log "BRANCH_NAME=$BRANCH_NAME"
   log "REMOTE_NAME=$REMOTE_NAME"
   log "POLL_INTERVAL_SEC=$POLL_INTERVAL_SEC"
+  log "DEVICE_ID=$DEVICE_ID"
+  log "VIDEOCALL_ROOM=$VIDEOCALL_ROOM"
+  log "DEVICE_LOCATION=$DEVICE_LOCATION"
   log "ENV_FILE=$ENV_FILE"
   log "UV_BIN=${UV_BIN:-unresolved}"
   log "PYTHON_REQUEST=$PYTHON_REQUEST"
@@ -723,6 +802,10 @@ run_full_flow() {
   WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
   FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
   MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
+  normalize_device_identity
+  DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
+  VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
+  DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
   resolve_paths
 
   echo
@@ -795,6 +878,9 @@ run_full_flow() {
   echo "  Recreate .venv:   $RECREATE_VENV"
   echo "  One-shot update:  $RUN_UPDATE_ONCE"
   echo "  Watch mode:       $ENABLE_WATCH"
+  echo "  Device ID:        $DEVICE_ID"
+  echo "  Videocall room:   $VIDEOCALL_ROOM"
+  echo "  Device location:  $DEVICE_LOCATION"
   echo "  Install cron:     $INSTALL_CRON"
   if [[ "$INSTALL_CRON" == "1" ]]; then
     echo "  Cron schedule:    $CRON_SCHEDULE"
@@ -887,6 +973,18 @@ parse_args() {
         CRON_SCHEDULE="$2"
         shift 2
         ;;
+      --device-id)
+        DEVICE_ID="$2"
+        shift 2
+        ;;
+      --videocall-room)
+        VIDEOCALL_ROOM="$2"
+        shift 2
+        ;;
+      --device-location)
+        DEVICE_LOCATION="$2"
+        shift 2
+        ;;
       --recreate-venv)
         RECREATE_VENV="1"
         shift
@@ -939,6 +1037,7 @@ parse_args() {
 main() {
   parse_args "$@"
   resolve_paths
+  normalize_device_identity
 
   case "$MODE" in
     run)
@@ -956,6 +1055,7 @@ main() {
     launch)
       check_paths
       load_env_file
+      normalize_device_identity
       restart_software
       log "Launch mode keeps watcher active by default."
       run_watch_loop
