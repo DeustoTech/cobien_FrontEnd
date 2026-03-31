@@ -5,7 +5,7 @@ from kivy.uix.label import Label
 from kivy.lang import Builder
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.metrics import dp, sp
-from kivy.properties import StringProperty, NumericProperty, ListProperty
+from kivy.properties import StringProperty, NumericProperty, ListProperty, BooleanProperty
 from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.uix.widget import Widget
@@ -185,6 +185,9 @@ KV = r"""
                         AnchorLayout:
                             anchor_x: "right"
                             anchor_y: "top"
+                            size_hint_x: None
+                            width: dp(200) if root.show_city_navigation else 0
+                            opacity: 1 if root.show_city_navigation else 0
                         
                             BoxLayout:
                                 orientation: "horizontal"
@@ -194,6 +197,7 @@ KV = r"""
                                 height: dp(250)
 
                                 IconBtn:
+                                    disabled: not root.show_city_navigation
                                     on_release: root.prev_city()
                                     RoundedHeaderImage:
                                         source: root.arrow_back
@@ -201,6 +205,7 @@ KV = r"""
                                         size: dp(72), dp(72)
 
                                 IconBtn:
+                                    disabled: not root.show_city_navigation
                                     on_release: root.next_city()
                                     RoundedHeaderImage:
                                         source: root.arrow_forward
@@ -369,6 +374,7 @@ class WeatherScreenWidget(BoxLayout):
     arrow_forward = StringProperty("images/arrowforward.png")
     icon_back = StringProperty("images/back.png")
     icon_voice = StringProperty("images/voice.png")
+    show_city_navigation = BooleanProperty(False)
 
     layout_gap = NumericProperty(dp(20))
     cards_height = NumericProperty(0)
@@ -433,9 +439,11 @@ class WeatherScreenWidget(BoxLayout):
     def set_city_list(self, cities):
         if not cities:
             print("[WEATHER] The list is empty")
+            self.show_city_navigation = False
             return
         
         self.cities = cities
+        self.show_city_navigation = len(self.cities) > 1
         self.city_index = 0
         self._set_city(self.cities[0])
         self._refresh_async()
