@@ -1758,10 +1758,10 @@ class AssistantOverlay(ModalView):
         card = BoxLayout(
             orientation="vertical",
             size_hint=(None, None),
-            size=(dp(980), dp(520)),
+            size=(dp(1040), dp(620)),
             pos_hint={"center_x": 0.5, "center_y": 0.5},
-            padding=[dp(60), dp(50), dp(60), dp(50)],
-            spacing=dp(20),
+            padding=[dp(56), dp(42), dp(56), dp(42)],
+            spacing=dp(16),
         )
         with card.canvas.before:
             Color(1, 1, 1, 0.98)
@@ -1770,36 +1770,35 @@ class AssistantOverlay(ModalView):
 
         self._title = Label(
             text="Asistente",
-            font_size=sp(68),
+            font_size=sp(54),
             bold=True,
             color=(0.08, 0.08, 0.08, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(120),
+            height=dp(88),
         )
         self._title.bind(size=lambda inst, value: setattr(inst, "text_size", value))
 
         self._message = Label(
             text="",
-            font_size=sp(48),
+            font_size=sp(40),
             color=(0.12, 0.12, 0.12, 1),
             halign="center",
             valign="middle",
-            size_hint_y=None,
-            height=dp(200),
+            size_hint_y=1,
         )
         self._message.bind(size=lambda inst, value: setattr(inst, "text_size", value))
 
         self._level = Label(
             text="Mic: [..........] 0%",
             markup=False,
-            font_size=sp(34),
+            font_size=sp(30),
             color=(0.18, 0.18, 0.18, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(80),
+            height=dp(72),
         )
         self._level.bind(size=lambda inst, value: setattr(inst, "text_size", value))
 
