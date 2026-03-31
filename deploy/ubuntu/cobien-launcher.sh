@@ -776,7 +776,17 @@ update_repo_if_needed() {
 restart_software() {
   local relaunch_after_update="${1:-0}"
   log "Relaunching furniture software"
-  launch_runtime "$relaunch_after_update"
+  /bin/bash "$SELF_SCRIPT" \
+    --non-interactive \
+    --yes \
+    --mode launch \
+    --workspace "$WORKSPACE_ROOT" \
+    --frontend-name "$FRONTEND_REPO_NAME" \
+    --mqtt-name "$MQTT_REPO_NAME" \
+    --device-id "$DEVICE_ID" \
+    --videocall-room "$VIDEOCALL_ROOM" \
+    --device-location "$DEVICE_LOCATION" \
+    --branch "$BRANCH_NAME"
 }
 
 run_update_once() {
