@@ -2,6 +2,7 @@ import subprocess
 import sys
 import os
 # from face_authentication.authentication import authenticate_user
+# Guest authentication mode is currently enabled for startup.
 from face_authentication.authentication_guest import authenticate_user
 
 

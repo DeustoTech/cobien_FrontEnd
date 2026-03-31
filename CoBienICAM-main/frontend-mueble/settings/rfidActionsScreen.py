@@ -21,7 +21,7 @@ import paho.mqtt.client as mqtt
 import os
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
-# ----------------- WIDGETS RÉUTILISABLES -----------------
+# ----------------- REUSABLE WIDGETS -----------------
 
 class IconBadge(ButtonBehavior, AnchorLayout):
     icon_source = StringProperty("")
@@ -82,7 +82,7 @@ KV = """
         padding: [0, GAP_Y, 0, GAP_Y]
         spacing: GAP_Y
 
-        # ---------- CABECERA ----------
+        # ---------- HEADER ----------
         BoxLayout:
             size_hint_y: None
             height: H_HEADER
@@ -120,7 +120,7 @@ KV = """
                     icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
                     on_release: root.parent_screen.go_back() if root.parent_screen else None
 
-        # ---------- CONTENIDO PRINCIPAL ----------
+        # ---------- MAIN CONTENT ----------
         AnchorLayout:
             size_hint: 1, 1
             canvas.before:
@@ -154,7 +154,7 @@ KV = """
                         valign: "top"
                         text_size: self.width - dp(40), None
 
-                    # ---------- LISTA DE CARTAS ----------
+                    # ---------- CARD LIST ----------
                     GridLayout:
                         id: cards_container
                         cols: 1
@@ -166,7 +166,7 @@ KV = """
                         size_hint_y: None
                         height: dp(20)
 
-                    # ---------- BOTÓN MODO CONFIGURACIÓN ----------
+                    # ---------- CONFIGURATION MODE BUTTON ----------
                     Button:
                         id: btn_start_config
                         text: ""
@@ -190,7 +190,7 @@ KV = """
 
 Builder.load_string(KV)
 
-# ----------------- WIDGET PARA CADA CARTA -----------------
+# ----------------- PER-CARD WIDGET -----------------
 
 class RFIDCardWidget(BoxLayout):
     card_id = NumericProperty(0)
@@ -211,7 +211,7 @@ class RFIDCardWidget(BoxLayout):
         self.spacing = dp(12)
         self.padding = dp(20)
         
-        # Style del contenedor
+        # Container styling
         with self.canvas.before:
             Color(1, 1, 1, 1)
             self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(16),])
@@ -220,7 +220,7 @@ class RFIDCardWidget(BoxLayout):
         
         self.bind(pos=self._update_graphics, size=self._update_graphics)
         
-        # Header con ID y botón eliminar
+        # Header with card ID and delete action
         header = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40))
         
         lbl_id = Label(
@@ -246,7 +246,7 @@ class RFIDCardWidget(BoxLayout):
         header.add_widget(btn_delete)
         self.add_widget(header)
         
-        # Info action
+        # Action info
         action_info = Label(
             text=f"{_('Acción')}: {self._get_action_display_name(action)}",
             font_size=sp(22),
@@ -259,7 +259,7 @@ class RFIDCardWidget(BoxLayout):
         action_info.bind(size=action_info.setter('text_size'))
         self.add_widget(action_info)
         
-        # Info extra (ville ou contact)
+        # Extra info (city or contact)
         if action == "weather" and extra_data:
             extra_info = Label(
                 text=f"{_('Ciudad')}: {extra_data}",
@@ -298,7 +298,7 @@ class RFIDCardWidget(BoxLayout):
         }
         return action_map.get(action, action)
 
-# ----------------- SCREEN PRINCIPALE -----------------
+# ----------------- MAIN SCREEN -----------------
 
 class RFIDActionsScreen(Screen):
     configuring = BooleanProperty(False)
@@ -316,9 +316,9 @@ class RFIDActionsScreen(Screen):
         # Écouter les changements de configuration (langue)
         if hasattr(self.cfg, 'bind'):
             self.cfg.bind(data=self._on_config_change)
-            print("[RFID] ✅ Listener de langue activé")
+            print("[RFID] ✅ Language-change listener enabled")
         else:
-            print("[RFID] ⚠️ AppConfig ne supporte pas bind()")
+            print("[RFID] ⚠️ AppConfig does not expose bind()")
         
         # MQTT
         self.mqtt_client = mqtt.Client()
@@ -335,20 +335,20 @@ class RFIDActionsScreen(Screen):
         self.root_view.parent_screen = self
         self.add_widget(self.root_view)
         
-        # Charger la liste des villes disponibles
+        # Load available weather cities from configuration.
         Clock.schedule_once(lambda dt: self.load_available_cities(), 0.05)
         
-         # ✅ Charger la liste des contacts disponibles
+        # Load available contacts from contact mapping file.
         Clock.schedule_once(lambda dt: self.load_available_contacts(), 0.05)
 
-        # Charger la configuration
+        # Load persisted RFID action mapping.
         Clock.schedule_once(lambda dt: self.load_config(), 0.1)
         
-        # Mettre à jour les labels
+        # Apply initial translated labels.
         Clock.schedule_once(lambda dt: self.update_labels(), 0.15)
     
     def update_labels(self):
-        """✅ Met à jour les labels traduits"""
+        """Refresh translated labels for this screen."""
         print("[RFID] 🔄 Mise à jour labels...")
         
         if not hasattr(self.root_view, 'ids'):
@@ -360,16 +360,16 @@ class RFIDActionsScreen(Screen):
         )
         self.root_view.ids.btn_start_config.text = _("🔧 Iniciar Configuración")
         
-        # ✅ IMPORTANT : Rafraîchir tous les widgets de cartes existants
+        # Ensure existing card widgets are rebuilt with translated strings.
         self._refresh_all_cards()
         
-        print("[RFID] ✅ Labels mis à jour")
+        print("[RFID] ✅ Labels updated")
     
     def _refresh_all_cards(self):
-        """Recrée tous les widgets de cartes avec les nouvelles traductions"""
-        print("[RFID] 🔄 Rafraîchissement des cartes...")
+        """Rebuild all card widgets after language or label changes."""
+        print("[RFID] 🔄 Refreshing card widgets...")
         
-        # Sauvegarder les données des cartes actuelles
+        # Snapshot card data before rebuilding widgets.
         cards_data = []
         for card_id, widget in self.card_widgets.items():
             cards_data.append({
@@ -378,12 +378,12 @@ class RFIDActionsScreen(Screen):
                 'extra_data': widget.extra_data
             })
         
-        # Supprimer tous les widgets existants
+        # Remove current widgets and recreate from snapshot.
         container = self.root_view.ids.cards_container
         container.clear_widgets()
         self.card_widgets.clear()
         
-        # Recréer les widgets avec les nouvelles traductions
+        # Recreate widgets with translated labels.
         for card_data in cards_data:
             self.add_card_widget(
                 card_data['card_id'],
@@ -391,31 +391,31 @@ class RFIDActionsScreen(Screen):
                 card_data['extra_data']
             )
         
-        print(f"[RFID] ✅ {len(cards_data)} cartes rafraîchies")
+        print(f"[RFID] ✅ {len(cards_data)} cards refreshed")
     
     def _on_config_change(self, instance, value):
-        """✅ Appelé quand la config change (notamment la langue)"""
-        print("[RFID] 🔄 Changement de configuration détecté")
+        """Handle live configuration changes (for example language updates)."""
+        print("[RFID] 🔄 Configuration change detected")
         
-        # Vérifier si c'est un changement de langue
+        # React only when language actually changes.
         new_lang = value.get('language', 'es')
         current_lang = get_current_language()
         
         if new_lang != current_lang:
-            print(f"[RFID] 🌍 Changement de langue détecté: {current_lang} → {new_lang}")
+            print(f"[RFID] 🌍 Language change detected: {current_lang} -> {new_lang}")
             
-            # Forcer le rechargement de la langue
+            # Force translation module reload.
             change_language(new_lang)
             
-            # Mettre à jour tous les labels
+            # Refresh UI labels after language switch.
             Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
     
     def go_back(self):
-        """Retour à l'écran settings"""
+        """Navigate back to settings."""
         self.sm.current = "settings"
     
     def on_mqtt_message(self, client, userdata, msg):
-        """Gère les messages MQTT reçus"""
+        """Handle incoming MQTT card-read events."""
         if msg.topic == "rfid/read":
             try:
                 payload = json.loads(msg.payload.decode("utf-8"))
@@ -429,7 +429,7 @@ class RFIDActionsScreen(Screen):
                 print(f"[RFID] Erreur lecture carte: {e}")
     
     def handle_card_detected(self, card_id):
-        """Gère la détection d'une carte RFID"""
+        """Handle card detection according to active mode."""
         if self.configuring:
             self.detected_card_id = card_id
             self.show_action_selection_popup(card_id)
@@ -463,7 +463,7 @@ class RFIDActionsScreen(Screen):
             self.available_cities = []
     
     def load_available_contacts(self):
-        """Charge les noms des contacts depuis list_contacts.txt"""
+        """Load contact display names from list_contacts.txt."""
         self.available_contacts = []
 
         contact_path = os.path.abspath(
@@ -491,7 +491,7 @@ class RFIDActionsScreen(Screen):
             self.available_contacts = []
     
     def _find_weather_config_file(self):
-        """Trouve le fichier config_weather.txt"""
+        """Resolve `config_weather.txt` from known candidate paths."""
         possible_paths = [
             "config/config_weather.txt",
             os.path.join(os.path.dirname(__file__), "config/config_weather.txt"),
@@ -506,7 +506,7 @@ class RFIDActionsScreen(Screen):
         return None
     
     def load_config(self):
-        """Charge la configuration depuis config_rfid.txt"""
+        """Load RFID action mapping from config_rfid.txt."""
         config_path = self._find_config_file()
         if not config_path:
             print("[RFID] config_rfid.txt non trouvé")
@@ -564,7 +564,7 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] Erreur chargement config: {e}")
     
     def _find_config_file(self):
-        """Trouve le fichier config_rfid.txt"""
+        """Resolve `config_rfid.txt` from known candidate paths."""
         possible_paths = [
             "config/config_rfid.txt",
             os.path.join(os.path.dirname(__file__), "config/config_rfid.txt"),
@@ -579,7 +579,7 @@ class RFIDActionsScreen(Screen):
         return None
     
     def add_card_widget(self, card_id, action="day_events", extra_data=""):
-        """Ajoute un widget de carte à l'interface"""
+        """Create and mount a card widget in the UI."""
         if card_id in self.card_widgets:
             old_widget = self.card_widgets[card_id]
             self.root_view.ids.cards_container.remove_widget(old_widget)
@@ -626,7 +626,7 @@ class RFIDActionsScreen(Screen):
         self.config_popup.open()
     
     def show_action_selection_popup(self, card_id):
-        """Affiche le popup de sélection d'action"""
+        """Open the action-selection popup."""
         if self.config_popup:
             self.config_popup.dismiss()
         
@@ -690,7 +690,7 @@ class RFIDActionsScreen(Screen):
         self.config_popup.open()
     
     def on_action_selected(self, card_id, action):
-        """Gère la sélection d'une action"""
+        """Handle selected action from the configuration flow."""
         if action == "weather":
             self.show_city_dropdown_popup(card_id, action)
         elif action == "videocall":
@@ -699,7 +699,7 @@ class RFIDActionsScreen(Screen):
             self.confirm_configuration(card_id, action, "")
     
     def show_city_dropdown_popup(self, card_id, action):
-        """Affiche un popup avec menu déroulant des villes"""
+        """Open city selection popup."""
         self.config_popup.dismiss()
         
         content = BoxLayout(orientation='vertical', spacing=dp(15), padding=dp(20))
@@ -775,7 +775,7 @@ class RFIDActionsScreen(Screen):
         self.config_popup.open()
     
     def show_contact_input_popup(self, card_id, action):
-        """Affiche un popup avec menu déroulant des contacts"""
+        """Open contact selection popup."""
         self.config_popup.dismiss()
 
         content = BoxLayout(orientation='vertical', spacing=dp(15), padding=dp(20))
@@ -838,7 +838,7 @@ class RFIDActionsScreen(Screen):
         self.config_popup.open()
     
     def confirm_configuration(self, card_id, action, extra_data=""):
-        """Confirme et enregistre la configuration"""
+        """Persist and apply a confirmed RFID mapping."""
         action_code = self._get_action_code(action)
         payload = {
             "id": int(card_id),
@@ -871,7 +871,7 @@ class RFIDActionsScreen(Screen):
         Clock.schedule_once(lambda dt: msg_popup.dismiss(), 2)
     
     def publish_rfid_reload_event(self):
-        """Publie un événement MQTT pour demander le rechargement des actions RFID"""
+        """Publish an MQTT event requesting RFID action reload."""
         try:
             from datetime import datetime
             
@@ -887,7 +887,7 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] ⚠️ Erreur publication MQTT: {e}")
     
     def save_to_config(self, card_id, action, extra_data=""):
-        """Sauvegarde dans config_rfid.txt"""
+        """Persist card mapping into config_rfid.txt."""
         config_path = self._find_config_file()
         if not config_path:
             config_path = "config/config_rfid.txt"
@@ -953,7 +953,7 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] Erreur sauvegarde: {e}")
     
     def remove_card(self, card_id):
-        """Supprime une carte de l'interface et du fichier"""
+        """Remove a card from UI and persisted config."""
         if card_id in self.card_widgets:
             widget = self.card_widgets[card_id]
             self.root_view.ids.cards_container.remove_widget(widget)
@@ -991,7 +991,7 @@ class RFIDActionsScreen(Screen):
         popup.open()
     
     def remove_from_config(self, card_id):
-        """Supprime une carte du fichier config_rfid.txt"""
+        """Remove a card entry from config_rfid.txt."""
         config_path = self._find_config_file()
         if not config_path or not os.path.exists(config_path):
             return
@@ -1019,7 +1019,7 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] Erreur suppression: {e}")
     
     def _get_action_code(self, action_name):
-        """Convertit le nom d'action en code numérique"""
+        """Map action name to numeric action code expected by firmware."""
         action_codes = {
             "day_events": 2,
             "weather": 3,
@@ -1028,27 +1028,27 @@ class RFIDActionsScreen(Screen):
         return action_codes.get(action_name, 2)
     
     def on_pre_enter(self, *args):
-        """✅ Mise à jour des traductions avant d'entrer dans l'écran"""
+        """Refresh language-dependent content before entering the screen."""
         print("[RFID] 🔄 on_pre_enter appelé")
         
-        # Force le rechargement de la langue depuis settings.json
+        # Force reload of language from settings.json.
         app = App.get_running_app()
         if app and hasattr(app, 'cfg'):
             current_lang = app.cfg.data.get("language", "es")
             change_language(current_lang)
-            print(f"[RFID] 🌍 Langue forcée: {current_lang}")
+            print(f"[RFID] 🌍 Language forced: {current_lang}")
         
-        # Recharger les villes et contacts
+        # Reload dynamic sources.
         self.load_available_cities()
         self.load_available_contacts()
         
-        # Mettre à jour les labels (incluant rafraîchissement des cartes)
+        # Refresh labels and card widgets.
         self.update_labels()
         
-        print("[RFID] ✅ Écran rafraîchi")
+        print("[RFID] ✅ Screen refreshed")
     
     def on_leave(self, *args):
-        """Nettoyage en quittant l'écran"""
+        """Release temporary state when leaving the screen."""
         self.configuring = False
         if self.config_popup:
             self.config_popup.dismiss()

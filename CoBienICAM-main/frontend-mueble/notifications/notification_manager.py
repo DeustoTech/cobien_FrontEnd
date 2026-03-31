@@ -22,14 +22,14 @@ from translation import _, change_language
 from kivy.app import App
 import paho.mqtt.publish as publish
 
-#ICSO
+# ICSO logging
 from icso_data.videocall_logger import log_call_start
 from icso_data.notification_logger import log_received_photos, log_added_events
 
-# ✅ IMPORT APP CONFIG TO READ settings.json
+# Import app configuration values (settings.json)
 from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
-# ========== IMPORT CENTRALIZED LED MODULE ==========
+# ========== CENTRALIZED LED CONTROL ==========
 from notifications.mqtt_led_sender import send_led_config_from_dict, turn_off_leds
 from notifications.notification_runtime import (
     NONE_RINGTONE,
@@ -39,7 +39,7 @@ from notifications.notification_runtime import (
     stop_ringtone,
 )
 
-# ========== MQTT CONFIGURATION ==========
+# ========== MQTT TOPICS ==========
 TOPIC_EVENTS_RELOAD = "events/reload"
 TOPIC_BOARD_RELOAD = "board/reload"
 
@@ -199,11 +199,11 @@ class NotificationPopup(ModalView):
     def __init__(self, notification_type, data, callback=None, **kwargs):
         print(f"[NOTIF] __init__ NotificationPopup for {notification_type}")
         
-        # ✅ CRITIQUE : FORCER LA LANGUE AVANT super().__init__
+        # Ensure translation context is applied before building UI.
         app = App.get_running_app()
         current_lang = app.cfg.data.get("language", "es")
         change_language(current_lang)
-        print(f"[NOTIF] 🌍 Language forced to: {current_lang} BEFORE building popup")
+        print(f"[NOTIF] 🌍 Language forced to: {current_lang} before popup build")
         
         super().__init__(**kwargs)
         print(f"[NOTIF] super().__init__ OK")
@@ -212,7 +212,7 @@ class NotificationPopup(ModalView):
         self.data = data
         self.callback = callback
         
-        # Modal configuration
+        # Modal setup
         self.size_hint = (0.9, 0.7)
         self.auto_dismiss = False
         self.background = ""
@@ -220,7 +220,7 @@ class NotificationPopup(ModalView):
         self.overlay_color = (0, 0, 0, 0)
         print(f"[NOTIF] Modal configuration OK")
         
-        # Build content (maintenant _() utilisera la bonne langue)
+        # Build translated content using the active language.
         print(f"[NOTIF] Starting build_content...")
         self.content = self._build_content()
         print(f"[NOTIF] build_content OK")

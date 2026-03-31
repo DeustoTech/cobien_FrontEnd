@@ -1,14 +1,14 @@
 # translation.py
-# Module centralisé pour la gestion des traductions
+# Centralized translation module
 # ==================================================
-# Ce module fournit une instance unique de gestionnaire de traductions
-# qui peut être importée et utilisée partout dans l'application.
+# This module exposes a single translation manager instance
+# that can be imported and used across the whole application.
 # 
 # Usage:
 #   from translation import _
 #   text = _("Bonjour")
 #
-# Pour changer de langue:
+# To switch language:
 #   from translation import change_language
 #   change_language("fr")
 
@@ -19,7 +19,7 @@ from typing import Dict
 
 
 class PoTranslations:
-    """Fallback simple de traducciones desde .po (sin requerir .mo)."""
+    """Simple `.po`-based fallback translation catalog (no `.mo` required)."""
 
     def __init__(self, catalog: Dict[str, str]):
         self._catalog = catalog or {}
@@ -41,7 +41,7 @@ def _unquote_po(value: str) -> str:
 
 
 def _load_po_catalog(po_path: str) -> Dict[str, str]:
-    """Parser minimal de .po para msgid/msgstr simples y multilínea."""
+    """Minimal `.po` parser for simple and multiline `msgid`/`msgstr` entries."""
     catalog: Dict[str, str] = {}
     if not os.path.exists(po_path):
         return catalog
@@ -88,29 +88,29 @@ def _load_po_catalog(po_path: str) -> Dict[str, str]:
 
 class TranslationManager:
     """
-    Gestionnaire centralisé des traductions.
-    Maintient une instance unique de gettext qui peut être mise à jour globalement.
+    Centralized translation manager.
+    Maintains a shared gettext-like translator that can be switched globally.
     """
     
     def __init__(self):
-        """Initialise le gestionnaire avec l'espagnol par défaut"""
+        """Initialize the manager with Spanish as the default language."""
         self._current_lang = "es"
         self._translation = None
         self.load_translation("es")
     
     def load_translation(self, lang):
         """
-        Charge la traduction pour la langue donnée.
+        Load translations for the given language.
         
         Args:
-            lang (str): Code langue ("es" ou "fr")
+            lang (str): Language code ("es" or "fr")
         """
         self._current_lang = lang
 
         localedir = os.path.join(os.path.dirname(__file__), 'locales')
         po_path = os.path.join(localedir, lang, "LC_MESSAGES", "app.po")
 
-        # 1) Chemin nominal: gettext avec app.mo
+        # 1) Preferred path: gettext with compiled app.mo files
         try:
             self._translation = gettext.translation(
                 'app',
@@ -123,7 +123,7 @@ class TranslationManager:
         except Exception:
             pass
 
-        # 2) Fallback: charger le .po directamente (parser interno)
+        # 2) Fallback path: load plain `.po` files with local parser
         try:
             if os.path.exists(po_path):
                 catalog = _load_po_catalog(po_path)
@@ -133,19 +133,19 @@ class TranslationManager:
         except Exception as e:
             print(f"[TRANSLATION] ⚠️ Erreur fallback PO ({lang}): {e}")
 
-        # 3) Dernier fallback: identité
+        # 3) Last fallback: identity translation
         print(f"[TRANSLATION] ⚠️ Aucun catalogue disponible pour '{lang}', fallback identity")
         self._translation = gettext.NullTranslations()
     
     def gettext(self, message):
         """
-        Traduit un message.
+        Translate a message.
         
         Args:
-            message (str): Message à traduire
+            message (str): Message to translate
             
         Returns:
-            str: Message traduit
+            str: Translated message
         """
         if self._translation is None:
             return message
@@ -153,85 +153,85 @@ class TranslationManager:
     
     def get_current_lang(self):
         """
-        Retourne la langue actuelle.
+        Return the currently active language code.
         
         Returns:
-            str: Code langue actuel ("es" ou "fr")
+            str: Current language code ("es" or "fr")
         """
         return self._current_lang
 
 
 # ============================================================================
-# INSTANCE GLOBALE UNIQUE
+# SINGLE SHARED INSTANCE
 # ============================================================================
-# Cette instance est partagée par toute l'application
+# Shared across the entire application process.
 _translation_manager = TranslationManager()
 
 
 # ============================================================================
-# FONCTION DE TRADUCTION GLOBALE
+# GLOBAL TRANSLATION FUNCTION
 # ============================================================================
 def _(message):
     """
-    Fonction de traduction globale.
-    Cette fonction peut être importée et utilisée partout.
+    Global translation function.
+    This helper is intended to be imported and used anywhere.
     
     Args:
-        message (str): Message à traduire
+        message (str): Message to translate
         
     Returns:
-        str: Message traduit selon la langue actuelle
+        str: Translated message for the active language
         
     Example:
         from translation import _
-        print(_("Bonjour"))  # → "Hola" (si langue = "es")
+        print(_("Bonjour"))  # -> "Hola" when language is "es"
     """
     return _translation_manager.gettext(message)
 
 
 # ============================================================================
-# FONCTION POUR CHANGER DE LANGUE
+# LANGUAGE SWITCH FUNCTION
 # ============================================================================
 def change_language(lang):
     """
-    Change la langue globalement pour toute l'application.
-    Tous les appels à _() utiliseront automatiquement la nouvelle langue.
+    Switch language globally for the entire application.
+    All subsequent calls to `_()` will use the new language.
     
     Args:
-        lang (str): Code langue ("es" pour espagnol, "fr" pour français)
+        lang (str): Language code ("es" for Spanish, "fr" for French)
         
     Example:
         from translation import change_language, _
         change_language("fr")
-        print(_("Hola"))  # → "Bonjour"
+        print(_("Hola"))  # -> "Bonjour"
     """
     _translation_manager.load_translation(lang)
     print(f"[TRANSLATION] 🌍 Langue changée globalement: {lang}")
 
 
 # ============================================================================
-# FONCTION POUR OBTENIR LA LANGUE ACTUELLE
+# CURRENT LANGUAGE ACCESSOR
 # ============================================================================
 def get_current_language():
     """
-    Retourne la langue actuellement active.
+    Return the currently active language.
     
     Returns:
-        str: Code langue actuel ("es" ou "fr")
+        str: Current language code ("es" or "fr")
         
     Example:
         from translation import get_current_language
         lang = get_current_language()
-        print(f"Langue actuelle : {lang}")
+        print(f"Current language: {lang}")
     """
     return _translation_manager.get_current_lang()
 
 
 # ============================================================================
-# INITIALISATION
+# LOCAL SMOKE TEST
 # ============================================================================
 if __name__ == "__main__":
-    # Test du module
+    # Module smoke test
     print("=" * 60)
     print("TEST DU MODULE DE TRADUCTION")
     print("=" * 60)
@@ -241,19 +241,19 @@ if __name__ == "__main__":
     print(f"   _('Eventos') = {_('Eventos')}")
     print(f"   _('Configuración') = {_('Configuración')}")
     
-    print("\n2. Changement vers Français")
+    print("\n2. Switch to French")
     change_language("fr")
     print(f"   _('Tiempo') = {_('Tiempo')}")
     print(f"   _('Eventos') = {_('Eventos')}")
     print(f"   _('Configuración') = {_('Configuración')}")
     
-    print("\n3. Retour à l'Espagnol")
+    print("\n3. Switch back to Spanish")
     change_language("es")
     print(f"   _('Tiempo') = {_('Tiempo')}")
     print(f"   _('Eventos') = {_('Eventos')}")
     print(f"   _('Configuración') = {_('Configuración')}")
     
-    print("\n4. Langue actuelle")
+    print("\n4. Current language")
     print(f"   get_current_language() = {get_current_language()}")
     
     print("\n" + "=" * 60)

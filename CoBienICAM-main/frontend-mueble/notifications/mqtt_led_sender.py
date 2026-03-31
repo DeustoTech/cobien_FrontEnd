@@ -1,26 +1,26 @@
 """
 notifications/mqtt_led_sender.py
-Module centralisé pour l'envoi des configurations LED via MQTT.
-Utilisé par notification_manager.py et notificationsScreen.py
+Centralized helper for sending LED strip configuration via MQTT.
+Used by notification_manager.py and notificationsScreen.py.
 """
 import paho.mqtt.client as mqtt
 import json
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
-# ========== CONFIGURATION MQTT ==========
+# ========== MQTT CONFIGURATION ==========
 MQTT_TOPIC = "ledstrip/config"
 
-# Client MQTT global
+# Global MQTT client
 mqtt_client = mqtt.Client(client_id="led_sender_client")
 
 try:
     mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
     mqtt_client.loop_start()
-    print(f"[LED_SENDER] ✓ Connecté à MQTT {MQTT_LOCAL_BROKER}:{MQTT_LOCAL_PORT}")
+    print(f"[LED_SENDER] ✓ Connected to MQTT {MQTT_LOCAL_BROKER}:{MQTT_LOCAL_PORT}")
 except Exception as e:
-    print(f"[LED_SENDER] ✗ Erreur connexion MQTT: {e}")
+    print(f"[LED_SENDER] ✗ MQTT connection error: {e}")
 
-# ========== MAPPING MODE TEXTE → INT ==========
+# ========== MODE STRING -> INT MAPPING ==========
 MODE_MAPPING = {
     "OFF": 0,
     "ON": 1,
@@ -28,53 +28,53 @@ MODE_MAPPING = {
     "FADING_BLINK": 3,
 }
 
-# ========== FONCTIONS D'ENVOI ==========
+# ========== SEND HELPERS ==========
 
 def send_led_config(group, color, intensity, mode):
     """
-    Envoie une configuration LED directement avec paramètres
+    Send LED configuration directly from explicit parameters.
     
     Args:
-        group (int): Groupe LED (0-7) - FORCÉ À 7
-        color (str): Couleur au format "#RRGGBB"
-        intensity (int): Intensité (0-255)
-        mode (int ou str): Mode (0-9 ou "ON"/"OFF"/"BLINK"/"FADING_BLINK")
+        group (int): LED group (0-7) - forced to 7 by design.
+        color (str): Color in "#RRGGBB" format.
+        intensity (int): Intensity (0-255).
+        mode (int or str): Mode (0-9 or "ON"/"OFF"/"BLINK"/"FADING_BLINK").
     """
-    # ========== FORCER LE GROUP À 7 ==========
+    # ========== FORCE GROUP TO 7 ==========
     group = 7
     
-    # Validation et conversion de l'intensité
+    # Validate and normalize intensity
     try:
         intensity = int(intensity)
         if not (0 <= intensity <= 255):
-            print(f"[LED_SENDER] ⚠ Intensité invalide: {intensity}, utilisation de 255")
+            print(f"[LED_SENDER] ⚠ Invalid intensity: {intensity}, using 255")
             intensity = 255
     except (ValueError, TypeError):
-        print(f"[LED_SENDER] ⚠ Intensité invalide: {intensity}, utilisation de 255")
+        print(f"[LED_SENDER] ⚠ Invalid intensity: {intensity}, using 255")
         intensity = 255
     
-    # Validation de la couleur
+    # Validate color
     color = str(color).upper()
     if not color.startswith('#'):
         color = '#' + color
     if len(color) != 7:
-        print(f"[LED_SENDER] ⚠ Couleur invalide: {color}, utilisation de #FFFFFF")
+        print(f"[LED_SENDER] ⚠ Invalid color: {color}, using #FFFFFF")
         color = "#FFFFFF"
     
-    # Conversion du mode si nécessaire
+    # Normalize mode
     if isinstance(mode, str):
-        mode = MODE_MAPPING.get(mode.upper(), 1)  # Par défaut ON = 1
+        mode = MODE_MAPPING.get(mode.upper(), 1)  # Default ON = 1
     
     try:
         mode = int(mode)
         if not (0 <= mode <= 9):
-            print(f"[LED_SENDER] ⚠ Mode invalide: {mode}, utilisation de 1 (ON)")
+            print(f"[LED_SENDER] ⚠ Invalid mode: {mode}, using 1 (ON)")
             mode = 1
     except (ValueError, TypeError):
-        print(f"[LED_SENDER] ⚠ Mode invalide: {mode}, utilisation de 1 (ON)")
+        print(f"[LED_SENDER] ⚠ Invalid mode: {mode}, using 1 (ON)")
         mode = 1
     
-    # Construction du payload
+    # Build payload
     payload = {
         "group": group,
         "color": color,
@@ -82,25 +82,25 @@ def send_led_config(group, color, intensity, mode):
         "mode": mode
     }
     
-    # Envoi MQTT (format compact sans espaces)
+    # Publish compact JSON payload
     try:
         mqtt_client.publish(MQTT_TOPIC, json.dumps(payload, separators=(',', ':')))
         print(f"[LED_SENDER] ✓ Published: {payload}")
     except Exception as e:
-        print(f"[LED_SENDER] ✗ Erreur publication: {e}")
+        print(f"[LED_SENDER] ✗ Publish error: {e}")
 
 def send_led_config_from_dict(config_dict):
     """
-    Envoie une configuration LED depuis un dictionnaire
+    Send LED configuration from a dictionary.
     
     Args:
-        config_dict (dict): Dictionnaire contenant:
-            - group (int): Groupe LED - FORCÉ À 7
-            - color (str): Couleur "#RRGGBB"
-            - intensity (int): Intensité 0-255
+        config_dict (dict): Dictionary containing:
+            - group (int): LED group - forced to 7
+            - color (str): Color "#RRGGBB"
+            - intensity (int): Intensity 0-255
             - mode (str ou int): Mode
     """
-    group = config_dict.get("group", 7)  # Par défaut 7, mais sera forcé de toute façon
+    group = config_dict.get("group", 7)  # Default 7, and still forced
     color = config_dict.get("color", "#FFFFFF")
     intensity = config_dict.get("intensity", 255)
     mode = config_dict.get("mode", "ON")
@@ -109,13 +109,13 @@ def send_led_config_from_dict(config_dict):
 
 def turn_off_leds(group=7):
     """
-    Éteint les LEDs du groupe spécifié
+    Turn off LEDs for the configured group.
     
     Args:
-        group (int): Groupe LED à éteindre (défaut: 7)
+        group (int): Target LED group (default: 7)
     """
     payload = {
-        "group": 7,  # Toujours groupe 7
+        "group": 7,  # Always group 7
         "color": "#000000",
         "intensity": 0,
         "mode": 0  # OFF
@@ -123,19 +123,19 @@ def turn_off_leds(group=7):
     
     try:
         mqtt_client.publish(MQTT_TOPIC, json.dumps(payload, separators=(',', ':')))
-        print(f"[LED_SENDER] ✓ LEDs éteintes: {payload}")
+        print(f"[LED_SENDER] ✓ LEDs turned off: {payload}")
     except Exception as e:
-        print(f"[LED_SENDER] ✗ Erreur extinction: {e}")
+        print(f"[LED_SENDER] ✗ Turn-off error: {e}")
 
-# ========== TEST DIRECT ==========
+# ========== DIRECT SMOKE TEST ==========
 if __name__ == "__main__":
-    print("[LED_SENDER] Test d'envoi de configuration LED")
+    print("[LED_SENDER] LED configuration smoke test")
     
-    # Test 1: Envoi direct
+    # Test 1: Direct send
     print("\n--- Test 1: Envoi direct ---")
     send_led_config(group=1, color="#FF0000", intensity=200, mode="BLINK")
     
-    # Test 2: Depuis dictionnaire
+    # Test 2: From dictionary
     print("\n--- Test 2: Depuis dictionnaire ---")
     test_config = {
         "group": 2,
@@ -145,12 +145,12 @@ if __name__ == "__main__":
     }
     send_led_config_from_dict(test_config)
     
-    # Test 3: Extinction
+    # Test 3: Turn off
     print("\n--- Test 3: Extinction ---")
     import time
     time.sleep(2)
     turn_off_leds()
     
-    print("\n[LED_SENDER] Tests terminés")
+    print("\n[LED_SENDER] Smoke tests finished")
     
     time.sleep(1)
