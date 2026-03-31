@@ -32,6 +32,8 @@ PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
 ARGS_PROVIDED="0"
+GLOBAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cobien"
+LAST_RUN_CONFIG_FILE="$GLOBAL_CONFIG_DIR/launcher-last.env"
 
 usage() {
   cat <<EOF
@@ -74,6 +76,61 @@ EOF
 
 log() {
   echo "[COBIEN] $*"
+}
+
+save_last_run_config() {
+  mkdir -p "$GLOBAL_CONFIG_DIR"
+  cat > "$LAST_RUN_CONFIG_FILE" <<EOF
+COBIEN_WORKSPACE_ROOT=$WORKSPACE_ROOT
+COBIEN_FRONTEND_REPO_NAME=$FRONTEND_REPO_NAME
+COBIEN_MQTT_REPO_NAME=$MQTT_REPO_NAME
+COBIEN_UPDATE_BRANCH=$BRANCH_NAME
+COBIEN_UPDATE_REMOTE=$REMOTE_NAME
+COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
+COBIEN_DEVICE_ID=$DEVICE_ID
+COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
+COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
+COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE
+COBIEN_BOOTSTRAP_PYTHON_VERSION=$PYTHON_REQUEST
+EOF
+  log "Last run configuration saved to: $LAST_RUN_CONFIG_FILE"
+}
+
+load_last_run_config() {
+  if [[ ! -f "$LAST_RUN_CONFIG_FILE" ]]; then
+    return 1
+  fi
+  set -a
+  source "$LAST_RUN_CONFIG_FILE"
+  set +a
+
+  WORKSPACE_ROOT="${COBIEN_WORKSPACE_ROOT:-$WORKSPACE_ROOT}"
+  FRONTEND_REPO_NAME="${COBIEN_FRONTEND_REPO_NAME:-$FRONTEND_REPO_NAME}"
+  MQTT_REPO_NAME="${COBIEN_MQTT_REPO_NAME:-$MQTT_REPO_NAME}"
+  BRANCH_NAME="${COBIEN_UPDATE_BRANCH:-$BRANCH_NAME}"
+  REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-$REMOTE_NAME}"
+  POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_SEC}"
+  DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
+  VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
+  DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
+  CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
+  PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-$PYTHON_REQUEST}"
+  return 0
+}
+
+print_last_run_config_summary() {
+  echo
+  echo "Previous configuration found:"
+  echo "  Workspace:        $WORKSPACE_ROOT"
+  echo "  Frontend repo:    $FRONTEND_REPO_NAME"
+  echo "  MQTT repo:        $MQTT_REPO_NAME"
+  echo "  Branch:           $BRANCH_NAME"
+  echo "  Device ID:        $DEVICE_ID"
+  echo "  Videocall room:   $VIDEOCALL_ROOM"
+  echo "  Device location:  $DEVICE_LOCATION"
+  echo "  Cron schedule:    $CRON_SCHEDULE"
+  echo "  Python request:   $PYTHON_REQUEST"
+  echo
 }
 
 resolve_paths() {
@@ -786,6 +843,7 @@ print_dry_run() {
 
 run_full_flow() {
   local reuse_existing_installation="0"
+  local use_last_config="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     echo "========================================"
     echo "CoBien Ubuntu setup assistant"
@@ -799,13 +857,26 @@ run_full_flow() {
     fi
   fi
 
-  WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
-  FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
-  MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
-  normalize_device_identity
-  DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
-  VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
-  DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
+  if [[ "$NON_INTERACTIVE" != "1" ]] && load_last_run_config; then
+    normalize_device_identity
+    print_last_run_config_summary
+    if ask_yes_no "Do you want to reuse this previous configuration and run a full reinstall" "y"; then
+      use_last_config="1"
+      INSTALL_SYSTEM_DEPS="1"
+      RECREATE_VENV="1"
+      reuse_existing_installation="0"
+    fi
+  fi
+
+  if [[ "$use_last_config" != "1" ]]; then
+    WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
+    FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
+    MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
+    normalize_device_identity
+    DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
+    VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
+    DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
+  fi
   resolve_paths
 
   echo
@@ -817,7 +888,7 @@ run_full_flow() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { echo "Frontend repository not found at: $FRONTEND_REPO"; exit 1; }
   [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
 
-  if is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
+  if [[ "$use_last_config" != "1" ]] && is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
     reuse_existing_installation="1"
     INSTALL_SYSTEM_DEPS="0"
   fi
@@ -855,6 +926,12 @@ run_full_flow() {
     fi
   elif [[ "$NON_INTERACTIVE" != "1" ]]; then
     echo "No previous .venv found. A new one will be created."
+  fi
+
+  if [[ "$use_last_config" == "1" ]]; then
+    INSTALL_SYSTEM_DEPS="1"
+    RECREATE_VENV="1"
+    reuse_existing_installation="0"
   fi
 
   if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to run an update check before launch" "n"; then
@@ -919,6 +996,8 @@ run_full_flow() {
     echo "[3c/4] Installing cron job..."
     install_cron_job
   fi
+
+  save_last_run_config
 
   echo
   echo "[4/4] Launching furniture system..."
