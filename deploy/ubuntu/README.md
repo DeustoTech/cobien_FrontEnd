@@ -107,5 +107,4 @@ Si quieres actualizar solo a ciertas horas:
 ## Notas
 
 - `cobien-launcher.sh` es el unico punto de entrada operativo.
-- `start_cobien.sh` se mantiene solo como wrapper de compatibilidad.
 - El sistema solo actualiza si la rama actual coincide con `development_fix`.
