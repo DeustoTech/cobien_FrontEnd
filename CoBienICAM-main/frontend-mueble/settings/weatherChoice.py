@@ -430,7 +430,17 @@ class WeatherChoice(FloatLayout):
         self.btn_all_letters.bind(on_release=lambda *_: self._set_letter_filter(None))
         self.letters_row.add_widget(self.btn_all_letters)
 
-        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        source_cities = self.active_cities if self.active_cities else self.available_cities
+        letters = sorted({
+            (city or "").strip()[0].upper()
+            for city in source_cities
+            if (city or "").strip()
+        })
+
+        if self.selected_letter and self.selected_letter not in letters:
+            self.selected_letter = None
+
+        for letter in letters:
             btn = Button(
                 text=letter,
                 size_hint=(None, None),
@@ -521,6 +531,7 @@ class WeatherChoice(FloatLayout):
             
             print(f"[WEATHER CHOICE] Total: {len(self.available_cities)} villes ({len(self.active_cities)} actives)")
             self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
+            self._build_letter_filter_buttons()
         
         except Exception as e:
             print(f"[WEATHER CHOICE] Erreur lors du chargement: {e}")

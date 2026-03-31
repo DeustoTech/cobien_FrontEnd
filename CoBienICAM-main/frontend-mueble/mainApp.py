@@ -613,14 +613,32 @@ class MainScreen(Screen):
         os.makedirs(self.cache_dir, exist_ok=True)
         self.cache_path = os.path.join(self.cache_dir, "weather_today.json")
 
-        # ✅ Charger première ville
+        # ✅ Charger ville prioritaire (ou fallback sur la première active)
         if WEATHER_CITIES_GEO:
-            first_city = WEATHER_CITIES_GEO[0]
-            self.weather_city = first_city["name"]
-            self.weather_lat = first_city["lat"]
-            self.weather_lon = first_city["lon"]
-            self.weather_tz = first_city.get("tz", "UTC")
-            print(f"[MAIN] Primary weather city: {self.weather_city}")
+            configured_primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
+            selected_city = None
+
+            if configured_primary_city:
+                selected_city = next(
+                    (c for c in WEATHER_CITIES_GEO if c.get("name") == configured_primary_city),
+                    None,
+                )
+                if selected_city:
+                    print(f"[MAIN] Primary weather city from settings: {configured_primary_city}")
+                else:
+                    print(
+                        f"[MAIN] Configured primary city '{configured_primary_city}' not found in active weather list, "
+                        "falling back to first active city."
+                    )
+
+            if selected_city is None:
+                selected_city = WEATHER_CITIES_GEO[0]
+
+            self.weather_city = selected_city["name"]
+            self.weather_lat = selected_city["lat"]
+            self.weather_lon = selected_city["lon"]
+            self.weather_tz = selected_city.get("tz", "UTC")
+            print(f"[MAIN] Active weather city for home screen: {self.weather_city}")
         else:
             # Fallback si liste vide
             self.weather_city = "Bilbao"
