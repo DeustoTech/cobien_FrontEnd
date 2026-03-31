@@ -423,22 +423,40 @@ KV = """
     Widget:
         size_hint_y: 0.1
     
-    # Update button
-    Button:
-        id: btn_update
-        text: ""
-        font_size: sp(22)
+    # Actions
+    BoxLayout:
+        orientation: "horizontal"
+        spacing: dp(12)
         size_hint_y: None
         height: dp(56)
-        background_color: 0,0,0,0
-        canvas.before:
-            Color:
-                rgba: 0.15, 0.55, 0.95, 1
-            RoundedRectangle:
-                pos: self.pos
-                size: self.size
-                radius: [dp(12),]
-        on_release: root.on_update()
+
+        Button:
+            id: btn_update
+            text: ""
+            font_size: sp(22)
+            background_color: 0,0,0,0
+            canvas.before:
+                Color:
+                    rgba: 0.15, 0.55, 0.95, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(12),]
+            on_release: root.on_update()
+
+        Button:
+            id: btn_simulate
+            text: ""
+            font_size: sp(22)
+            background_color: 0,0,0,0
+            canvas.before:
+                Color:
+                    rgba: 0.2, 0.65, 0.3, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(12),]
+            on_release: root.on_simulate()
 """
 
 Builder.load_string(KV)
@@ -480,6 +498,7 @@ class StripCard(BoxLayout):
         self.ids.lbl_mode.text = _("Modo:")
         self.ids.lbl_ringtone.text = _("Tono de llamada:")
         self.ids.btn_update.text = _("Actualizar Configuración")
+        self.ids.btn_simulate.text = _("Simular Notificación")
         
         # Update mode spinner values
         self.mode_values = [_("Encendido"), _("Apagado"), _("Parpadeo"), _("Parpadeo Gradual")]
@@ -644,6 +663,11 @@ class StripCard(BoxLayout):
         from notifications.mqtt_led_sender import turn_off_leds
         Clock.schedule_once(lambda dt: turn_off_leds(), 5)
 
+    def on_simulate(self):
+        if not self.parent_screen:
+            return
+        self.parent_screen.simulate_notification(self.strip_key)
+
 Factory.register("StripCard", cls=StripCard)
 
 # ----------------- SCREEN PRINCIPALE -----------------
@@ -807,5 +831,21 @@ class NotificationsScreen(Screen):
         print("[NOTIF_SCREEN] 🔄 on_pre_enter")
         self.update_labels()
         self.available_ringtones = self.load_ringtones()
+
+    def simulate_notification(self, strip_key):
+        app = App.get_running_app()
+        manager = getattr(app, "notification_manager", None) if app else None
+        if not manager:
+            print("[NOTIF_SCREEN] ⚠️ NotificationManager non disponible pour simulation")
+            return
+
+        if strip_key == "videollamada":
+            manager.show_videocall_notification("Test Usuario", room=None)
+        elif strip_key == "nuevo_evento":
+            manager.show_event_notification(_("Evento de prueba"), "2026-04-01 10:00")
+        elif strip_key == "nueva_foto":
+            manager.show_message_notification(_("Usuario de prueba"), has_image=True, has_text=True)
+        else:
+            print(f"[NOTIF_SCREEN] ⚠️ Tipo de simulación no soportado: {strip_key}")
 
 Factory.register("NotificationsScreen", cls=NotificationsScreen)

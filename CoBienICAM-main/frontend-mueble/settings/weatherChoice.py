@@ -424,6 +424,10 @@ class WeatherChoice(FloatLayout):
             size_hint=(None, None),
             size=(dp(110), dp(52)),
             font_size=sp(18),
+            background_normal="",
+            background_down="",
+            background_disabled_normal="",
+            background_disabled_down="",
             background_color=(1, 1, 1, 1),
             color=(0, 0, 0, 1),
         )
@@ -446,6 +450,10 @@ class WeatherChoice(FloatLayout):
                 size_hint=(None, None),
                 size=(dp(52), dp(52)),
                 font_size=sp(18),
+                background_normal="",
+                background_down="",
+                background_disabled_normal="",
+                background_disabled_down="",
                 background_color=(1, 1, 1, 1),
                 color=(0, 0, 0, 1),
             )
