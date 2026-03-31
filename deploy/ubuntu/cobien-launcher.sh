@@ -252,6 +252,25 @@ runtime_launch_background() {
   nohup bash -lc "$command_text" >"$log_file" 2>&1 &
 }
 
+close_runtime_windows() {
+  if ! command -v wmctrl >/dev/null 2>&1; then
+    return 0
+  fi
+  for title in "MQTT-CAN BRIDGE" "COBIEN APP"; do
+    while IFS= read -r window_id; do
+      [[ -n "${window_id:-}" ]] || continue
+      wmctrl -ic "$window_id" >/dev/null 2>&1 || true
+    done < <(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1}')
+  done
+}
+
+stop_runtime_processes() {
+  pkill -f "candump can0" >/dev/null 2>&1 || true
+  pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
+  pkill -f "mainApp.py" >/dev/null 2>&1 || true
+  pkill -f "uv run --python .* mainApp.py" >/dev/null 2>&1 || true
+}
+
 launch_runtime() {
   local relaunch_after_update="${1:-0}"
   check_paths
@@ -279,19 +298,14 @@ launch_runtime() {
 
   if [[ "$relaunch_after_update" == "1" ]]; then
     echo "[CLEAN] Closing previous CoBien terminals (update detected)..."
-    for title in "MQTT-CAN BRIDGE" "COBIEN APP"; do
-      while IFS= read -r window_id; do
-        [[ -n "${window_id:-}" ]] || continue
-        wmctrl -ic "$window_id" >/dev/null 2>&1 || true
-      done < <(wmctrl -l 2>/dev/null | awk -v title="$title" '$0 ~ title {print $1}')
-    done
-    pkill -f "candump can0" >/dev/null 2>&1 || true
-    pkill -f "/cobien_bridge" >/dev/null 2>&1 || true
-    pkill -f "mainApp.py" >/dev/null 2>&1 || true
-    pkill -f "uv run --python .* mainApp.py" >/dev/null 2>&1 || true
+    close_runtime_windows
+    stop_runtime_processes
     sleep 1
   else
-    echo "[CLEAN] No update detected; keeping current launcher terminal/session."
+    echo "[CLEAN] Ensuring single runtime instance (closing any previous bridge/app processes)."
+    close_runtime_windows
+    stop_runtime_processes
+    sleep 1
   fi
 
   setup_can_bus
