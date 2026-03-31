@@ -1025,8 +1025,9 @@ class NotificationManager:
         )
 
         def _close(*args):
-            popup.dismiss()
-            print("[NOTIF] System info notification closed")
+            if popup.parent:
+                popup.dismiss()
+                print("[NOTIF] System info notification closed")
 
         btn_ok.bind(on_release=_close)
 
@@ -1038,6 +1039,7 @@ class NotificationManager:
 
         popup.add_widget(container)
         popup.open()
+        Clock.schedule_once(lambda dt: _close(), 10)
 
         app = App.get_running_app()
         if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
