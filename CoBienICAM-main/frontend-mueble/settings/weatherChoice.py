@@ -424,8 +424,8 @@ class WeatherChoice(FloatLayout):
             size_hint=(None, None),
             size=(dp(110), dp(52)),
             font_size=sp(18),
-            background_color=(0.1, 0.1, 0.1, 1),
-            color=(1, 1, 1, 1),
+            background_color=(1, 1, 1, 1),
+            color=(0, 0, 0, 1),
         )
         self.btn_all_letters.bind(on_release=lambda *_: self._set_letter_filter(None))
         self.letters_row.add_widget(self.btn_all_letters)
@@ -446,7 +446,7 @@ class WeatherChoice(FloatLayout):
                 size_hint=(None, None),
                 size=(dp(52), dp(52)),
                 font_size=sp(18),
-                background_color=(0.85, 0.85, 0.85, 1),
+                background_color=(1, 1, 1, 1),
                 color=(0, 0, 0, 1),
             )
             btn.bind(on_release=lambda _b, l=letter: self._set_letter_filter(l))
@@ -462,20 +462,12 @@ class WeatherChoice(FloatLayout):
 
     def _refresh_letter_filter_ui(self):
         if hasattr(self, "btn_all_letters"):
-            if self.selected_letter is None:
-                self.btn_all_letters.background_color = (0.1, 0.1, 0.1, 1)
-                self.btn_all_letters.color = (1, 1, 1, 1)
-            else:
-                self.btn_all_letters.background_color = (0.85, 0.85, 0.85, 1)
-                self.btn_all_letters.color = (0, 0, 0, 1)
+            self.btn_all_letters.background_color = (1, 1, 1, 1)
+            self.btn_all_letters.color = (0, 0, 0, 1)
 
         for letter, btn in self.letter_buttons.items():
-            if self.selected_letter == letter:
-                btn.background_color = (0.1, 0.1, 0.1, 1)
-                btn.color = (1, 1, 1, 1)
-            else:
-                btn.background_color = (0.85, 0.85, 0.85, 1)
-                btn.color = (0, 0, 0, 1)
+            btn.background_color = (1, 1, 1, 1)
+            btn.color = (0, 0, 0, 1)
 
     def _city_matches_selected_letter(self, city):
         if not self.selected_letter:

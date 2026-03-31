@@ -205,7 +205,10 @@ KV = r"""
                     anchor_x: "center"
                     anchor_y: "center"
                     ImageButton:
+                        id: btn_prev
                         src: "images/arrowback.png"
+                        opacity: 1
+                        disabled: False
                         on_release: root.parent_widget.goto_prev()
 
                 # Card interior
@@ -280,7 +283,10 @@ KV = r"""
                     anchor_x: "center"
                     anchor_y: "center"
                     ImageButton:
+                        id: btn_next
                         src: "images/arrowforward.png"
+                        opacity: 1
+                        disabled: False
                         on_release: root.parent_widget.goto_next()
 """
 
@@ -361,24 +367,34 @@ class BoardScreen(Screen):
         ids.lbl_time.text = now.strftime("%H:%M")
 
     def _render_current(self):
-        if not self._have_ids("lbl_from", "lbl_body", "img_photo", "btn_delete"):
+        if not self._have_ids("lbl_from", "lbl_body", "img_photo", "btn_delete", "btn_prev", "btn_next"):
             return
         if not self.items:
             ids = self.root_view.ids
-            ids.lbl_from.text = f"{_('De')} —:"
+            ids.lbl_from.text = ""
+            ids.lbl_from.opacity = 0
             ids.lbl_body.text = _("No hay mensajes por ahora.")
             ids.img_photo.source = ""
             ids.btn_delete.disabled = True
-            ids.btn_delete.opacity = 0.4
+            ids.btn_delete.opacity = 0
+            ids.btn_prev.disabled = True
+            ids.btn_prev.opacity = 0
+            ids.btn_next.disabled = True
+            ids.btn_next.opacity = 0
             return
         
         item = self.items[self.idx]
         ids = self.root_view.ids
         ids.lbl_from.text = f"{_('De')} {item.get('author','—')}:"
+        ids.lbl_from.opacity = 1
         ids.lbl_body.text = item.get("text","")
         ids.img_photo.source = item.get("image","") or ""
         ids.btn_delete.disabled = not bool(item.get("id"))
         ids.btn_delete.opacity = 1 if item.get("id") else 0.4
+        ids.btn_prev.disabled = False
+        ids.btn_prev.opacity = 1
+        ids.btn_next.disabled = False
+        ids.btn_next.opacity = 1
 
     def delete_current(self):
         if not self.items:
