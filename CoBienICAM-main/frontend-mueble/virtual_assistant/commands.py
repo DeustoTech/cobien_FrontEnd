@@ -71,6 +71,17 @@ COMMANDS = {
     },
 }
 
+
+def refresh_contact_keywords():
+    """Reload contact names from disk and refresh contact command keywords."""
+    global CONTACT_NAMES
+    CONTACT_NAMES = load_contact_names()
+    base_keywords = [
+        "appelle", "appeler", "appel",
+        "llamar", "llamada", "contacto", "contactos", "llama"
+    ]
+    COMMANDS["contacts"]["keywords"] = base_keywords + CONTACT_NAMES
+
 def match_command(text: str):
     text = text.lower()
 

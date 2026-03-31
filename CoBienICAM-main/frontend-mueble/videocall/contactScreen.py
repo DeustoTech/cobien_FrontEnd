@@ -338,6 +338,12 @@ class ContactScreen(Screen):
                 image_source=c["image"]
             )
             row.add_widget(card)
+
+    def reload_contacts_from_disk(self):
+        """Reload contacts file and refresh cards."""
+        self.contacts = load_contacts_from_file(self.contacts_file, self.default_image)
+        print(f"[CONTACTS] ✅ Reloaded contacts from disk: {len(self.contacts)}")
+        self._populate_contacts()
     
     def on_pre_enter(self, *args):
         """✅ Appelé avant d'afficher l'écran - RECHARGE LES CONTACTS"""
@@ -350,11 +356,7 @@ class ContactScreen(Screen):
         print("=" * 80)
         
         # Recharger contacts depuis le fichier
-        self.contacts = load_contacts_from_file(self.contacts_file, self.default_image)
-        print(f"[CONTACTS] ✅ {len(self.contacts)} contacts rechargés")
-        
-        # Repeupler l'écran avec les nouveaux contacts
-        self._populate_contacts()
+        self.reload_contacts_from_disk()
 
         # Mettre à jour labels traduits
         self.update_labels()

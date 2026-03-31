@@ -69,6 +69,8 @@ from translation import _, change_language, get_current_language
 
 # Notifications
 from notifications.notification_manager import NotificationManager
+from contact_sync_service import sync_contacts_for_device
+from virtual_assistant.commands import refresh_contact_keywords
 
 Builder.load_string(PINBACK_BUTTON_KV)
 
@@ -1363,6 +1365,10 @@ class MainScreen(Screen):
             print(f"[BACKEND_NOTIF] ========================================")
             return
         
+        # Detect type early because some backend-originating admin events
+        # (for example contact synchronization) can come from ignored accounts.
+        notif_type = data.get("type", "").lower()
+
         # ✅ ============================================================
         # ✅ IGNORER COMPTES DU MEUBLE (CASE-SENSITIVE)
         # ✅ ============================================================
@@ -1376,7 +1382,7 @@ class MainScreen(Screen):
             "CoBien",                 # Compte portail (exact)
         ]
         
-        if sender in ignored_accounts:
+        if sender in ignored_accounts and notif_type not in {"contacts_updated", "contacts_sync", "contacts_refresh"}:
             print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (compte du meuble)")
             print(f"[BACKEND_NOTIF]    From: '{sender}' (exact match)")
             print(f"[BACKEND_NOTIF]    Ignored: {ignored_accounts}")
@@ -1416,7 +1422,6 @@ class MainScreen(Screen):
             print(f"[BACKEND_NOTIF] ⚠️ Affichage par défaut")
         
         # ========== TRAITER PAR TYPE ==========
-        notif_type = data.get("type", "").lower()
         
         # ✅ ========== APPEL MANQUÉ ==========
         if notif_type == "missed_call":
@@ -1498,11 +1503,51 @@ class MainScreen(Screen):
             
             self.notification_manager.show_event_notification(title, date_str)
             return
+
+        # ✅ CONTACTS UPDATED
+        elif notif_type in {"contacts_updated", "contacts_sync", "contacts_refresh"}:
+            print(f"[BACKEND_NOTIF] 👥 Contacts sync requested")
+            threading.Thread(
+                target=self._sync_contacts_from_backend_notification,
+                args=(data,),
+                daemon=True,
+            ).start()
+            return
         
         # ❌ TYPE INCONNU
         else:
             print(f"[BACKEND_NOTIF] ⚠️ Type inconnu: {notif_type}")
             print(f"[BACKEND_NOTIF] ========================================")
+
+    def _sync_contacts_from_backend_notification(self, payload):
+        try:
+            result = sync_contacts_for_device(device_id=self.DEVICE_ID, payload=payload)
+            print(
+                f"[CONTACTS_SYNC] ✅ Contacts synchronized: {result['count']} "
+                f"(images: {result['images_downloaded']})"
+            )
+
+            # Refresh assistant keyword list so voice navigation uses fresh contacts.
+            try:
+                refresh_contact_keywords()
+            except Exception as refresh_exc:
+                print(f"[CONTACTS_SYNC] ⚠️ Could not refresh assistant contact keywords: {refresh_exc}")
+
+            def _refresh_ui(_dt):
+                if self.sm.has_screen("contacts"):
+                    contacts_screen = self.sm.get_screen("contacts")
+                    if hasattr(contacts_screen, "reload_contacts_from_disk"):
+                        contacts_screen.reload_contacts_from_disk()
+                if self.sm.has_screen("settings"):
+                    settings_screen = self.sm.get_screen("settings")
+                    if hasattr(settings_screen, "rfid_actions_screen"):
+                        rfid_screen = settings_screen.rfid_actions_screen
+                        if hasattr(rfid_screen, "load_available_contacts"):
+                            rfid_screen.load_available_contacts()
+
+            Clock.schedule_once(_refresh_ui, 0)
+        except Exception as exc:
+            print(f"[CONTACTS_SYNC] ❌ Contacts synchronization failed: {exc}")
 
     def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
         d = self._normalize_nav_text(destino)
