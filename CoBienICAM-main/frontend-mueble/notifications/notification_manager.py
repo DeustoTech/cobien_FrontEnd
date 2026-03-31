@@ -659,7 +659,7 @@ class NotificationManager:
 
                 # Disable sleep mode screen
                 app = App.get_running_app()
-                    if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
+                if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
                     app.black_overlay.dismiss()
                     # restart timer and wakeup logs if present in MyApp
                     if hasattr(app, "_on_wakeup"):
