@@ -8,6 +8,7 @@ from kivy.properties import StringProperty
 from kivy.metrics import dp, sp
 from kivy.app import App
 from translation import _, get_current_language
+import os
 
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
@@ -244,9 +245,19 @@ class SettingsScreen(Screen):
         self.root_view = Factory.SettingsRoot()
         self.root_view.parent_screen = self
         self.add_widget(self.root_view)
+        self.software_version = self._load_software_version()
 
         # Mettre à jour les labels
         self.update_labels()
+
+    def _load_software_version(self):
+        version_file = os.path.join(os.path.dirname(__file__), "..", "VERSION")
+        try:
+            with open(version_file, "r", encoding="utf-8") as f:
+                version = f.read().strip()
+                return version or "unknown"
+        except Exception:
+            return "unknown"
 
     def update_labels(self):
         """✅ Met à jour toutes les traductions des boutons"""
@@ -256,7 +267,7 @@ class SettingsScreen(Screen):
         lang = get_current_language()
         
         # ✅ Traduire tous les labels
-        self.root_view.ids.lbl_title.text = _("Configuración")
+        self.root_view.ids.lbl_title.text = f"{_('Configuración')}  v{self.software_version}"
         self.root_view.ids.btn_language.text = _("Idioma")
         self.root_view.ids.btn_cities.text = _("Ciudades")
         self.root_view.ids.btn_colors.text = _("Colores Botones")
