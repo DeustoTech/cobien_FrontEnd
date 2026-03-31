@@ -769,34 +769,40 @@ class DayEventsScreen(Screen):
 
         lbl = Label(
             text=_("¿Seguro que quieres eliminar este evento?"),
-            color=(0, 0, 0, 1),
+            color=(0.2, 0.2, 0.2, 1),
             font_size=sp(30),
             size_hint_y=None,
-            height=dp(110),
+            height=dp(90),
             halign="center",
             valign="middle",
         )
         lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
-        buttons = BoxLayout(size_hint_y=None, height=dp(78), spacing=dp(18))
+        buttons = BoxLayout(size_hint_y=None, height=dp(75), spacing=dp(20))
         btn_cancel = Button(
             text=_("Cancelar"),
-            font_size=sp(30),
-            bold=True,
-            background_normal="",
-            background_color=(0.55, 0.55, 0.55, 1),
-            color=(1, 1, 1, 1),
-        )
-        btn_confirm = Button(
-            text=_("Confirmar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
             font_size=sp(30),
             bold=True,
             background_normal="",
             background_color=(0.15, 0.55, 0.95, 1),
             color=(1, 1, 1, 1),
         )
+        btn_confirm = Button(
+            text=_("Confirmar"),
+            size_hint=(None, None),
+            size=(dp(220), dp(75)),
+            font_size=sp(30),
+            bold=True,
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+        )
+        buttons.add_widget(BoxLayout())
         buttons.add_widget(btn_cancel)
         buttons.add_widget(btn_confirm)
+        buttons.add_widget(BoxLayout())
 
         content.add_widget(BoxLayout(size_hint_y=0.15))
         content.add_widget(title)
