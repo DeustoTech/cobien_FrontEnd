@@ -766,15 +766,31 @@ configure_tts_runtime() {
       TTS_PIPER_BIN="$(command -v piper)"
       log "Piper installed successfully: $TTS_PIPER_BIN"
     else
-      log "WARN: Piper not available from apt. Trying Python user install (pip --user)..."
-      if command -v python3 >/dev/null 2>&1; then
-        python3 -m pip install --user --upgrade pip >/dev/null 2>&1 || true
-        python3 -m pip install --user piper-tts >/dev/null 2>&1 || true
+      local local_uv=""
+      if [[ -n "${UV_BIN:-}" && -x "${UV_BIN:-}" ]]; then
+        local_uv="$UV_BIN"
+      elif command -v uv >/dev/null 2>&1; then
+        local_uv="$(command -v uv)"
+      elif [[ -x "$HOME/.local/bin/uv" ]]; then
+        local_uv="$HOME/.local/bin/uv"
+      fi
+
+      if [[ -n "$local_uv" ]]; then
+        log "WARN: Piper not available from apt. Trying UV tool install..."
+        "$local_uv" tool install --upgrade piper-tts >/dev/null 2>&1 || true
+      fi
+
+      if ! command -v piper >/dev/null 2>&1 && [[ ! -x "$HOME/.local/bin/piper" ]]; then
+        log "WARN: Piper still unavailable. Trying Python user install (pip --user) as last fallback..."
+        if command -v python3 >/dev/null 2>&1; then
+          python3 -m pip install --user --upgrade pip >/dev/null 2>&1 || true
+          python3 -m pip install --user piper-tts >/dev/null 2>&1 || true
+        fi
       fi
 
       if command -v piper >/dev/null 2>&1; then
         TTS_PIPER_BIN="$(command -v piper)"
-        log "Piper installed successfully via pip: $TTS_PIPER_BIN"
+        log "Piper installed successfully: $TTS_PIPER_BIN"
       elif [[ -x "$HOME/.local/bin/piper" ]]; then
         TTS_PIPER_BIN="$HOME/.local/bin/piper"
         log "Piper installed at user path: $TTS_PIPER_BIN"
