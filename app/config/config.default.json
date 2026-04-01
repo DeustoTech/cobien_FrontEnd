@@ -60,6 +60,8 @@
         "tts_piper_bin": "",
         "tts_piper_model_es": "",
         "tts_piper_model_fr": "",
+        "tts_piper_model_es_url": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx",
+        "tts_piper_model_fr_url": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx",
         "disable_system_sleep": "0",
         "notify_api_key": "test_jules",
         "pizarra_notify_url": "http://portal.co-bien.eu/pizarra/api/notify/",

@@ -39,6 +39,12 @@ TTS_ENGINE="${COBIEN_TTS_ENGINE:-pyttsx3}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
 TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
 TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-}"
+TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-}"
+TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-}"
+TTS_PIPER_DEFAULT_MODEL_ES="es_ES-sharvard-medium"
+TTS_PIPER_DEFAULT_MODEL_FR="fr_FR-siwis-medium"
+TTS_PIPER_DEFAULT_MODEL_ES_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx"
+TTS_PIPER_DEFAULT_MODEL_FR_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
@@ -84,6 +90,8 @@ Options:
   --tts-piper-bin PATH
   --tts-piper-model-es PATH
   --tts-piper-model-fr PATH
+  --tts-piper-model-es-url URL
+  --tts-piper-model-fr-url URL
   --recreate-venv
   --force-restart
   --skip-system-deps
@@ -246,6 +254,8 @@ COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
 COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
+COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL
+COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL
 COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE
 COBIEN_BOOTSTRAP_PYTHON_VERSION=$PYTHON_REQUEST
 EOF
@@ -273,6 +283,8 @@ load_last_run_config() {
   TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
   TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
   TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-$TTS_PIPER_MODEL_FR}"
+  TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-$TTS_PIPER_MODEL_ES_URL}"
+  TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-$TTS_PIPER_MODEL_FR_URL}"
   CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
   PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-$PYTHON_REQUEST}"
   return 0
@@ -643,24 +655,95 @@ ensure_runtime_dependencies() {
 }
 
 configure_tts_runtime() {
+  download_file() {
+    local url="$1"
+    local out_file="$2"
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "$url" -o "$out_file"
+      return $?
+    fi
+    if command -v wget >/dev/null 2>&1; then
+      wget -qO "$out_file" "$url"
+      return $?
+    fi
+    return 1
+  }
+
+  install_piper_model() {
+    local lang="$1"
+    local model_path="$2"
+    local model_url="$3"
+    local model_dir model_tmp
+    model_dir="$(dirname "$model_path")"
+    mkdir -p "$model_dir"
+
+    if [[ -f "$model_path" ]]; then
+      log "Piper $lang model already present: $model_path"
+      return 0
+    fi
+
+    if [[ -z "$model_url" ]]; then
+      log "Piper $lang model URL is empty and model file is missing: $model_path"
+      return 1
+    fi
+
+    log "Downloading Piper $lang model from: $model_url"
+    model_tmp="${model_path}.tmp"
+    if ! download_file "$model_url" "$model_tmp"; then
+      rm -f "$model_tmp" || true
+      log "Failed to download Piper $lang model."
+      return 1
+    fi
+    mv -f "$model_tmp" "$model_path"
+
+    if [[ ! -f "${model_path}.json" ]]; then
+      download_file "${model_url}.json" "${model_path}.json" >/dev/null 2>&1 || true
+    fi
+
+    log "Piper $lang model installed at: $model_path"
+    return 0
+  }
+
   if [[ "$TTS_ENGINE" != "piper" ]]; then
     return 0
   fi
 
-  if command -v piper >/dev/null 2>&1; then
-    [[ -z "$TTS_PIPER_BIN" ]] && TTS_PIPER_BIN="$(command -v piper)"
-    return 0
+  if [[ -n "$TTS_PIPER_BIN" && -x "$TTS_PIPER_BIN" ]]; then
+    :
+  elif command -v piper >/dev/null 2>&1; then
+    TTS_PIPER_BIN="$(command -v piper)"
+  else
+    log "Piper TTS selected but binary not found. Trying apt install..."
+    sudo apt update || true
+    sudo apt install -y piper-tts || true
+
+    if command -v piper >/dev/null 2>&1; then
+      TTS_PIPER_BIN="$(command -v piper)"
+      log "Piper installed successfully: $TTS_PIPER_BIN"
+    else
+      log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
+      TTS_ENGINE="pyttsx3"
+      return 0
+    fi
   fi
 
-  log "Piper TTS selected but binary not found. Trying apt install..."
-  sudo apt update || true
-  sudo apt install -y piper-tts || true
+  if [[ -z "$TTS_PIPER_MODEL_ES" ]]; then
+    TTS_PIPER_MODEL_ES="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES}.onnx"
+  fi
+  if [[ -z "$TTS_PIPER_MODEL_FR" ]]; then
+    TTS_PIPER_MODEL_FR="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR}.onnx"
+  fi
+  [[ -z "$TTS_PIPER_MODEL_ES_URL" ]] && TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_DEFAULT_MODEL_ES_URL"
+  [[ -z "$TTS_PIPER_MODEL_FR_URL" ]] && TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_DEFAULT_MODEL_FR_URL"
 
-  if command -v piper >/dev/null 2>&1; then
-    [[ -z "$TTS_PIPER_BIN" ]] && TTS_PIPER_BIN="$(command -v piper)"
-    log "Piper installed successfully: $TTS_PIPER_BIN"
-  else
-    log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
+  local ok_es="0"
+  local ok_fr="0"
+  install_piper_model "es" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_ES_URL" && ok_es="1"
+  install_piper_model "fr" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_FR_URL" && ok_fr="1"
+
+  if [[ "$ok_es" != "1" || "$ok_fr" != "1" ]]; then
+    log "Piper models are incomplete. Runtime will fallback to pyttsx3."
+    TTS_ENGINE="pyttsx3"
   fi
 }
 
@@ -674,12 +757,12 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" <<'PY'
+  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" <<'PY'
 import json
 import os
 import sys
 
-config_file, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr = sys.argv[1:9]
+config_file, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url = sys.argv[1:11]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -708,6 +791,8 @@ services["tts_engine"] = tts_engine or "pyttsx3"
 services["tts_piper_bin"] = tts_piper_bin
 services["tts_piper_model_es"] = tts_piper_model_es
 services["tts_piper_model_fr"] = tts_piper_model_fr
+services["tts_piper_model_es_url"] = tts_piper_model_es_url
+services["tts_piper_model_fr_url"] = tts_piper_model_fr_url
 
 with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
@@ -935,6 +1020,8 @@ COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
 COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
+COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL
+COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
 COBIEN_PYTHON_BIN=$PYTHON_BIN
 COBIEN_UV_BIN=$UV_BIN
@@ -1008,7 +1095,9 @@ handoff_to_updated_launcher() {
     --tts-engine "$TTS_ENGINE" \
     --tts-piper-bin "$TTS_PIPER_BIN" \
     --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
-    --tts-piper-model-fr "$TTS_PIPER_MODEL_FR"
+    --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
+    --tts-piper-model-es-url "$TTS_PIPER_MODEL_ES_URL" \
+    --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL"
 }
 
 update_repo_if_needed() {
@@ -1096,6 +1185,8 @@ restart_software() {
       --tts-piper-bin "$TTS_PIPER_BIN" \
       --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
       --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
+      --tts-piper-model-es-url "$TTS_PIPER_MODEL_ES_URL" \
+      --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL" \
       --branch "$BRANCH_NAME"
   fi
   launch_runtime 0
@@ -1220,6 +1311,8 @@ print_dry_run() {
   log "TTS_PIPER_BIN=${TTS_PIPER_BIN:-auto}"
   log "TTS_PIPER_MODEL_ES=${TTS_PIPER_MODEL_ES:-unset}"
   log "TTS_PIPER_MODEL_FR=${TTS_PIPER_MODEL_FR:-unset}"
+  log "TTS_PIPER_MODEL_ES_URL=${TTS_PIPER_MODEL_ES_URL:-default}"
+  log "TTS_PIPER_MODEL_FR_URL=${TTS_PIPER_MODEL_FR_URL:-default}"
   log "ENV_FILE=$ENV_FILE"
   log "UV_BIN=${UV_BIN:-unresolved}"
   log "PYTHON_REQUEST=$PYTHON_REQUEST"
@@ -1263,9 +1356,13 @@ run_full_flow() {
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
     if [[ "$TTS_ENGINE" == "piper" ]]; then
+      local default_app_dir
+      default_app_dir="${WORKSPACE_ROOT}/${FRONTEND_REPO_NAME}/app"
       TTS_PIPER_BIN="$(ask "Piper binary path (empty=auto detect)" "$TTS_PIPER_BIN")"
-      TTS_PIPER_MODEL_ES="$(ask "Piper Spanish model path (.onnx)" "$TTS_PIPER_MODEL_ES")"
-      TTS_PIPER_MODEL_FR="$(ask "Piper French model path (.onnx)" "$TTS_PIPER_MODEL_FR")"
+      TTS_PIPER_MODEL_ES="$(ask "Piper Spanish model path (.onnx)" "${TTS_PIPER_MODEL_ES:-$default_app_dir/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES}.onnx}")"
+      TTS_PIPER_MODEL_FR="$(ask "Piper French model path (.onnx)" "${TTS_PIPER_MODEL_FR:-$default_app_dir/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR}.onnx}")"
+      TTS_PIPER_MODEL_ES_URL="$(ask "Piper Spanish model URL" "${TTS_PIPER_MODEL_ES_URL:-$TTS_PIPER_DEFAULT_MODEL_ES_URL}")"
+      TTS_PIPER_MODEL_FR_URL="$(ask "Piper French model URL" "${TTS_PIPER_MODEL_FR_URL:-$TTS_PIPER_DEFAULT_MODEL_FR_URL}")"
     fi
   fi
   resolve_paths
@@ -1492,6 +1589,14 @@ parse_args() {
         ;;
       --tts-piper-model-fr)
         TTS_PIPER_MODEL_FR="$2"
+        shift 2
+        ;;
+      --tts-piper-model-es-url)
+        TTS_PIPER_MODEL_ES_URL="$2"
+        shift 2
+        ;;
+      --tts-piper-model-fr-url)
+        TTS_PIPER_MODEL_FR_URL="$2"
         shift 2
         ;;
       --recreate-venv)
