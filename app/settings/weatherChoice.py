@@ -173,13 +173,12 @@ class WeatherChoice(FloatLayout):
         
         print("[WEATHER CHOICE] __init__ called")
 
-        # Load available cities from the file
-        self.load_available_cities()
-        
-        print(f"[WEATHER CHOICE] Cities loaded: {self.available_cities}")
-        
-        # ✅ IMPORTANT: Build the UI manually
+        # Build UI first so UI-dependent widgets exist before data refresh.
         self.build_ui()
+
+        # Load available cities from config and then refresh UI-dependent controls.
+        self.load_available_cities()
+        print(f"[WEATHER CHOICE] Cities loaded: {self.available_cities}")
 
     
     def update_labels(self):
@@ -418,6 +417,8 @@ class WeatherChoice(FloatLayout):
         Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
 
     def _build_letter_filter_buttons(self):
+        if not hasattr(self, "letters_row"):
+            return
         self.letters_row.clear_widgets()
         self.letter_buttons = {}
 
@@ -505,7 +506,10 @@ class WeatherChoice(FloatLayout):
         self.available_cities = catalog
         self.active_cities = active
         self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
-        self._build_letter_filter_buttons()
+        if hasattr(self, "letters_row"):
+            self._build_letter_filter_buttons()
+        if hasattr(self, "list_cities"):
+            self.refresh_cities()
 
     def create_default_config(self, config_path):
         """Legacy no-op retained for compatibility."""
