@@ -164,6 +164,7 @@ class WeatherChoice(FloatLayout):
         self.sm = sm
         self.city_list_geo = {}
         self.available_cities = []
+        self.active_cities = []
         self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
         self.last_mtime = 0
         self._watch_event = None
