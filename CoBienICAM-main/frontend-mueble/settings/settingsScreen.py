@@ -241,6 +241,12 @@ KV = """
                         icon_source: "images/logs.png"
                         text: ""
                         on_release: app.root.current = "settings_logs_menu"
+
+                    SettingsNavButton:
+                        id: btn_launcher
+                        icon_source: "images/settings.png"
+                        text: ""
+                        on_release: app.root.current = "settings_launcher"
 """
 
 class SettingsScreen(Screen):
@@ -286,6 +292,7 @@ class SettingsScreen(Screen):
         self.root_view.ids.btn_notifications.text = _("Notificaciones")
         self.root_view.ids.btn_rfid.text = _("Tarjetas RFID")
         self.root_view.ids.btn_logs.text = _("Logs del sistema")
+        self.root_view.ids.btn_launcher.text = _("Parámetros Launcher")
         
         # ✅ Bouton blagues selon langue
         if lang == "fr":

@@ -44,6 +44,7 @@ from settings.languageScreen import LanguageScreen
 from settings.buttonColorsScreen import ButtonColorsScreen
 from settings.notificationsScreen import NotificationsScreen
 from settings.logsScreen import LogsMenuScreen, LogsViewerScreen
+from settings.launcherConfigScreen import LauncherConfigScreen
 from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from jokes.jokesScreen import JokesScreen
@@ -2166,6 +2167,8 @@ class MyApp(App):
             sm, self.cfg, log_prefix="cobien-app", title_text="Log Aplicación", name='settings_logs_app'
         )
         sm.add_widget(logs_app)
+        sm.add_widget(Screen(name='settings_launcher'))
+        sm.get_screen('settings_launcher').add_widget(LauncherConfigScreen(sm, self.cfg))
         sm.add_widget(Screen(name='joke_category'))
         sm.get_screen('joke_category').add_widget(JokeCategoryScreen(sm, self.cfg))
         sm.add_widget(Screen(name='jokes'))
@@ -2228,6 +2231,7 @@ class MyApp(App):
             'weather', 'events', 'day_events', 'board', 'contacts',
             'settings', 'button_colors', 'settings_notifications',
             'settings_logs_menu', 'settings_logs_can', 'settings_logs_bridge', 'settings_logs_app',
+            'settings_launcher',
             'settings_rfid', 'weather_choice', 'joke_category', 'jokes' , 'pin_code'
         ]
         
