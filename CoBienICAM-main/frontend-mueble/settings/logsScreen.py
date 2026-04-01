@@ -257,6 +257,14 @@ class LogsViewerScreen(Screen):
         self.root_view = Factory.LogsViewerRoot()
         self.add_widget(self.root_view)
 
+    def _prefix_candidates(self):
+        mapping = {
+            "can-bus": ["can-bus", "can_bus", "can"],
+            "mqtt-can-bridge": ["mqtt-can-bridge", "mqtt_can_bridge", "bridge", "mqtt-bridge"],
+            "cobien-app": ["cobien-app", "cobien_app", "app", "frontend-app"],
+        }
+        return mapping.get(self.log_prefix, [self.log_prefix])
+
     def _resolve_log_dir(self):
         env_dir = os.getenv("COBIEN_LOG_DIR", "").strip()
         candidates = []
@@ -274,7 +282,10 @@ class LogsViewerScreen(Screen):
                             val = line.split("=", 1)[1].strip().strip('"').strip("'")
                             if val:
                                 candidates.append(val)
-                            break
+                        elif line.startswith("COBIEN_FRONTEND_REPO="):
+                            repo = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if repo:
+                                candidates.append(os.path.join(repo, "logs"))
             except Exception:
                 pass
         candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "logs")))
@@ -286,8 +297,13 @@ class LogsViewerScreen(Screen):
 
     def _latest_log_file(self):
         log_dir = self._resolve_log_dir()
-        pattern = os.path.join(log_dir, f"{self.log_prefix}-*.log")
-        files = glob.glob(pattern)
+        files = []
+        for prefix in self._prefix_candidates():
+            pattern = os.path.join(log_dir, f"{prefix}-*.log")
+            files.extend(glob.glob(pattern))
+            pattern_alt = os.path.join(log_dir, f"{prefix}*.log")
+            files.extend(glob.glob(pattern_alt))
+        files = list(dict.fromkeys(files))
         if not files:
             return ""
         files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
@@ -310,11 +326,16 @@ class LogsViewerScreen(Screen):
         log_dir = self._resolve_log_dir()
         file_path = self._latest_log_file()
         if not file_path:
+            known_logs = []
+            if log_dir and os.path.isdir(log_dir):
+                known_logs = sorted(glob.glob(os.path.join(log_dir, "*.log")))
             self.root_view.ids.lbl_file.text = _("No hay fichero de log")
             self.root_view.ids.lbl_log.text = (
                 f"{_('Esperando datos de log...')}\n"
                 f"dir={log_dir}\n"
-                f"pattern={self.log_prefix}-*.log"
+                f"prefixes={', '.join(self._prefix_candidates())}\n"
+                f"logs_detectados={len(known_logs)}\n"
+                f"ejemplos={', '.join(os.path.basename(p) for p in known_logs[:6]) if known_logs else '-'}"
             )
             self._current_file = ""
             self._read_pos = 0
