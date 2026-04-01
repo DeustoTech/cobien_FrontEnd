@@ -108,3 +108,33 @@ Si quieres actualizar solo a ciertas horas:
 
 - `cobien-launcher.sh` es el unico punto de entrada operativo.
 - El sistema solo actualiza si la rama actual coincide con `development_fix`.
+
+## systemd (recomendado)
+
+En lugar de `.desktop` o `bashrc`, se recomienda usar `systemd --user`.
+
+Archivos incluidos:
+
+- `deploy/ubuntu/systemd/cobien-launcher.service`
+- `deploy/ubuntu/systemd/cobien-update.service`
+- `deploy/ubuntu/systemd/cobien-update.timer`
+- `deploy/ubuntu/install-systemd-user.sh`
+
+Instalacion:
+
+```bash
+bash deploy/ubuntu/install-systemd-user.sh
+```
+
+Esto habilita:
+
+- arranque automatico del launcher al iniciar sesion de usuario
+- comprobacion diaria de actualizaciones a la 01:00
+
+Comandos utiles:
+
+```bash
+systemctl --user status cobien-launcher.service
+systemctl --user list-timers | grep cobien-update
+journalctl --user -u cobien-launcher.service -f
+```

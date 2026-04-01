@@ -1,0 +1,16 @@
+[Unit]
+Description=CoBien Launcher (main runtime)
+After=network-online.target graphical-session.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/cobien/cobien_FrontEnd/deploy/ubuntu
+ExecStart=/bin/bash %h/cobien/cobien_FrontEnd/deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace %h/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target
