@@ -2154,20 +2154,18 @@ class MyApp(App):
         
         sm.add_widget(Screen(name='settings_notifications'))
         sm.get_screen('settings_notifications').add_widget(NotificationsScreen(sm, self.cfg))
-        sm.add_widget(Screen(name='settings_logs_menu'))
-        sm.get_screen('settings_logs_menu').add_widget(LogsMenuScreen(sm, self.cfg))
-        sm.add_widget(Screen(name='settings_logs_can'))
-        sm.get_screen('settings_logs_can').add_widget(
-            LogsViewerScreen(sm, self.cfg, log_prefix="can-bus", title_text="Log CAN Bus")
+        logs_menu = LogsMenuScreen(sm, self.cfg, name='settings_logs_menu')
+        sm.add_widget(logs_menu)
+        logs_can = LogsViewerScreen(sm, self.cfg, log_prefix="can-bus", title_text="Log CAN Bus", name='settings_logs_can')
+        sm.add_widget(logs_can)
+        logs_bridge = LogsViewerScreen(
+            sm, self.cfg, log_prefix="mqtt-can-bridge", title_text="Log MQTT-CAN Bridge", name='settings_logs_bridge'
         )
-        sm.add_widget(Screen(name='settings_logs_bridge'))
-        sm.get_screen('settings_logs_bridge').add_widget(
-            LogsViewerScreen(sm, self.cfg, log_prefix="mqtt-can-bridge", title_text="Log MQTT-CAN Bridge")
+        sm.add_widget(logs_bridge)
+        logs_app = LogsViewerScreen(
+            sm, self.cfg, log_prefix="cobien-app", title_text="Log Aplicación", name='settings_logs_app'
         )
-        sm.add_widget(Screen(name='settings_logs_app'))
-        sm.get_screen('settings_logs_app').add_widget(
-            LogsViewerScreen(sm, self.cfg, log_prefix="cobien-app", title_text="Log Aplicación")
-        )
+        sm.add_widget(logs_app)
         sm.add_widget(Screen(name='joke_category'))
         sm.get_screen('joke_category').add_widget(JokeCategoryScreen(sm, self.cfg))
         sm.add_widget(Screen(name='jokes'))
