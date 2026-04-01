@@ -271,7 +271,7 @@ class LogsViewerScreen(Screen):
         if env_dir:
             candidates.append(env_dir)
         launcher_env = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
         )
         if os.path.isfile(launcher_env):
             try:
@@ -288,7 +288,7 @@ class LogsViewerScreen(Screen):
                                 candidates.append(os.path.join(repo, "logs"))
             except Exception:
                 pass
-        candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "logs")))
+        candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "logs")))
         candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "logs")))
         for path in candidates:
             if path and os.path.isdir(path):

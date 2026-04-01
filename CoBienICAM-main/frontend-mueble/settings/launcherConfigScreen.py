@@ -111,7 +111,7 @@ KV = """
                 row_force_default: True
 
                 Label:
-                    text: "Workspace"
+                    text: "Workspace (ruta raíz con ambos repos)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -123,7 +123,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Frontend repo"
+                    text: "Frontend repo (nombre carpeta frontend)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -135,7 +135,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "MQTT repo"
+                    text: "MQTT repo (nombre carpeta bridge/CAN)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -147,7 +147,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Branch"
+                    text: "Branch (rama Git para updates)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -159,7 +159,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Remote"
+                    text: "Remote (normalmente origin)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -171,7 +171,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Device ID"
+                    text: "Device ID (identificador del mueble)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -183,7 +183,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Videocall room"
+                    text: "Videocall room (sala exacta, sensible a mayúsculas)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -195,7 +195,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Location"
+                    text: "Location (ciudad del mueble)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -207,7 +207,7 @@ KV = """
                     font_size: sp(18)
 
                 Label:
-                    text: "Update interval (sec)"
+                    text: "Update interval (sec, watch mode)"
                     color: 0,0,0,1
                     font_size: sp(20)
                     halign: "left"
@@ -222,7 +222,7 @@ KV = """
                 id: lbl_status
                 text: ""
                 size_hint_y: None
-                height: dp(42)
+                height: dp(56)
                 color: 0,0,0,0.75
                 font_size: sp(18)
 
@@ -257,7 +257,7 @@ class LauncherConfigScreen(Screen):
         if env_from_var:
             return env_from_var
         return os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
         )
 
     def _read_env(self):
@@ -294,16 +294,17 @@ class LauncherConfigScreen(Screen):
     def load_values(self):
         env = self._read_env()
         ids = self.root_view.ids
-        ids.input_workspace.text = env.get("COBIEN_WORKSPACE_ROOT", "")
-        ids.input_frontend.text = env.get("COBIEN_FRONTEND_REPO_NAME", "")
-        ids.input_mqtt.text = env.get("COBIEN_MQTT_REPO_NAME", "")
+        default_workspace = os.path.join(os.path.expanduser("~"), "cobien")
+        ids.input_workspace.text = env.get("COBIEN_WORKSPACE_ROOT", default_workspace)
+        ids.input_frontend.text = env.get("COBIEN_FRONTEND_REPO_NAME", "cobien_FrontEnd")
+        ids.input_mqtt.text = env.get("COBIEN_MQTT_REPO_NAME", "cobien_MQTT_Dictionnary")
         ids.input_branch.text = env.get("COBIEN_UPDATE_BRANCH", "development_fix")
         ids.input_remote.text = env.get("COBIEN_UPDATE_REMOTE", "origin")
         ids.input_device_id.text = env.get("COBIEN_DEVICE_ID", self.cfg.get_device_id())
         ids.input_room.text = env.get("COBIEN_VIDEOCALL_ROOM", self.cfg.get_videocall_room())
         ids.input_location.text = env.get("COBIEN_DEVICE_LOCATION", self.cfg.get_device_location())
         ids.input_interval.text = env.get("COBIEN_UPDATE_INTERVAL_SEC", "60")
-        ids.lbl_status.text = self._env_path()
+        ids.lbl_status.text = f"{_('Configuración cargada desde')}: {self._env_path()}"
 
     def save_changes(self):
         ids = self.root_view.ids
@@ -332,9 +333,8 @@ class LauncherConfigScreen(Screen):
             app.main_ref.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
             app.main_ref.DEVICE_LOCATION = self.cfg.get_device_location()
 
-        ids.lbl_status.text = _("Parámetros guardados en cobien-update.env")
+        ids.lbl_status.text = f"{_('Parámetros guardados en')}: {self._env_path()}"
 
     def on_pre_enter(self, *args):
         self._update_labels()
         self.load_values()
-
