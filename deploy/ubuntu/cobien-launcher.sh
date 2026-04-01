@@ -95,13 +95,28 @@ read_lock_pid() {
   fi
 }
 
+discover_running_launcher_pid() {
+  local candidate
+  while IFS= read -r candidate; do
+    if [[ -n "$candidate" && "$candidate" != "$$" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done < <(pgrep -f "cobien-launcher.sh" 2>/dev/null || true)
+  return 1
+}
+
 stop_existing_launcher_instance() {
   local lock_pid
   lock_pid="$(read_lock_pid)"
 
   if [[ -z "${lock_pid:-}" ]]; then
-    log "Could not determine running launcher PID from lock file."
-    return 1
+    lock_pid="$(discover_running_launcher_pid || true)"
+    if [[ -z "${lock_pid:-}" ]]; then
+      log "Could not determine running launcher PID from lock file or process list."
+      return 1
+    fi
+    log "Lock file PID unavailable, discovered running launcher PID=$lock_pid"
   fi
 
   if [[ "$lock_pid" == "$$" ]]; then
