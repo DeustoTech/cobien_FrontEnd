@@ -2167,8 +2167,8 @@ class MyApp(App):
             sm, self.cfg, log_prefix="cobien-app", title_text="Log Aplicación", name='settings_logs_app'
         )
         sm.add_widget(logs_app)
-        sm.add_widget(Screen(name='settings_launcher'))
-        sm.get_screen('settings_launcher').add_widget(LauncherConfigScreen(sm, self.cfg))
+        launcher_settings_screen = LauncherConfigScreen(sm, self.cfg, name='settings_launcher')
+        sm.add_widget(launcher_settings_screen)
         sm.add_widget(Screen(name='joke_category'))
         sm.get_screen('joke_category').add_widget(JokeCategoryScreen(sm, self.cfg))
         sm.add_widget(Screen(name='jokes'))
