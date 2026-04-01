@@ -106,12 +106,21 @@ read_lock_pid() {
 discover_running_launcher_pid() {
   local candidate
   while IFS= read -r candidate; do
-    if [[ -n "$candidate" && "$candidate" != "$$" ]]; then
+    if [[ -n "$candidate" && "$candidate" != "$$" && "$candidate" != "$PPID" ]]; then
       echo "$candidate"
       return 0
     fi
   done < <(pgrep -f "cobien-launcher.sh" 2>/dev/null || true)
   return 1
+}
+
+discover_running_launcher_pids() {
+  local candidate
+  while IFS= read -r candidate; do
+    if [[ -n "$candidate" && "$candidate" != "$$" && "$candidate" != "$PPID" ]]; then
+      echo "$candidate"
+    fi
+  done < <(pgrep -f "cobien-launcher.sh" 2>/dev/null || true)
 }
 
 stop_existing_launcher_instance() {
@@ -133,8 +142,12 @@ stop_existing_launcher_instance() {
   fi
 
   if ! kill -0 "$lock_pid" >/dev/null 2>&1; then
-    log "Stale lock detected (PID $lock_pid not running)."
-    return 0
+    log "Stale lock detected (PID $lock_pid not running). Trying process-list fallback."
+    lock_pid="$(discover_running_launcher_pid || true)"
+    if [[ -z "${lock_pid:-}" ]]; then
+      return 0
+    fi
+    log "Fallback launcher PID discovered: $lock_pid"
   fi
 
   log "Stopping existing launcher instance PID=$lock_pid"
@@ -156,6 +169,18 @@ stop_existing_launcher_instance() {
     log "Failed to terminate existing launcher PID=$lock_pid"
     return 1
   fi
+
+  local remaining_pid
+  while IFS= read -r remaining_pid; do
+    [[ -z "$remaining_pid" ]] && continue
+    if kill -0 "$remaining_pid" >/dev/null 2>&1; then
+      log "Stopping extra launcher instance PID=$remaining_pid"
+      kill -TERM "$remaining_pid" >/dev/null 2>&1 || true
+      sleep 1
+      kill -KILL "$remaining_pid" >/dev/null 2>&1 || true
+    fi
+  done < <(discover_running_launcher_pids)
+
   return 0
 }
 
@@ -175,6 +200,7 @@ acquire_single_instance_lock() {
 
     if [[ "$FORCE_RESTART" == "1" ]]; then
       if stop_existing_launcher_instance; then
+        sleep 1
         if ! flock -n "$LOCK_FD"; then
           log "Unable to acquire lock after stopping previous instance."
           exit 1
@@ -185,6 +211,7 @@ acquire_single_instance_lock() {
       fi
     elif [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to stop the previous launcher instance and continue" "y"; then
       if stop_existing_launcher_instance; then
+        sleep 1
         if ! flock -n "$LOCK_FD"; then
           log "Unable to acquire lock after stopping previous instance."
           exit 1
