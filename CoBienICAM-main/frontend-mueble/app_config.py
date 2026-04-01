@@ -8,9 +8,10 @@ from config_store import load_section, save_section
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.json")
-MQTT_LOCAL_BROKER = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
-MQTT_LOCAL_PORT = int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883"))
-BACKEND_BASE_URL = os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu")
+_SERVICES_CFG = load_section("services", {})
+MQTT_LOCAL_BROKER = _SERVICES_CFG.get("mqtt_local_broker", os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost"))
+MQTT_LOCAL_PORT = int(_SERVICES_CFG.get("mqtt_local_port", os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883")))
+BACKEND_BASE_URL = _SERVICES_CFG.get("backend_base_url", os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu"))
 DEFAULT_DEVICE_ID = os.getenv("COBIEN_DEVICE_ID", "CoBien1")
 DEFAULT_VIDEOCALL_ROOM = os.getenv("COBIEN_VIDEOCALL_ROOM", DEFAULT_DEVICE_ID)
 DEFAULT_DEVICE_LOCATION = os.getenv("COBIEN_DEVICE_LOCATION", "Bilbao")

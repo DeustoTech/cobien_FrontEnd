@@ -39,6 +39,41 @@ DEFAULT_UNIFIED_CONFIG = {
     "security": {
         "settings_pin": "1234",
     },
+    "services": {
+        "mqtt_local_broker": os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost"),
+        "mqtt_local_port": int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883")),
+        "mqtt_backend_broker": os.getenv("COBIEN_MQTT_BACKEND_BROKER", "broker.hivemq.com"),
+        "mqtt_backend_port": int(os.getenv("COBIEN_MQTT_BACKEND_PORT", "1883")),
+        "backend_base_url": os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu"),
+        "owm_api_key": os.getenv("OWM_API_KEY", ""),
+        "news_api_key": os.getenv("NEWS_API_KEY", ""),
+        "spoonacular_api_key": os.getenv("SPOONACULAR_API_KEY", ""),
+        "mongo_uri": os.getenv("MONGO_URI", ""),
+        "http_timeout_sec": float(os.getenv("COBIEN_HTTP_TIMEOUT", "8")),
+        "tts_rate": int(os.getenv("COBIEN_TTS_RATE", "155")),
+        "tts_volume": float(os.getenv("COBIEN_TTS_VOLUME", "0.85")),
+        "disable_system_sleep": os.getenv("COBIEN_DISABLE_SYSTEM_SLEEP", "0"),
+        "notify_api_key": os.getenv("COBIEN_NOTIFY_API_KEY", "test_jules"),
+        "pizarra_notify_url": os.getenv("COBIEN_PIZARRA_NOTIFY_URL", "http://portal.co-bien.eu/pizarra/api/notify/"),
+        "pizarra_messages_url": os.getenv("COBIEN_PIZARRA_API_URL", "http://portal.co-bien.eu/pizarra/api/messages/"),
+        "pizarra_delete_url_template": os.getenv(
+            "COBIEN_PIZARRA_DELETE_URL_TEMPLATE",
+            "http://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/",
+        ),
+        "contacts_api_url": os.getenv("COBIEN_CONTACTS_API_URL", "http://portal.co-bien.eu/pizarra/api/contacts/"),
+        "portal_videocall_url": os.getenv("COBIEN_PORTAL_VIDEOCALL_URL", "https://portal.co-bien.eu/videocall/"),
+        "portal_call_answered_url": os.getenv(
+            "COBIEN_PORTAL_CALL_ANSWERED_URL",
+            "https://portal.co-bien.eu/videocall/call-answered/",
+        ),
+        "openweather_current_url": "https://api.openweathermap.org/data/2.5/weather",
+        "openweather_forecast_url": "https://api.openweathermap.org/data/2.5/forecast",
+        "news_api_url": "https://newsapi.org/v2/top-headlines",
+        "spoonacular_search_url": "https://api.spoonacular.com/recipes/complexSearch",
+        "spoonacular_info_url_template": "https://api.spoonacular.com/recipes/{id}/information",
+        "open_meteo_url": "https://api.open-meteo.com/v1/forecast",
+        "nominatim_search_url": "https://nominatim.openstreetmap.org/search",
+    },
     "software": {
         "version": "",
     },
@@ -151,3 +186,12 @@ def save_section(section_name, section_data):
     config = load_config()
     config[section_name] = copy.deepcopy(section_data)
     return save_config(config)
+
+
+def load_services():
+    return load_section("services", {})
+
+
+def get_service(key, default=None):
+    services = load_services()
+    return services.get(key, default)

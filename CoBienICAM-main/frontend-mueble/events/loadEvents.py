@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 
 from app_config import AppConfig
+from config_store import load_section
 
 # ------------------------
 # CONFIGURATION
@@ -30,7 +31,8 @@ AUDIENCE_COLORS = {
 # CONEXIÓN A MONGODB
 # ------------------------
 def get_mongo_client():
-    uri = (os.getenv("MONGO_URI") or "").strip()
+    services_cfg = load_section("services", {})
+    uri = (services_cfg.get("mongo_uri", "") or os.getenv("MONGO_URI") or "").strip()
     if not uri:
         raise RuntimeError("MONGO_URI no configurado")
     return MongoClient(uri, serverSelectionTimeoutMS=3000)  # corta si no conecta en 3s

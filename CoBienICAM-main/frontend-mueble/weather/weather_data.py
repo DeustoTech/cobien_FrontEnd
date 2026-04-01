@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import os
 
 import requests
+from config_store import load_section
 
 
 def map_icon_owm(weather_id: int, icon_code: str) -> str:
@@ -49,10 +50,11 @@ def daily_icon_path(code: int, is_day: bool = True) -> str:
 
 
 def fetch_weather_bundle(city_name, lat, lon, tz_name, api_lang, owm_api_key, forecast_days=7):
-    cur_url = (
-        "https://api.openweathermap.org/data/2.5/weather"
-        f"?q={city_name}&appid={owm_api_key}&units=metric&lang={api_lang}"
-    )
+    services_cfg = load_section("services", {})
+    openweather_current_url = services_cfg.get("openweather_current_url", "https://api.openweathermap.org/data/2.5/weather")
+    open_meteo_url = services_cfg.get("open_meteo_url", "https://api.open-meteo.com/v1/forecast")
+
+    cur_url = f"{openweather_current_url}?q={city_name}&appid={owm_api_key}&units=metric&lang={api_lang}"
     cur = requests.get(cur_url, timeout=8).json()
     cur_temp = round(cur["main"]["temp"])
     desc = cur["weather"][0]["description"].capitalize()
@@ -65,7 +67,7 @@ def fetch_weather_bundle(city_name, lat, lon, tz_name, api_lang, owm_api_key, fo
     start = end = today.isoformat()
 
     om_hourly = requests.get(
-        "https://api.open-meteo.com/v1/forecast",
+        open_meteo_url,
         params=dict(
             latitude=lat,
             longitude=lon,
@@ -78,7 +80,7 @@ def fetch_weather_bundle(city_name, lat, lon, tz_name, api_lang, owm_api_key, fo
     ).json()
 
     om_daily = requests.get(
-        "https://api.open-meteo.com/v1/forecast",
+        open_meteo_url,
         params=dict(
             latitude=lat,
             longitude=lon,

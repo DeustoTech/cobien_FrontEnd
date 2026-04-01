@@ -8,6 +8,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 from icso_data.videocall_logger import log_call_end
+from config_store import load_section
 
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QFont, QIcon
@@ -21,8 +22,9 @@ from PyQt5.QtWebEngineWidgets import (
 # Permitir cámara/micrófono sin pedir permiso
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--use-fake-ui-for-media-stream"
 
-PORTAL_URL = os.getenv("COBIEN_PORTAL_VIDEOCALL_URL", "https://portal.co-bien.eu/videocall/")
-BACKEND_URL = os.getenv("COBIEN_PORTAL_CALL_ANSWERED_URL", "https://portal.co-bien.eu/videocall/call-answered/")
+_services_cfg = load_section("services", {})
+PORTAL_URL = _services_cfg.get("portal_videocall_url", "https://portal.co-bien.eu/videocall/")
+BACKEND_URL = _services_cfg.get("portal_call_answered_url", "https://portal.co-bien.eu/videocall/call-answered/")
 
 
 def _default_config_path():

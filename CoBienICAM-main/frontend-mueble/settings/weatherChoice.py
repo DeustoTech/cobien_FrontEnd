@@ -20,6 +20,7 @@ from datetime import datetime
 import paho.mqtt.publish as publish
 import requests
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from config_store import load_section
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
@@ -993,7 +994,8 @@ class WeatherChoice(FloatLayout):
     def _is_valid_city(self, city_name):
         """Validate that the city name can be geocoded."""
         try:
-            url = "https://nominatim.openstreetmap.org/search"
+            services_cfg = load_section("services", {})
+            url = services_cfg.get("nominatim_search_url", "https://nominatim.openstreetmap.org/search")
             params = {"format": "json", "q": city_name, "limit": 1}
             headers = {"User-Agent": "CoBien-App"}
             response = requests.get(url, params=params, headers=headers, timeout=6)

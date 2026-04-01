@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import requests
 
 from app_config import BACKEND_BASE_URL
+from config_store import load_section
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +34,8 @@ def _safe_write_text(path, content):
 
 def _build_headers():
     headers = {}
-    api_key = os.getenv("COBIEN_NOTIFY_API_KEY", "").strip()
+    services_cfg = load_section("services", {})
+    api_key = (services_cfg.get("notify_api_key", "") or "").strip()
     if api_key:
         headers["X-API-KEY"] = api_key
     return headers
@@ -44,8 +46,9 @@ def _resolve_contacts_endpoint(device_id, payload):
     if payload_url:
         return payload_url, {}
 
-    endpoint_tpl = os.getenv(
-        "COBIEN_CONTACTS_API_URL",
+    services_cfg = load_section("services", {})
+    endpoint_tpl = services_cfg.get(
+        "contacts_api_url",
         f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/contacts/",
     ).strip()
 

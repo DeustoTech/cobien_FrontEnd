@@ -1,5 +1,6 @@
 import os
 import threading
+from config_store import load_section
 
 
 try:
@@ -8,8 +9,9 @@ except Exception:
     pyttsx3 = None
 
 
-DEFAULT_RATE = int(os.getenv("COBIEN_TTS_RATE", "155"))
-DEFAULT_VOLUME = float(os.getenv("COBIEN_TTS_VOLUME", "0.85"))
+_SERVICES_CFG = load_section("services", {})
+DEFAULT_RATE = int(_SERVICES_CFG.get("tts_rate", os.getenv("COBIEN_TTS_RATE", "155")))
+DEFAULT_VOLUME = float(_SERVICES_CFG.get("tts_volume", os.getenv("COBIEN_TTS_VOLUME", "0.85")))
 
 
 class TTSService:

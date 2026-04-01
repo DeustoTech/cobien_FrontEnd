@@ -9,6 +9,7 @@ from timezonefinder import TimezoneFinder
 from icso_data.imu_logger import log_imu_event
 from icso_data.log_writer import load_full_state as load_state
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from config_store import load_section
 
 BROKER_HOST = MQTT_LOCAL_BROKER
 BROKER_PORT = MQTT_LOCAL_PORT
@@ -35,7 +36,8 @@ SETTINGS_CONFIG_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
 # Geocoding the cities in config_weather.txt
 def geocode_city(city_name):
     try:
-        url = "https://nominatim.openstreetmap.org/search"
+        services_cfg = load_section("services", {})
+        url = services_cfg.get("nominatim_search_url", "https://nominatim.openstreetmap.org/search")
         params = {"format": "json", "q": city_name}
         headers = {"User-Agent": "CoBien-App"} 
         resp = requests.get(url, params=params, headers=headers, timeout=5).json()

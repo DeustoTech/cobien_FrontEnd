@@ -8,11 +8,21 @@ from reminders.reminders import RecordatorioManager
 from bs4 import BeautifulSoup
 import re
 from googletrans import Translator
+from config_store import load_section
 
-HTTP_TIMEOUT = float(os.getenv("COBIEN_HTTP_TIMEOUT", "8"))
-OWM_API_KEY = (os.getenv("OWM_API_KEY") or "").strip()
-NEWS_API_KEY = (os.getenv("NEWS_API_KEY") or "").strip()
-SPOONACULAR_API_KEY = (os.getenv("SPOONACULAR_API_KEY") or "").strip()
+_SERVICES_CFG = load_section("services", {})
+HTTP_TIMEOUT = float(_SERVICES_CFG.get("http_timeout_sec", os.getenv("COBIEN_HTTP_TIMEOUT", "8")))
+OWM_API_KEY = (_SERVICES_CFG.get("owm_api_key", "") or "").strip()
+NEWS_API_KEY = (_SERVICES_CFG.get("news_api_key", "") or "").strip()
+SPOONACULAR_API_KEY = (_SERVICES_CFG.get("spoonacular_api_key", "") or "").strip()
+OWM_CURRENT_URL = _SERVICES_CFG.get("openweather_current_url", "https://api.openweathermap.org/data/2.5/weather")
+OWM_FORECAST_URL = _SERVICES_CFG.get("openweather_forecast_url", "https://api.openweathermap.org/data/2.5/forecast")
+NEWS_API_URL = _SERVICES_CFG.get("news_api_url", "https://newsapi.org/v2/top-headlines")
+SPOON_SEARCH_URL = _SERVICES_CFG.get("spoonacular_search_url", "https://api.spoonacular.com/recipes/complexSearch")
+SPOON_INFO_URL_TEMPLATE = _SERVICES_CFG.get(
+    "spoonacular_info_url_template",
+    "https://api.spoonacular.com/recipes/{id}/information",
+)
 
 
 class ActionExecutor:
@@ -145,7 +155,7 @@ class ActionExecutor:
             if not OWM_API_KEY:
                 return "No he podido obtener el clima: falta la clave OWM_API_KEY."
             ciudad = "Bilbao"
-            url = f"https://api.openweathermap.org/data/2.5/weather?q={ciudad}&appid={OWM_API_KEY}&units=metric&lang=es"
+            url = f"{OWM_CURRENT_URL}?q={ciudad}&appid={OWM_API_KEY}&units=metric&lang=es"
             respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
             respuesta.raise_for_status()
             datos = respuesta.json()
@@ -170,7 +180,7 @@ class ActionExecutor:
             if not OWM_API_KEY:
                 return "No he podido obtener el pronóstico: falta la clave OWM_API_KEY."
             ciudad = "Bilbao"
-            url = f"https://api.openweathermap.org/data/2.5/forecast?q={ciudad}&appid={OWM_API_KEY}&units=metric&lang=es"
+            url = f"{OWM_FORECAST_URL}?q={ciudad}&appid={OWM_API_KEY}&units=metric&lang=es"
             respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
             respuesta.raise_for_status()
             datos = respuesta.json()
@@ -230,7 +240,7 @@ class ActionExecutor:
         try:
             if not NEWS_API_KEY:
                 return "No he podido obtener noticias: falta la clave NEWS_API_KEY."
-            url = f"https://newsapi.org/v2/top-headlines?country=es&category=general&apiKey={NEWS_API_KEY}"
+            url = f"{NEWS_API_URL}?country=es&category=general&apiKey={NEWS_API_KEY}"
             respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
             respuesta.raise_for_status()
             datos = respuesta.json()
@@ -264,14 +274,14 @@ class ActionExecutor:
         try:
             if not SPOONACULAR_API_KEY:
                 return "No he podido obtener la receta: falta la clave SPOONACULAR_API_KEY."
-            url = f"https://api.spoonacular.com/recipes/complexSearch?query={receta}&number=1&apiKey={SPOONACULAR_API_KEY}"
+            url = f"{SPOON_SEARCH_URL}?query={receta}&number=1&apiKey={SPOONACULAR_API_KEY}"
             respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
             respuesta.raise_for_status()
             datos = respuesta.json()
 
             if "results" in datos and len(datos["results"]) > 0:
                 receta_id = datos["results"][0]["id"]
-                receta_url = f"https://api.spoonacular.com/recipes/{receta_id}/information?apiKey={SPOONACULAR_API_KEY}"
+                receta_url = f"{SPOON_INFO_URL_TEMPLATE.format(id=receta_id)}?apiKey={SPOONACULAR_API_KEY}"
                 receta_resp = requests.get(receta_url, timeout=HTTP_TIMEOUT)
                 receta_resp.raise_for_status()
                 receta_info = receta_resp.json()

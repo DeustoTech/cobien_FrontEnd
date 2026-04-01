@@ -577,8 +577,9 @@ class MainScreen(Screen):
         # Local MQTT for furniture sensors/buttons
         random_id = "kivy_local_client"
         self.mqtt_client_local = mqtt.Client(client_id=random_id, clean_session=True)
-        
-        self.mqtt_broker_local = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
+        services_cfg = load_section("services", {})
+        self.mqtt_broker_local = services_cfg.get("mqtt_local_broker", "localhost")
+        self.mqtt_port_local = int(services_cfg.get("mqtt_local_port", 1883))
         self.mqtt_client_local.on_connect = self.on_connect_local
         self.mqtt_client_local.on_message = self.on_message_local
         self._subscribed_local = False
@@ -586,7 +587,7 @@ class MainScreen(Screen):
         self.mqtt_topic_nav = "app/nav"
 
         try:
-            self.mqtt_client_local.connect(self.mqtt_broker_local, 1883, 60)
+            self.mqtt_client_local.connect(self.mqtt_broker_local, self.mqtt_port_local, 60)
             self.mqtt_client_local.loop_start()
             print(f"[MQTT LOCAL] Connected to localhost (ID: {random_id})")
         except Exception as e:
@@ -594,14 +595,15 @@ class MainScreen(Screen):
 
         # Backend MQTT for web notifications
         self.mqtt_client_backend = mqtt.Client(client_id="kivy_backend_client")
-        self.mqtt_broker_backend = os.getenv("COBIEN_MQTT_BACKEND_BROKER", "broker.hivemq.com")
+        self.mqtt_broker_backend = services_cfg.get("mqtt_backend_broker", "broker.hivemq.com")
+        self.mqtt_port_backend = int(services_cfg.get("mqtt_backend_port", 1883))
         self.mqtt_client_backend.on_connect = self.on_connect_backend
         self.mqtt_client_backend.on_message = self.on_message_backend
 
         self.mqtt_topic_general = "tarjeta"
 
         try:
-            self.mqtt_client_backend.connect(self.mqtt_broker_backend, 1883, 60)
+            self.mqtt_client_backend.connect(self.mqtt_broker_backend, self.mqtt_port_backend, 60)
             self.mqtt_client_backend.loop_start()
             print("[MQTT BACKEND] Connected to broker.hivemq.com for notifications")
         except Exception as e:
@@ -653,7 +655,8 @@ class MainScreen(Screen):
             self.weather_tz = "Europe/Madrid"
             print(f"[MAIN] No configured cities found, using fallback: {self.weather_city}")
 
-        self.owm_api_key = os.getenv("OWM_API_KEY", "6128e2f97c533ad711be849699cb4d47")
+        services_cfg = load_section("services", {})
+        self.owm_api_key = (services_cfg.get("owm_api_key", "") or "").strip()
 
         Clock.schedule_once(lambda dt: self._update_weather_async(), 0)
         Clock.schedule_interval(lambda dt: self._update_weather_async(), 600)

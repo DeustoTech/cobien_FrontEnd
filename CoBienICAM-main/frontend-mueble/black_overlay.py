@@ -3,10 +3,13 @@ from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 import os
 import subprocess
+from config_store import load_section
 
 
 def suspend_system() -> bool:
-    if os.getenv("COBIEN_DISABLE_SYSTEM_SLEEP", "0") in ("1", "true", "True"):
+    services_cfg = load_section("services", {})
+    disable_sleep = str(services_cfg.get("disable_system_sleep", os.getenv("COBIEN_DISABLE_SYSTEM_SLEEP", "0")))
+    if disable_sleep in ("1", "true", "True"):
         return False
 
     commands = [

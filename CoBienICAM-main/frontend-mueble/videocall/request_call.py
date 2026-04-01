@@ -1,13 +1,15 @@
 import os
 import requests
 from app_config import AppConfig
+from config_store import load_section
 
 
 _cfg = AppConfig()
-DEFAULT_API_KEY = os.getenv("COBIEN_NOTIFY_API_KEY", "test_jules")
+_services_cfg = load_section("services", {})
+DEFAULT_API_KEY = (_services_cfg.get("notify_api_key", "test_jules") or "").strip()
 DEFAULT_FROM_DEVICE = _cfg.get_device_id()
-DEFAULT_PIZARRA_NOTIFY_URL = os.getenv(
-    "COBIEN_PIZARRA_NOTIFY_URL",
+DEFAULT_PIZARRA_NOTIFY_URL = _services_cfg.get(
+    "pizarra_notify_url",
     "http://portal.co-bien.eu/pizarra/api/notify/",
 )
 

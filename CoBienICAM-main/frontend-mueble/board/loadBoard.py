@@ -11,6 +11,7 @@ from PIL import Image, ExifTags
 # Import the client used in events
 from events.loadEvents import get_mongo_client
 from app_config import BACKEND_BASE_URL
+from config_store import load_section
 
 # === Configuration ===
 DB_NAME = "LabasAppDB"
@@ -228,9 +229,10 @@ def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
 
 
 def fetch_board_items_from_api(recipient_key: str, limit: int = 50) -> List[Dict]:
-    url = os.getenv("COBIEN_PIZARRA_API_URL", f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/")
+    services_cfg = load_section("services", {})
+    url = services_cfg.get("pizarra_messages_url", f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/")
     headers = {}
-    api_key = os.getenv("COBIEN_NOTIFY_API_KEY", "").strip()
+    api_key = (services_cfg.get("notify_api_key", "") or "").strip()
     if api_key:
         headers["X-API-KEY"] = api_key
 
@@ -329,12 +331,13 @@ def delete_board_item(post_id: str) -> bool:
     if not post_id:
         return False
 
-    url = os.getenv(
-        "COBIEN_PIZARRA_DELETE_URL_TEMPLATE",
+    services_cfg = load_section("services", {})
+    url = services_cfg.get(
+        "pizarra_delete_url_template",
         f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/{{post_id}}/delete/",
     ).format(post_id=post_id)
     headers = {}
-    api_key = os.getenv("COBIEN_NOTIFY_API_KEY", "").strip()
+    api_key = (services_cfg.get("notify_api_key", "") or "").strip()
     if api_key:
         headers["X-API-KEY"] = api_key
 

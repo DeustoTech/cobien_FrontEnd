@@ -21,6 +21,7 @@ import paho.mqtt.client as mqtt
 import json
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 from weather.weather_data import daily_icon_path, fetch_weather_bundle, map_icon_openmeteo, map_icon_owm
+from config_store import load_section
 
 KV = r"""
 #:import dp kivy.metrics.dp
@@ -380,7 +381,8 @@ class WeatherScreenWidget(BoxLayout):
     
     weekday_names = ListProperty([])
 
-    owm_api_key = os.getenv("OWM_API_KEY", "6128e2f97c533ad711be849699cb4d47")
+    _services_cfg = load_section("services", {})
+    owm_api_key = (_services_cfg.get("owm_api_key", "") or "").strip()
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
@@ -450,7 +452,8 @@ class WeatherScreenWidget(BoxLayout):
     def _geocode_city(self, name):
         """Résout automatiquement lat/lon/tz via OpenStreetMap."""
         try:
-            url = "https://nominatim.openstreetmap.org/search"
+            services_cfg = load_section("services", {})
+            url = services_cfg.get("nominatim_search_url", "https://nominatim.openstreetmap.org/search")
             resp = requests.get(
                 url,
                 params={"format": "json", "q": name},
