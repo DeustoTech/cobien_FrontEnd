@@ -111,6 +111,14 @@ Este script hace automáticamente:
 - `enable --now cobien-update.timer`
 - reinicia `cobien-launcher.service`
 
+Además, en primera ejecución de `cobien-launcher.sh` (si no existe `~/.config/systemd/user/cobien-launcher.service`), el launcher fuerza automáticamente:
+
+- instalación de servicios systemd user
+- `systemctl --user daemon-reload`
+- `systemctl --user enable --now cobien-launcher.service cobien-update.timer`
+- `systemctl --user restart cobien-launcher.service`
+- verificación de estado activo/enabled
+
 ## Operación diaria
 
 Estado del runtime:

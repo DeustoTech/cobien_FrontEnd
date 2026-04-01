@@ -968,6 +968,37 @@ install_systemd_user_services() {
   /bin/bash "$installer_script"
 }
 
+has_systemd_user_launcher_service() {
+  local service_file="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/cobien-launcher.service"
+  [[ -f "$service_file" ]]
+}
+
+verify_systemd_user_services() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    log "Verification skipped: systemctl not available"
+    return 1
+  fi
+
+  log "Running systemd user verification..."
+  systemctl --user daemon-reload
+  systemctl --user enable --now cobien-launcher.service cobien-update.timer
+  systemctl --user restart cobien-launcher.service
+
+  if systemctl --user is-active --quiet cobien-launcher.service; then
+    log "Verification OK: cobien-launcher.service is active"
+  else
+    log "Verification FAILED: cobien-launcher.service is not active"
+    return 1
+  fi
+
+  if systemctl --user is-enabled --quiet cobien-update.timer; then
+    log "Verification OK: cobien-update.timer is enabled"
+  else
+    log "Verification FAILED: cobien-update.timer is not enabled"
+    return 1
+  fi
+}
+
 print_dry_run() {
   check_paths
   load_env_file
@@ -991,6 +1022,7 @@ print_dry_run() {
 run_full_flow() {
   local reuse_existing_installation="0"
   local use_last_config="0"
+  local first_run_without_systemd="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     echo "========================================"
     echo "CoBien Ubuntu setup assistant"
@@ -1025,6 +1057,11 @@ run_full_flow() {
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
   fi
   resolve_paths
+  if ! has_systemd_user_launcher_service; then
+    first_run_without_systemd="1"
+    INSTALL_SYSTEMD_USER="1"
+    log "First run detected: systemd user service missing, auto-install enabled."
+  fi
 
   echo
   echo "Detected paths:"
@@ -1094,7 +1131,7 @@ run_full_flow() {
     CRON_SCHEDULE="$(ask "Cron expression for updates" "$CRON_SCHEDULE")"
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to install/update systemd user services for auto-start" "y"; then
+  if [[ "$NON_INTERACTIVE" != "1" && "$first_run_without_systemd" != "1" ]] && ask_yes_no "Do you want to install/update systemd user services for auto-start" "y"; then
     INSTALL_SYSTEMD_USER="1"
   fi
 
@@ -1153,6 +1190,8 @@ run_full_flow() {
     echo
     echo "[3d/4] Installing systemd user services..."
     install_systemd_user_services
+    echo "[3e/4] Verifying systemd user services..."
+    verify_systemd_user_services
   fi
 
   save_last_run_config
