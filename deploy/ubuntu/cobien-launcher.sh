@@ -784,8 +784,10 @@ check_repo() {
 
 repo_updates_launcher() {
   local repo="$1"
+  local from_sha="$2"
+  local to_sha="$3"
   [[ "$repo" == "$FRONTEND_REPO" ]] || return 1
-  git -C "$repo" diff --name-only HEAD FETCH_HEAD | grep -Fxq "deploy/ubuntu/cobien-launcher.sh"
+  git -C "$repo" diff --name-only "$from_sha" "$to_sha" | grep -Fxq "deploy/ubuntu/cobien-launcher.sh"
 }
 
 handoff_to_updated_launcher() {
@@ -831,15 +833,44 @@ update_repo_if_needed() {
     return 1
   fi
 
+  local launcher_changed="0"
+  if repo_updates_launcher "$repo" "$local_sha" "$remote_sha"; then
+    launcher_changed="1"
+  fi
+
   log "Updating $repo"
   git -C "$repo" pull --ff-only "$REMOTE_NAME" "$BRANCH_NAME"
 
-  if repo_updates_launcher "$repo"; then
+  if [[ "$launcher_changed" == "1" ]]; then
     mark_update_applied
     handoff_to_updated_launcher "$handoff_mode"
   fi
 
   return 0
+}
+
+dedupe_existing_update_cron_entries() {
+  local current_cron filtered seen_update
+  current_cron="$(crontab -l 2>/dev/null || true)"
+  seen_update="0"
+
+  filtered="$(
+    while IFS= read -r line; do
+      if [[ "$line" == *"$SELF_SCRIPT --mode update-once"* ]]; then
+        if [[ "$seen_update" == "0" ]]; then
+          seen_update="1"
+          printf "%s\n" "$line"
+        fi
+      else
+        printf "%s\n" "$line"
+      fi
+    done <<<"$current_cron"
+  )"
+
+  if [[ "$filtered" != "$current_cron" ]]; then
+    printf "%s\n" "$filtered" | sed '/^[[:space:]]*$/d' | crontab -
+    log "Deduplicated existing update cron entries."
+  fi
 }
 
 restart_software() {
@@ -1214,6 +1245,7 @@ main() {
   acquire_single_instance_lock
   resolve_paths
   normalize_device_identity
+  dedupe_existing_update_cron_entries
 
   case "$MODE" in
     run)
