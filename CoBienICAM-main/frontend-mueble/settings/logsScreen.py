@@ -262,6 +262,21 @@ class LogsViewerScreen(Screen):
         candidates = []
         if env_dir:
             candidates.append(env_dir)
+        launcher_env = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
+        )
+        if os.path.isfile(launcher_env):
+            try:
+                with open(launcher_env, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("COBIEN_LOG_DIR="):
+                            val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if val:
+                                candidates.append(val)
+                            break
+            except Exception:
+                pass
         candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "logs")))
         candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "logs")))
         for path in candidates:
@@ -292,10 +307,15 @@ class LogsViewerScreen(Screen):
             self._read_pos = 0
 
     def _poll_log(self, *_args):
+        log_dir = self._resolve_log_dir()
         file_path = self._latest_log_file()
         if not file_path:
             self.root_view.ids.lbl_file.text = _("No hay fichero de log")
-            self.root_view.ids.lbl_log.text = _("Esperando datos de log...")
+            self.root_view.ids.lbl_log.text = (
+                f"{_('Esperando datos de log...')}\n"
+                f"dir={log_dir}\n"
+                f"pattern={self.log_prefix}-*.log"
+            )
             self._current_file = ""
             self._read_pos = 0
             return

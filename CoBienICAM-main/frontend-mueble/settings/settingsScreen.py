@@ -238,7 +238,7 @@ KV = """
 
                     SettingsNavButton:
                         id: btn_logs
-                        icon_source: "images/notif.png"
+                        icon_source: "images/logs.png"
                         text: ""
                         on_release: app.root.current = "settings_logs_menu"
 """
