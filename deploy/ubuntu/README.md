@@ -126,6 +126,15 @@ Instalacion:
 bash deploy/ubuntu/install-systemd-user.sh
 ```
 
+El script de instalacion hace automaticamente:
+
+- instala/actualiza unidades `systemd --user`
+- aplica override grafico (`DISPLAY=:0`, `XAUTHORITY=%t/gdm/Xauthority`)
+- elimina `~/.config/autostart/cobien-launcher.desktop` si existe
+- elimina entradas cron legacy de `--mode update-once`
+- recarga y reinicia `cobien-launcher.service`
+- habilita `cobien-update.timer`
+
 Esto habilita:
 
 - arranque automatico del launcher al iniciar sesion de usuario
@@ -144,6 +153,27 @@ Aplicar cambios tras una actualizacion del repo:
 ```bash
 cd ~/cobien/cobien_FrontEnd
 bash deploy/ubuntu/install-systemd-user.sh
-systemctl --user daemon-reload
-systemctl --user restart cobien-launcher.service
+```
+
+## Procedimiento recomendado
+
+Reparar un mueble existente:
+
+```bash
+cd ~/cobien/cobien_FrontEnd
+git pull
+bash deploy/ubuntu/install-systemd-user.sh
+systemctl --user status cobien-launcher.service
+```
+
+Desplegar desde cero en un mueble nuevo:
+
+```bash
+mkdir -p ~/cobien
+cd ~/cobien
+git clone <URL_FRONTEND> cobien_FrontEnd
+git clone <URL_MQTT> cobien_MQTT_Dictionnary
+cd cobien_FrontEnd
+bash deploy/ubuntu/cobien-launcher.sh --mode setup --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix
+bash deploy/ubuntu/install-systemd-user.sh
 ```
