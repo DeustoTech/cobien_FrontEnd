@@ -13,6 +13,7 @@ from kivy.clock import Clock
 import os
 
 from translation import _, get_current_language
+from config_store import load_section, save_section
 
 
 # PIN file path configuration
@@ -157,20 +158,15 @@ class PinCodeScreen(Screen):
                 print(f"[PIN] Settings PIN loaded from environment variable {PIN_ENV_VAR}")
                 return env_pin
 
-            settings_dir = os.path.dirname(PIN_FILE_PATH)
-            if not os.path.exists(settings_dir):
-                os.makedirs(settings_dir)
-            
-            if os.path.exists(PIN_FILE_PATH):
-                with open(PIN_FILE_PATH, 'r') as f:
-                    pin = f.read().strip()
-                    if pin:
-                        print(f"[PIN] Settings PIN loaded from {PIN_FILE_PATH}")
-                        return pin
+            security = load_section("security", {"settings_pin": "1234"}) or {"settings_pin": "1234"}
+            pin = str(security.get("settings_pin", "")).strip()
+            if pin:
+                print("[PIN] Settings PIN loaded from unified config")
+                return pin
             
             default_pin = "1234"
-            with open(PIN_FILE_PATH, 'w') as f:
-                f.write(default_pin)
+            security["settings_pin"] = default_pin
+            save_section("security", security)
             print(f"[PIN] Default settings PIN created: {default_pin}")
             return default_pin
             

@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+from config_store import load_section, save_section
 
 
 NONE_RINGTONE = ""
@@ -55,14 +56,10 @@ def normalize_ringtone_name(ringtone):
 
 
 def load_notification_config():
-    if not os.path.exists(CONFIG_FILE):
-        return json.loads(json.dumps(DEFAULT_NOTIFICATION_CONFIG))
-
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as config_file:
-            config = json.load(config_file)
+        config = load_section("notifications", DEFAULT_NOTIFICATION_CONFIG)
     except Exception as exc:
-        print(f"[NOTIF_CONFIG] Error reading file: {exc}")
+        print(f"[NOTIF_CONFIG] Error reading unified config: {exc}")
         return json.loads(json.dumps(DEFAULT_NOTIFICATION_CONFIG))
 
     merged = json.loads(json.dumps(DEFAULT_NOTIFICATION_CONFIG))
@@ -75,16 +72,14 @@ def load_notification_config():
 
 def save_notification_config(config):
     try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
         sanitized = json.loads(json.dumps(config))
         for value in sanitized.values():
             if isinstance(value, dict):
                 value["ringtone"] = normalize_ringtone_name(value.get("ringtone"))
-        with open(CONFIG_FILE, "w", encoding="utf-8") as config_file:
-            json.dump(sanitized, config_file, indent=2, ensure_ascii=False)
+        save_section("notifications", sanitized)
         return True
     except Exception as exc:
-        print(f"[NOTIF_CONFIG] Error saving file: {exc}")
+        print(f"[NOTIF_CONFIG] Error saving unified config: {exc}")
         return False
 
 

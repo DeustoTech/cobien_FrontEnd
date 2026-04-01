@@ -1,0 +1,48 @@
+{
+    "meta": {
+        "schema_version": 1,
+        "updated_at": ""
+    },
+    "settings": {
+        "language": "es",
+        "weather_cities": [],
+        "weather_primary_city": "",
+        "button_colors": {},
+        "rfid_actions": {},
+        "microphone_device": "",
+        "device_id": "CoBien1",
+        "videocall_room": "CoBien1",
+        "device_location": "Bilbao",
+        "joke_category": "general",
+        "idle_timeout_sec": 60
+    },
+    "notifications": {
+        "videollamada": {
+            "group": 1,
+            "intensity": 255,
+            "color": "#00FF00",
+            "mode": "ON",
+            "ringtone": ""
+        },
+        "nuevo_evento": {
+            "group": 2,
+            "intensity": 255,
+            "color": "#FF0000",
+            "mode": "ON",
+            "ringtone": ""
+        },
+        "nueva_foto": {
+            "group": 3,
+            "intensity": 255,
+            "color": "#0000FF",
+            "mode": "BLINK",
+            "ringtone": ""
+        }
+    },
+    "security": {
+        "settings_pin": "1234"
+    },
+    "software": {
+        "version": ""
+    }
+}

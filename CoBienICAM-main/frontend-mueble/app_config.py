@@ -3,10 +3,11 @@ import json
 import os
 from kivy.event import EventDispatcher
 from kivy.properties import DictProperty
+from config_store import load_section, save_section
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
+CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.json")
 MQTT_LOCAL_BROKER = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
 MQTT_LOCAL_PORT = int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883"))
 BACKEND_BASE_URL = os.getenv("COBIEN_BACKEND_BASE_URL", "http://portal.co-bien.eu")
@@ -54,18 +55,9 @@ class AppConfig(EventDispatcher):
         
         self.config_path = CONFIG_PATH
         self._last_mtime = None
-        
-        # Create folder if necessary
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-        
-        # Load or create config
-        if os.path.exists(self.config_path):
-            self.load()
-            # Add new fields if missing
-            self._ensure_device_fields()
-        else:
-            self.data = self._default_config()
-            self.save()
+        self.load()
+        self._ensure_device_fields()
     
     def _default_config(self):
         """Default configuration"""
@@ -102,12 +94,12 @@ class AppConfig(EventDispatcher):
     def load(self):
         """Load configuration"""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                new_data = json.load(f)
+            new_data = load_section("settings", self._default_config())
             
             # IMPORTANT: Assign via the property to trigger bindings
             self.data = new_data
-            self._last_mtime = os.path.getmtime(self.config_path)
+            if os.path.exists(self.config_path):
+                self._last_mtime = os.path.getmtime(self.config_path)
             
             print(f"[CONFIG] ✅ Configuration chargée depuis {self.config_path}")
         except Exception as e:
@@ -117,9 +109,9 @@ class AppConfig(EventDispatcher):
     def save(self):
         """Save configuration"""
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.data, f, indent=4, ensure_ascii=False)
-            self._last_mtime = os.path.getmtime(self.config_path)
+            save_section("settings", dict(self.data))
+            if os.path.exists(self.config_path):
+                self._last_mtime = os.path.getmtime(self.config_path)
             print(f"[CONFIG] ✅ Configuration sauvegardée")
         except Exception as e:
             print(f"[CONFIG] ⚠️ Erreur sauvegarde config: {e}")

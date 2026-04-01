@@ -7,4 +7,5 @@ icso_data/*.json
 icso_data/*.txt
 logs/
 settings/settings.json
+config/config.json
 weather/weather_today.json
