@@ -229,7 +229,6 @@ cd "$BRIDGE_DIR" || exit
 make clean
 make -j
 ./cobien_bridge "$CAN_CONFIG"
-exec bash
 EOF
 }
 
@@ -251,7 +250,6 @@ else
   fi
   "$PYTHON_BIN" mainApp.py
 fi
-exec bash
 EOF
 }
 
