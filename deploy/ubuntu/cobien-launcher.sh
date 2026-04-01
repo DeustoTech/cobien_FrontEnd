@@ -109,8 +109,41 @@ Options:
 EOF
 }
 
+COLOR_RESET=""
+COLOR_BOLD=""
+COLOR_DIM=""
+COLOR_BLUE=""
+COLOR_CYAN=""
+COLOR_GREEN=""
+COLOR_YELLOW=""
+COLOR_RED=""
+
+init_colors() {
+  if [[ -t 1 && "${NO_COLOR:-0}" != "1" ]]; then
+    COLOR_RESET=$'\033[0m'
+    COLOR_BOLD=$'\033[1m'
+    COLOR_DIM=$'\033[2m'
+    COLOR_BLUE=$'\033[34m'
+    COLOR_CYAN=$'\033[36m'
+    COLOR_GREEN=$'\033[32m'
+    COLOR_YELLOW=$'\033[33m'
+    COLOR_RED=$'\033[31m'
+  fi
+}
+
 log() {
-  echo "[COBIEN] $*"
+  local msg="$*"
+  local color="$COLOR_CYAN"
+  case "$msg" in
+    WARN:*|Warning:*|warning:*) color="$COLOR_YELLOW" ;;
+    ERROR:*|Error:*|error:*|Failed*|Unable*) color="$COLOR_RED" ;;
+    OK:*|SUCCESS:*|Success*) color="$COLOR_GREEN" ;;
+  esac
+  printf '%b[COBIEN]%b %s\n' "$color" "$COLOR_RESET" "$msg"
+}
+
+log_section() {
+  printf '\n%b%s%b\n' "$COLOR_BOLD$COLOR_BLUE" "$*" "$COLOR_RESET"
 }
 
 read_lock_pid() {
@@ -356,7 +389,7 @@ normalize_device_identity() {
 }
 
 setup_can_bus() {
-  echo "[CAN] Initializing the CAN bus"
+  log "CAN: Initializing the CAN bus"
   sudo -n /sbin/ip link set can0 down
   sudo -n /sbin/ip link set can0 type can bitrate "${COBIEN_CAN_BITRATE:-500000}"
   sudo -n /sbin/ip link set can0 up
@@ -364,12 +397,12 @@ setup_can_bus() {
 
 start_can_logger_background() {
   if [[ "$CAN_LOG_ENABLE" != "1" ]]; then
-    echo "[CAN] Logging disabled (COBIEN_CAN_LOG_ENABLE=$CAN_LOG_ENABLE)"
+    log "CAN: Logging disabled (COBIEN_CAN_LOG_ENABLE=$CAN_LOG_ENABLE)"
     return 0
   fi
 
   if ! command -v candump >/dev/null 2>&1; then
-    echo "[CAN] candump not available; skipping CAN logging"
+    log "WARN: CAN: candump not available; skipping CAN logging"
     return 0
   fi
 
@@ -379,7 +412,7 @@ start_can_logger_background() {
   printf '[%s] [CAN] Starting candump on can0\n' "$(date '+%Y-%m-%d %H:%M:%S')" >>"$can_log_file"
   pkill -f "candump can0" >/dev/null 2>&1 || true
   nohup candump can0 2>&1 | awk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush(); }' >>"$can_log_file" &
-  echo "[CAN] Logging CAN traffic to: $can_log_file"
+  log "CAN: Logging CAN traffic to: $can_log_file"
 }
 
 runtime_bridge_command() {
@@ -433,7 +466,7 @@ runtime_launch_background() {
   local log_file
   log_file="$(build_dated_log_path "$name")"
   cleanup_old_logs "$name"
-  echo "[FALLBACK] Launching $name in background. Log: $log_file"
+  log "FALLBACK: Launching $name in background. Log: $log_file"
   printf '[%s] [%s] Starting background command\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$name" >>"$log_file"
   nohup bash -lc "$command_text" 2>&1 | awk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush(); }' >>"$log_file" &
 }
@@ -488,9 +521,9 @@ perform_preflight_runtime_cleanup() {
   local running_count
   running_count="$(count_running_runtime_processes | tr -d '[:space:]')"
   if [[ "${running_count:-0}" -gt 0 ]]; then
-    echo "[CLEAN] Preflight detected ${running_count} existing runtime process(es). Cleaning before relaunch..."
+    log "CLEAN: Preflight detected ${running_count} existing runtime process(es). Cleaning before relaunch..."
   else
-    echo "[CLEAN] Preflight detected no previous runtime processes."
+    log "CLEAN: Preflight detected no previous runtime processes."
   fi
   close_runtime_windows
   stop_runtime_processes
@@ -510,23 +543,23 @@ launch_runtime() {
   mkdir -p "$LOG_DIR"
   ensure_mosquitto_running
 
-  echo "=== Launching CoBien System ==="
-  echo "[PATHS] FRONTEND_REPO_ROOT=$FRONTEND_REPO_ROOT"
-  echo "[PATHS] MQTT_REPO=$MQTT_REPO"
-  echo "[PATHS] BRIDGE_DIR=$BRIDGE_DIR"
-  echo "[PATHS] UV_BIN=$UV_BIN"
-  echo "[PATHS] FRONTEND_APP_DIR=$FRONTEND_APP_DIR"
-  echo "[PATHS] LOG_DIR=$LOG_DIR"
+  log_section "Launching CoBien System"
+  log "PATHS: FRONTEND_REPO_ROOT=$FRONTEND_REPO_ROOT"
+  log "PATHS: MQTT_REPO=$MQTT_REPO"
+  log "PATHS: BRIDGE_DIR=$BRIDGE_DIR"
+  log "PATHS: UV_BIN=$UV_BIN"
+  log "PATHS: FRONTEND_APP_DIR=$FRONTEND_APP_DIR"
+  log "PATHS: LOG_DIR=$LOG_DIR"
   if runtime_can_open_terminals; then
-    echo "[TERM] gnome-terminal available on DISPLAY=${DISPLAY:-}"
+    log "TERM: gnome-terminal available on DISPLAY=${DISPLAY:-}"
   else
-    echo "[TERM] No graphical terminal available, using fallback mode"
+    log "WARN: TERM: No graphical terminal available, using fallback mode"
   fi
 
   if [[ "$relaunch_after_update" == "1" ]]; then
-    echo "[CLEAN] Update relaunch detected."
+    log "CLEAN: Update relaunch detected."
   else
-    echo "[CLEAN] Standard launch detected."
+    log "CLEAN: Standard launch detected."
   fi
   perform_preflight_runtime_cleanup
 
@@ -1362,10 +1395,7 @@ run_full_flow() {
   local use_last_config="0"
   local first_run_without_systemd="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
-    echo "========================================"
-    echo "CoBien Ubuntu setup assistant"
-    echo "========================================"
-    echo
+    log_section "CoBien Ubuntu Setup Assistant"
     if [[ "$ARGS_PROVIDED" == "0" ]]; then
       if ask_yes_no "Do you want to run in unattended mode with default values" "n"; then
         NON_INTERACTIVE="1"
@@ -1499,54 +1529,46 @@ run_full_flow() {
   echo
 
   if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue" "y"; then
-    echo "Cancelled."
+    log "WARN: Cancelled."
     exit 0
   fi
 
-  echo
   if [[ "$reuse_existing_installation" == "1" ]]; then
-    echo "[1/4] Reusing existing installation..."
+    log_section "[1/4] Reusing existing installation"
   else
-    echo "[1/4] Preparing environment..."
+    log_section "[1/4] Preparing environment"
     setup_environment
   fi
 
-  echo
-  echo "[2/4] Loading configuration..."
+  log_section "[2/4] Loading configuration"
   load_env_file
 
-  echo
-  echo "[3/4] Verifying configuration..."
+  log_section "[3/4] Verifying configuration"
   print_dry_run
 
   if [[ "$RUN_UPDATE_ONCE" == "1" ]]; then
-    echo
-    echo "[3b/4] Running one-shot update..."
+    log_section "[3b/4] Running one-shot update"
     run_update_once
   fi
 
   if [[ "$INSTALL_CRON" == "1" ]]; then
-    echo
-    echo "[3c/4] Installing cron job..."
+    log_section "[3c/4] Installing cron job"
     install_cron_job
   fi
 
   if [[ "$INSTALL_SYSTEMD_USER" == "1" ]]; then
-    echo
-    echo "[3d/4] Installing systemd user services..."
+    log_section "[3d/4] Installing systemd user services"
     install_systemd_user_services
-    echo "[3e/4] Verifying systemd user services..."
+    log_section "[3e/4] Verifying systemd user services"
     verify_systemd_user_services
   fi
 
   save_last_run_config
 
-  echo
-  echo "[4/4] Launching furniture system..."
+  log_section "[4/4] Launching furniture system"
   restart_software
 
   if [[ "$ENABLE_WATCH" == "1" ]]; then
-    echo
     log "Starting watch mode..."
     run_watch_loop
   fi
@@ -1700,6 +1722,7 @@ parse_args() {
 }
 
 main() {
+  init_colors
   parse_args "$@"
   acquire_single_instance_lock
   resolve_paths
