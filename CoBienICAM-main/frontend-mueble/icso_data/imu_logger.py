@@ -1,7 +1,4 @@
 # icso_data/imu_logger.py
-
-import os
-from datetime import datetime
 from .log_writer import load_full_state, write_log_json, write_log_txt
 
 
@@ -19,21 +16,17 @@ def log_imu_event(event_type: str):
             "movements": 0
         }
 
-    # Mapping event → texte humain
     if event_type == "movement_start":
-        readable = "IMU → Moving"
         state["imu"]["state"] = "moving"
+        target = "moving"
 
     elif event_type == "movement_stop":
-        readable = "IMU → Idle"
         state["imu"]["state"] = "idle"
         state["imu"]["movements"] += 1
+        target = "idle"
 
     else:
-        readable = f"IMU → {event_type}"
+        target = event_type
 
-    # --- LOG TXT ---
-    write_log_txt(readable)
-
-    # --- LOG JSON ---
+    write_log_txt(source="imu", target=target)
     write_log_json(state)

@@ -1,7 +1,8 @@
 # icso_data/log_writer.py
 
-import os
+import copy
 import json
+import os
 from datetime import datetime
 
 DATA_DIR = os.path.dirname(__file__)
@@ -65,22 +66,35 @@ DEFAULT_STATE = {
 }
 
 
+def _deep_merge_defaults(current, defaults):
+    """Recursively fill missing keys in current with values from defaults."""
+    if not isinstance(current, dict) or not isinstance(defaults, dict):
+        return copy.deepcopy(defaults)
+
+    for key, default_val in defaults.items():
+        if key not in current:
+            current[key] = copy.deepcopy(default_val)
+            continue
+        if isinstance(default_val, dict):
+            if not isinstance(current[key], dict):
+                current[key] = copy.deepcopy(default_val)
+            else:
+                _deep_merge_defaults(current[key], default_val)
+    return current
+
+
 def load_full_state():
     if not os.path.exists(LOG_JSON):
-        return DEFAULT_STATE.copy()
+        return copy.deepcopy(DEFAULT_STATE)
 
     try:
         with open(LOG_JSON, "r", encoding="utf-8") as f:
             data = json.load(f)
-    except:
-        return DEFAULT_STATE.copy()
+    except Exception:
+        return copy.deepcopy(DEFAULT_STATE)
 
-    # Ajouter les clés manquantes automatiquement
-    for key, default_val in DEFAULT_STATE.items():
-        if key not in data:
-            data[key] = default_val
-
-    return data
+    # Fill all missing sections recursively.
+    return _deep_merge_defaults(data, DEFAULT_STATE)
 
 
 def write_log_json(state: dict):
@@ -95,28 +109,46 @@ def write_log_txt(source, target=None, recognized: str = None):
         "touchscreen": "TOUCHSCREEN",
         "home_button": "HOME BUTTON",
         "vocal_assistant": "VOCAL ASSISTANT",
-        "rfid_cards": "RFID CARD"
+        "rfid_cards": "RFID CARD",
+        "imu": "IMU",
+        "videocall": "VIDEO CALL",
+        "notification": "NOTIFICATION",
+        "wakeup": "SCREEN WAKEUP",
+        "proximity": "PROXIMITY",
     }
 
-    label = label_map.get(source, source.upper())
+    source_str = str(source or "").strip()
+    if not source_str:
+        source_str = "SYSTEM"
 
-    if source == "rfid_cards" and target == "videocall":
+    # Backward-compatible raw message mode.
+    if target is None and source_str not in label_map:
+        line = f"[{now}] {source_str}"
+        with open(LOG_TXT, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+        return
+
+    label = label_map.get(source_str, source_str.upper())
+
+    if source_str == "rfid_cards" and target == "videocall":
         target = "videocall request"
 
-    if source == "vocal_assistant" and target in (None, "assistant_triggered"):
+    if source_str == "vocal_assistant" and target in (None, "assistant_triggered"):
         line = f"[{now}] ACTIVATION VOCAL ASSISTANT"
-    elif source == "vocal_assistant" and target is not None:
+    elif source_str == "vocal_assistant" and target is not None:
         recog_text = (recognized or "").strip()
         if recog_text:
             line = f"[{now}] VOCAL ASSISTANT → {target} (recognized: {recog_text})"
         else:
             line = f"[{now}] VOCAL ASSISTANT → {target}"
+    elif source_str == "proximity" and target is not None:
+        line = f"[{now}] PROXIMITY → {target}"
     elif target is not None:
         line = f"[{now}] VIA {label} → {target}"
     else:
         line = f"[{now}] {label}"
 
-    log_path = LOG_PROXIMITY_TXT if source == "proximity" else LOG_TXT
+    log_path = LOG_PROXIMITY_TXT if source_str == "proximity" else LOG_TXT
 
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(line + "\n")
