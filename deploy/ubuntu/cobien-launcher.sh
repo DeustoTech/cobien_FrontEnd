@@ -315,7 +315,13 @@ stop_runtime_processes() {
 }
 
 count_running_runtime_processes() {
-  pgrep -af "candump can0|/cobien_bridge|mainApp.py|\\[APP\\] Launching frontend with uv|\\[BRIDGE\\] Build and launch|\\[CAN\\] Initializing the CAN bus" | wc -l
+  local matches
+  matches="$(pgrep -af "candump can0|/cobien_bridge|mainApp.py|\\[APP\\] Launching frontend with uv|\\[BRIDGE\\] Build and launch|\\[CAN\\] Initializing the CAN bus" || true)"
+  if [[ -z "${matches//[[:space:]]/}" ]]; then
+    echo 0
+    return
+  fi
+  printf '%s\n' "$matches" | wc -l
 }
 
 perform_preflight_runtime_cleanup() {
