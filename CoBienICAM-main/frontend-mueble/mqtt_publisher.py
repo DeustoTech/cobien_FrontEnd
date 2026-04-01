@@ -31,7 +31,6 @@ BASE_DIR = os.path.dirname(__file__)
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
 WEATHER_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_weather.txt")
 RFID_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_rfid.txt")
-SETTINGS_CONFIG_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
 
 # Geocoding the cities in config_weather.txt
 def geocode_city(city_name):
@@ -57,10 +56,7 @@ def geocode_city(city_name):
 # Loading the cities in config_weather.txt
 def load_primary_weather_city():
     try:
-        if not os.path.exists(SETTINGS_CONFIG_PATH):
-            return ""
-        with open(SETTINGS_CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = load_section("settings", {})
         return (data.get("weather_primary_city", "") or "").strip()
     except Exception as e:
         print(f"[CONFIG] Weather primary city read error: {e}")
@@ -68,6 +64,16 @@ def load_primary_weather_city():
 
 
 def load_weather_config(path="config/config_weather.txt"):
+    settings = load_section("settings", {})
+    configured = settings.get("weather_cities", [])
+    if isinstance(configured, list) and configured:
+        cities = [str(c).strip() for c in configured if str(c).strip()]
+        primary_city = load_primary_weather_city()
+        if primary_city and primary_city in cities:
+            cities = [primary_city] + [c for c in cities if c != primary_city]
+            print(f"[CONFIG] ⭐ Ville prioritaire météo: {primary_city}")
+        return cities
+
     cities = []
     path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
     if not os.path.exists(path):
@@ -121,6 +127,42 @@ def load_contacts_map():
 
 # Loading the RFID cards actions in config_rfid.txt
 def load_rfid_config(path="config/config_rfid.txt"):
+    settings = load_section("settings", {})
+    configured = settings.get("rfid_actions", {})
+    if isinstance(configured, dict) and configured:
+        contacts_map = load_contacts_map()
+        actions = {}
+        valid_cities = [str(c).strip() for c in settings.get("weather_cities", []) if str(c).strip()]
+        for card_id_str, payload in configured.items():
+            try:
+                card_id = int(card_id_str)
+            except Exception:
+                continue
+            action = (payload or {}).get("action", "day_events")
+            extra = (payload or {}).get("extra", "")
+
+            if action == "weather":
+                city = str(extra).strip()
+                if not city or (valid_cities and city not in valid_cities):
+                    continue
+                geo = geocode_city(city)
+                if geo:
+                    actions[card_id] = {"target": "weather", "extra": geo}
+            elif action == "videocall":
+                out = {"target": "videocall"}
+                contact_display = str(extra).strip()
+                if contact_display:
+                    user = contacts_map.get(contact_display.lower())
+                    if user:
+                        out["extra"] = {"to_user": user, "label": contact_display}
+                actions[card_id] = out
+            else:
+                actions[card_id] = {
+                    "target": "day_events",
+                    "extra": {"day": date.today().isoformat()}
+                }
+        return actions
+
     path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
     contacts_map = load_contacts_map()
     actions = {}

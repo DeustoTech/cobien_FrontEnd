@@ -6,6 +6,7 @@
     "settings": {
         "language": "es",
         "weather_cities": [],
+        "weather_city_catalog": [],
         "weather_primary_city": "",
         "button_colors": {},
         "rfid_actions": {},

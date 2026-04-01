@@ -11,6 +11,8 @@ UNIFIED_CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 LEGACY_SETTINGS_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
 LEGACY_NOTIFICATIONS_PATH = os.path.join(CONFIG_DIR, "notifications_config.json")
 LEGACY_PIN_PATH = os.path.join(BASE_DIR, "settings", "pin.txt")
+LEGACY_WEATHER_PATH = os.path.join(CONFIG_DIR, "config_weather.txt")
+LEGACY_RFID_PATH = os.path.join(CONFIG_DIR, "config_rfid.txt")
 VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 
 DEFAULT_UNIFIED_CONFIG = {
@@ -21,6 +23,7 @@ DEFAULT_UNIFIED_CONFIG = {
     "settings": {
         "language": "es",
         "weather_cities": [],
+        "weather_city_catalog": [],
         "weather_primary_city": "",
         "button_colors": {},
         "rfid_actions": {},
@@ -78,6 +81,66 @@ DEFAULT_UNIFIED_CONFIG = {
         "version": "",
     },
 }
+
+
+def _parse_legacy_weather_file(path):
+    active = []
+    catalog = []
+    if not os.path.exists(path):
+        return active, catalog
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line:
+                    continue
+                if line.startswith("#"):
+                    city = line[1:].strip()
+                    if city and city not in catalog:
+                        catalog.append(city)
+                    continue
+                city = line
+                if city not in catalog:
+                    catalog.append(city)
+                if city not in active:
+                    active.append(city)
+    except Exception:
+        pass
+    return active, catalog
+
+
+def _parse_legacy_rfid_file(path):
+    mappings = {}
+    if not os.path.exists(path):
+        return mappings
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                left, right = line.split("=", 1)
+                card_id = left.strip()
+                action_text = right.strip()
+                if not card_id.isdigit():
+                    continue
+
+                action = "day_events"
+                extra = ""
+                low = action_text.lower()
+                if low.startswith("weather") or low.startswith("meteo"):
+                    action = "weather"
+                    if ":" in action_text:
+                        extra = action_text.split(":", 1)[1].strip()
+                elif low.startswith("video") or low.startswith("videollamada"):
+                    action = "videocall"
+                    if ":" in action_text:
+                        extra = action_text.split(":", 1)[1].strip()
+
+                mappings[str(card_id)] = {"action": action, "extra": extra}
+    except Exception:
+        pass
+    return mappings
 
 
 def _deep_merge_dict(base, incoming):
@@ -149,6 +212,22 @@ def _ensure_schema(data):
         data = copy.deepcopy(DEFAULT_UNIFIED_CONFIG)
     merged = copy.deepcopy(DEFAULT_UNIFIED_CONFIG)
     _deep_merge_dict(merged, data)
+
+    # One-way compatibility migration from legacy text files when unified values are missing.
+    if not merged["settings"].get("weather_cities"):
+        active, catalog = _parse_legacy_weather_file(LEGACY_WEATHER_PATH)
+        if active:
+            merged["settings"]["weather_cities"] = active
+        if catalog:
+            merged["settings"]["weather_city_catalog"] = catalog
+    elif not merged["settings"].get("weather_city_catalog"):
+        merged["settings"]["weather_city_catalog"] = list(merged["settings"]["weather_cities"])
+
+    if not merged["settings"].get("rfid_actions"):
+        legacy_rfid = _parse_legacy_rfid_file(LEGACY_RFID_PATH)
+        if legacy_rfid:
+            merged["settings"]["rfid_actions"] = legacy_rfid
+
     merged["meta"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
     if not merged["software"].get("version"):
         merged["software"]["version"] = _read_version_file()

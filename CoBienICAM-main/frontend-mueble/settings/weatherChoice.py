@@ -165,7 +165,7 @@ class WeatherChoice(FloatLayout):
         self.city_list_geo = {}
         self.available_cities = []
         self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
-        self.last_mtime = os.path.getmtime(self.config_path) if os.path.exists(self.config_path) else 0
+        self.last_mtime = 0
         self._watch_event = None
         self.selected_letter = None
         self.letter_buttons = {}
@@ -494,78 +494,22 @@ class WeatherChoice(FloatLayout):
             self.bg.size = self.size
 
     def load_available_cities(self):
-        """Charge la liste des villes disponibles depuis config/config_weather.txt"""
-        config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
-        
-        print(f"[WEATHER CHOICE] Chemin config: {config_path}")
-        print(f"[WEATHER CHOICE] Fichier existe? {os.path.exists(config_path)}")
-        
-        self.available_cities = []
-        self.active_cities = []
-        
-        if not os.path.exists(config_path):
-            print(f"[WEATHER CHOICE] Fichier non trouvé, création...")
-            self.create_default_config(config_path)
-            return
-        
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                print(f"[WEATHER CHOICE] {len(lines)} lignes lues")
-                
-                for line in lines:
-                    stripped = line.strip()
-                    
-                    if not stripped:
-                        continue
-                    
-                    if stripped.startswith("#"):
-                        city = stripped[1:].strip()
-                        
-                        if city and not any(word in city.lower() for word in ['liste', 'list', 'una', 'ville', 'ciudad', 'disponible', 'ligne', 'line']):
-                            self.available_cities.append(city)
-                            print(f"[WEATHER CHOICE] Ville désactivée: {city}")
-                    
-                    else:
-                        self.available_cities.append(stripped)
-                        self.active_cities.append(stripped)
-                        print(f"[WEATHER CHOICE] Ville active: {stripped}")
-            
-            print(f"[WEATHER CHOICE] Total: {len(self.available_cities)} villes ({len(self.active_cities)} actives)")
-            self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
-            self._build_letter_filter_buttons()
-        
-        except Exception as e:
-            print(f"[WEATHER CHOICE] Erreur lors du chargement: {e}")
-            import traceback
-            traceback.print_exc()
+        """Load city catalog and active cities from unified settings config."""
+        active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
+        catalog = [str(c).strip() for c in self.cfg.data.get("weather_city_catalog", []) if str(c).strip()]
+        if not catalog:
+            catalog = list(active)
+            self.cfg.data["weather_city_catalog"] = list(catalog)
+            self.cfg.save()
+
+        self.available_cities = catalog
+        self.active_cities = active
+        self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
+        self._build_letter_filter_buttons()
 
     def create_default_config(self, config_path):
-        """Crée un fichier de configuration par défaut avec quelques villes"""
-        try:
-            os.makedirs(os.path.dirname(config_path), exist_ok=True)
-            
-            default_cities = [
-                "# Liste des villes disponibles pour la météo",
-                "# Une ville par ligne",
-                "",
-                "Bilbao",
-                "Madrid",
-                "Barcelona",
-                "Valencia",
-                "Sevilla"
-            ]
-            
-            with open(config_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(default_cities))
-            
-            print(f"[WEATHER CHOICE] Fichier de configuration créé: {config_path}")
-            self.load_available_cities()
-        
-        except Exception as e:
-            print(f"[WEATHER CHOICE] Erreur lors de la création du fichier: {e}")
-            import traceback
-            traceback.print_exc()
+        """Legacy no-op retained for compatibility."""
+        self.load_available_cities()
 
     def set_city_list(self, city_geo_dict):
         """Méthode appelée par mainApp.py"""
@@ -599,7 +543,7 @@ class WeatherChoice(FloatLayout):
         
         if not self.available_cities:
             box.add_widget(Label(
-                text="Aucune ville dans config_weather.txt",
+                text=_("No hay ciudades disponibles."),
                 font_size=sp(24),
                 color=(1, 0.5, 0, 1),
                 size_hint_y=None,
@@ -646,83 +590,20 @@ class WeatherChoice(FloatLayout):
         print(f"[DEBUG] ========== FIN REFRESH ==========\n")
 
     def toggle_city(self, city):
-        """Active ou désactive une ville en modifiant config_weather.txt"""
-        print(f"\n[TOGGLE] ========== DÉBUT TOGGLE ==========")
-        print(f"[TOGGLE] Ville cliquée: '{city}'")
-        
-        config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
-        
-        if not os.path.exists(config_path):
-            print(f"[TOGGLE] Fichier config_weather.txt introuvable: {config_path}")
-            return
-        
+        """Toggle city activation in unified settings config."""
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            
-            print(f"[TOGGLE] {len(lines)} lignes lues")
-            
-            city_found = False
-            city_is_active = False
-            city_line_index = -1
-            
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                
-                if stripped.startswith("#"):
-                    city_in_comment = stripped[1:].strip()
-                    if city_in_comment == city:
-                        city_found = True
-                        city_is_active = False
-                        city_line_index = i
-                        print(f"[TOGGLE] Ville trouvée DÉSACTIVÉE à la ligne {i}: '{stripped}'")
-                        break
-                
-                elif stripped == city:
-                    city_found = True
-                    city_is_active = True
-                    city_line_index = i
-                    print(f"[TOGGLE] Ville trouvée ACTIVE à la ligne {i}: '{stripped}'")
-                    break
-            
-            if city_found:
-                old_line = lines[city_line_index].strip()
-                
-                if city_is_active:
-                    lines[city_line_index] = f"# {city}\n"
-                    print(f"[TOGGLE] DÉSACTIVATION: '{old_line}' → '# {city}'")
-                else:
-                    lines[city_line_index] = f"{city}\n"
-                    print(f"[TOGGLE] ACTIVATION: '{old_line}' → '{city}'")
-                
-                with open(config_path, "w", encoding="utf-8") as f:
-                    f.writelines(lines)
-                    self.publish_reload_event()
-                self.last_mtime = os.path.getmtime(config_path)
-                
-                print(f"[TOGGLE] Fichier config_weather.txt sauvegardé")
-                
-                print(f"[TOGGLE] Contenu après modification:")
-                for i, line in enumerate(lines[:10]):
-                    print(f"  Ligne {i}: {line.rstrip()}")
-                
-                print(f"[TOGGLE] Rechargement des villes...")
-                self.load_available_cities()
-                self.refresh_cities()
-                print(f"[TOGGLE] ========== FIN TOGGLE (succès) ==========\n")
-            
+            active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
+            if city in active:
+                active = [c for c in active if c != city]
             else:
-                print(f"[TOGGLE] Ville '{city}' NON TROUVÉE dans config_weather.txt")
-                print(f"[TOGGLE] Contenu du fichier:")
-                for i, line in enumerate(lines):
-                    print(f"  Ligne {i}: '{line.rstrip()}'")
-                print(f"[TOGGLE] ========== FIN TOGGLE (échec) ==========\n")
-        
+                active.append(city)
+            self.cfg.data["weather_cities"] = active
+            self.cfg.save()
+            self.load_available_cities()
+            self.refresh_cities()
+            self.publish_reload_event()
         except Exception as e:
             print(f"[TOGGLE] ERREUR lors de la modification: {e}")
-            import traceback
-            traceback.print_exc()
-            print(f"[TOGGLE] ========== FIN TOGGLE (erreur) ==========\n")
 
     def _normalize_city_name(self, raw_name):
         city = (raw_name or "").strip()
@@ -733,13 +614,15 @@ class WeatherChoice(FloatLayout):
         return any(c.casefold() == target for c in self.available_cities)
 
     def _append_city_to_config(self, city_name):
-        if not os.path.exists(self.config_path):
-            self.create_default_config(self.config_path)
-        with open(self.config_path, "a", encoding="utf-8") as f:
-            if os.path.getsize(self.config_path) > 0:
-                f.write("\n")
-            f.write(f"{city_name}\n")
-        self.last_mtime = os.path.getmtime(self.config_path)
+        catalog = [str(c).strip() for c in self.cfg.data.get("weather_city_catalog", []) if str(c).strip()]
+        active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
+        if city_name not in catalog:
+            catalog.append(city_name)
+        if city_name not in active:
+            active.append(city_name)
+        self.cfg.data["weather_city_catalog"] = catalog
+        self.cfg.data["weather_cities"] = active
+        self.cfg.save()
 
     def set_primary_city(self, city_name):
         if not city_name:
@@ -752,29 +635,13 @@ class WeatherChoice(FloatLayout):
         self.publish_reload_event()
 
     def _remove_city_from_config(self, city_name):
-        if not os.path.exists(self.config_path):
+        catalog = [str(c).strip() for c in self.cfg.data.get("weather_city_catalog", []) if str(c).strip()]
+        active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
+        if city_name not in catalog and city_name not in active:
             return False
-
-        removed = False
-        with open(self.config_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        filtered_lines = []
-        for line in lines:
-            stripped = line.strip()
-            normalized = stripped[1:].strip() if stripped.startswith("#") else stripped
-            if normalized == city_name:
-                removed = True
-                continue
-            filtered_lines.append(line)
-
-        if not removed:
-            return False
-
-        with open(self.config_path, "w", encoding="utf-8") as f:
-            f.writelines(filtered_lines)
-
-        self.last_mtime = os.path.getmtime(self.config_path)
+        self.cfg.data["weather_city_catalog"] = [c for c in catalog if c != city_name]
+        self.cfg.data["weather_cities"] = [c for c in active if c != city_name]
+        self.cfg.save()
         return True
 
     def confirm_delete_city(self, city_name):
@@ -1036,20 +903,9 @@ class WeatherChoice(FloatLayout):
         print("[WEATHER CHOICE] 🛑 Config watcher désactivé")
 
     def _watch_config_file(self, dt):
-        """Surveille config_weather.txt et recharge si modifié."""
+        """Watch unified settings for city list changes."""
         try:
-            if not os.path.exists(self.config_path):
-                return
-            
-            current_mtime = os.path.getmtime(self.config_path)
-            
-            # Le fichier a été modifié → on recharge
-            if current_mtime != self.last_mtime:
-                print("[WEATHER CHOICE] Fichier txt modifié : rechargement automatique")
-                self.last_mtime = current_mtime
-                self.load_available_cities()
-                self.refresh_cities()
-                self.publish_reload_event()
-        
+            self.load_available_cities()
+            self.refresh_cities()
         except Exception as e:
             print(f"[WEATHER CHOICE] erreur: {e}")

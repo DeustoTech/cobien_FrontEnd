@@ -21,6 +21,7 @@ import json
 import paho.mqtt.client as mqtt
 import os
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from config_store import load_section, save_section
 
 # ----------------- REUSABLE WIDGETS -----------------
 
@@ -438,27 +439,12 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] Carte détectée: {card_id} (mode normal)")
     
     def load_available_cities(self):
-        """Charge la liste des villes disponibles depuis config_weather.txt"""
-        weather_config_path = self._find_weather_config_file()
-        if not weather_config_path:
-            print("[RFID] config_weather.txt non trouvé pour charger les villes")
-            self.available_cities = []
-            return
-        
+        """Load active weather cities from unified settings."""
         try:
-            cities = []
-            with open(weather_config_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if "SECTION" in line.upper():
-                        continue
-                    cities.append(line)
-            
-            self.available_cities = cities
+            settings = load_section("settings", {})
+            cities = settings.get("weather_cities", [])
+            self.available_cities = [str(c).strip() for c in cities if str(c).strip()]
             print(f"[RFID] ✅ {len(self.available_cities)} villes disponibles chargées")
-        
         except Exception as e:
             print(f"[RFID] Erreur chargement villes: {e}")
             self.available_cities = []
@@ -507,60 +493,22 @@ class RFIDActionsScreen(Screen):
         return None
     
     def load_config(self):
-        """Load RFID action mapping from config_rfid.txt."""
-        config_path = self._find_config_file()
-        if not config_path:
-            print("[RFID] config_rfid.txt non trouvé")
-            return
-        
+        """Load RFID action mapping from unified settings."""
+        self.root_view.ids.cards_container.clear_widgets()
+        self.card_widgets = {}
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                mode = None
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    
-                    upper = line.upper()
-                    if "SECTION" in upper and ("CARTES" in upper or "RFID" in upper):
-                        mode = "rfid"
-                        continue
-                    
-                    if "SECTION" in upper:
-                        mode = None
-                        continue
-                    
-                    if mode is None and "=" in line:
-                        mode = "rfid"
-                    
-                    if mode == "rfid" and "=" in line:
-                        left, right = line.split("=", 1)
-                        try:
-                            card_id = int(left.strip())
-                            action_text = right.strip()
-                            
-                            action = "day_events"
-                            extra = ""
-                            
-                            action_lower = action_text.lower()
-                            
-                            if action_lower == "evenements" or action_lower == "eventos":
-                                action = "day_events"
-                            
-                            elif action_lower.startswith("weather") or action_lower.startswith("meteo"):
-                                action = "weather"
-                                if ":" in action_text:
-                                    extra = action_text.split(":", 1)[1].strip()
-                            
-                            elif action_lower.startswith("video") or action_lower.startswith("videollamada"):
-                                action = "videocall"
-                                if ":" in action_text:
-                                    extra = action_text.split(":", 1)[1].strip()
-                            
-                            self.add_card_widget(card_id, action, extra)
-                        except ValueError:
-                            continue
-        
+            settings = load_section("settings", {})
+            mappings = settings.get("rfid_actions", {})
+            if not isinstance(mappings, dict):
+                mappings = {}
+            for card_id_str, item in mappings.items():
+                try:
+                    card_id = int(card_id_str)
+                except Exception:
+                    continue
+                action = (item or {}).get("action", "day_events")
+                extra = (item or {}).get("extra", "")
+                self.add_card_widget(card_id, action, extra)
         except Exception as e:
             print(f"[RFID] Erreur chargement config: {e}")
     
@@ -734,7 +682,7 @@ class RFIDActionsScreen(Screen):
             )
         else:
             content.add_widget(Label(
-                text=_("⚠️ No hay ciudades disponibles en config_weather.txt"),
+                text=_("⚠️ No hay ciudades disponibles en la configuración."),
                 font_size=sp(20),
                 color=(0.9, 0.2, 0.2, 1),
                 size_hint_y=None,
@@ -893,68 +841,16 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] ⚠️ Erreur publication MQTT: {e}")
     
     def save_to_config(self, card_id, action, extra_data=""):
-        """Persist card mapping into config_rfid.txt."""
-        config_path = self._find_config_file()
-        if not config_path:
-            config_path = "config/config_rfid.txt"
-            os.makedirs(os.path.dirname(config_path), exist_ok=True)
-        
-        existing_lines = []
-        rfid_section_start = -1
-        rfid_section_end = -1
-        card_line_index = -1
-        
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                for i, line in enumerate(lines):
-                    upper = line.strip().upper()
-                    if "SECTION" in upper and ("CARTES" in upper or "RFID" in upper):
-                        rfid_section_start = i
-                    elif rfid_section_start != -1 and "SECTION" in upper:
-                        rfid_section_end = i
-                        break
-                    elif rfid_section_start != -1 and "=" in line:
-                        try:
-                            existing_id = int(line.split("=")[0].strip())
-                            if existing_id == card_id:
-                                card_line_index = i
-                        except:
-                            pass
-                existing_lines = lines
-        
-        if action == "day_events":
-            action_text = "Events"
-        elif action == "weather":
-            action_text = f"Weather: {extra_data}" if extra_data else "Weather"
-        elif action == "videocall":
-             action_text = f"Videocall: {extra_data}" if extra_data else "Videocall"
-        else:
-            action_text = action
-        
-        new_line = f"{card_id} = {action_text}\n"
-        
-        if card_line_index != -1:
-            existing_lines[card_line_index] = new_line
-            new_content = existing_lines
-        elif rfid_section_start != -1:
-            if rfid_section_end == -1:
-                rfid_section_end = len(existing_lines)
-            new_content = (
-                existing_lines[:rfid_section_end] +
-                [new_line] +
-                existing_lines[rfid_section_end:]
-            )
-        else:
-            new_content = existing_lines + [
-                "\n# SECTION: Cartes RFID\n",
-                new_line
-            ]
-        
+        """Persist card mapping into unified settings config."""
         try:
-            with open(config_path, "w", encoding="utf-8") as f:
-                f.writelines(new_content)
-            print(f"[RFID] Configuration sauvegardée: carte {card_id} → {action_text}")
+            settings = load_section("settings", {})
+            mappings = settings.get("rfid_actions", {})
+            if not isinstance(mappings, dict):
+                mappings = {}
+            mappings[str(card_id)] = {"action": action, "extra": extra_data or ""}
+            settings["rfid_actions"] = mappings
+            save_section("settings", settings)
+            print(f"[RFID] Configuration sauvegardée: carte {card_id} → {action}")
         except Exception as e:
             print(f"[RFID] Erreur sauvegarde: {e}")
     
@@ -998,30 +894,15 @@ class RFIDActionsScreen(Screen):
         popup.open()
     
     def remove_from_config(self, card_id):
-        """Remove a card entry from config_rfid.txt."""
-        config_path = self._find_config_file()
-        if not config_path or not os.path.exists(config_path):
-            return
-        
+        """Remove a card entry from unified settings."""
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            
-            new_lines = []
-            for line in lines:
-                if "=" in line:
-                    try:
-                        existing_id = int(line.split("=")[0].strip())
-                        if existing_id == card_id:
-                            continue
-                    except:
-                        pass
-                new_lines.append(line)
-            
-            with open(config_path, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-            
-            print(f"[RFID] Carte {card_id} supprimée du fichier config")
+            settings = load_section("settings", {})
+            mappings = settings.get("rfid_actions", {})
+            if isinstance(mappings, dict) and str(card_id) in mappings:
+                mappings.pop(str(card_id), None)
+                settings["rfid_actions"] = mappings
+                save_section("settings", settings)
+            print(f"[RFID] Carte {card_id} supprimée du config unifié")
         except Exception as e:
             print(f"[RFID] Erreur suppression: {e}")
     
