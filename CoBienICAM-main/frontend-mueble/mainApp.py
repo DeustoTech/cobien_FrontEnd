@@ -18,6 +18,8 @@ from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.popup import Popup
+from kivy.uix.textinput import TextInput
 from kivy.graphics import Color, RoundedRectangle
 
 
@@ -49,6 +51,8 @@ from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PINBACK_BUTTON_KV
+from popup_style import wrap_popup_content, popup_theme_kwargs
+from config_store import load_section
 
 # Logs ICSO
 from icso_data.navigation_logger import log_navigation
@@ -61,7 +65,7 @@ from virtual_assistant.recognizer import SpeechRecognizer
 from virtual_assistant.main_assistant import AssistantOrchestrator
 
 # Sleep screen
-from black_overlay import BlackOverlay, suspend_system
+from black_overlay import BlackOverlay
 
 # HTTP
 import requests
@@ -1985,9 +1989,9 @@ class MyApp(App):
         Réinitialise le timer de veille.
         Recharge le timeout depuis settings.json à chaque appel.
         """
-        # Sleep/black overlay por inactividad deshabilitado temporalmente.
-        return
-        """
+        if self._handle_escape_request(*args):
+            return True
+
         # Si l'overlay est déjà affiché, ne rien faire
         if getattr(self, "black_overlay", None) and self.black_overlay.parent:
             return
@@ -2006,46 +2010,159 @@ class MyApp(App):
         
         from kivy.clock import Clock
         self._idle_event = Clock.schedule_once(self._show_black_overlay, timeout)
-        """
 
     def _on_first_user_input(self, *args):
-        # Sleep/black overlay por inactividad deshabilitado temporalmente.
-        return
-        """
+        if self._handle_escape_request(*args):
+            return True
+
         Window.unbind(
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
-            on_key_down=self._on_first_user_input
+            on_key_down=self._on_first_user_input,
+            on_mouse_move=self._on_first_user_input
         )
 
         Window.bind(
             on_touch_down=self._reset_idle_timer,
             on_touch_move=self._reset_idle_timer,
-            on_key_down=self._reset_idle_timer
+            on_key_down=self._reset_idle_timer,
+            on_mouse_move=self._reset_idle_timer
         )
 
         self._reset_idle_timer()
-        """
+        return False
+
+    def _extract_window_keycode(self, *args):
+        if len(args) >= 2 and isinstance(args[1], int):
+            return args[1]
+        return None
+
+    def _load_settings_pin(self):
+        env_pin = os.getenv("COBIEN_SETTINGS_PIN", "").strip()
+        if env_pin:
+            return env_pin
+
+        try:
+            security = load_section("security", {"settings_pin": "1234"}) or {"settings_pin": "1234"}
+            pin = str(security.get("settings_pin", "")).strip()
+            if pin:
+                return pin
+        except Exception:
+            pass
+        return "1234"
+
+    def _close_exit_pin_popup(self):
+        popup = getattr(self, "_exit_pin_popup", None)
+        if popup:
+            try:
+                popup.dismiss()
+            except Exception:
+                pass
+        self._exit_pin_popup = None
+
+    def _show_exit_pin_popup(self):
+        if getattr(self, "_exit_pin_popup", None):
+            return
+
+        expected_pin = self._load_settings_pin()
+
+        root = BoxLayout(orientation="vertical", spacing=dp(14))
+        title = Label(
+            text=_("Confirmar salida"),
+            font_size=sp(28),
+            bold=True,
+            color=(0.1, 0.1, 0.1, 1),
+            size_hint_y=None,
+            height=dp(44),
+        )
+        info = Label(
+            text=_("Introduce el PIN de administración para cerrar la aplicación."),
+            font_size=sp(20),
+            color=(0.2, 0.2, 0.2, 1),
+            halign="center",
+            valign="middle",
+            size_hint_y=None,
+            height=dp(70),
+        )
+        info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
+
+        pin_input = TextInput(
+            multiline=False,
+            password=True,
+            hint_text=_("PIN"),
+            font_size=sp(30),
+            halign="center",
+            size_hint_y=None,
+            height=dp(62),
+            input_filter="int",
+        )
+
+        feedback = Label(
+            text="",
+            font_size=sp(18),
+            color=(0.85, 0.1, 0.1, 1),
+            size_hint_y=None,
+            height=dp(30),
+        )
+
+        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
+        cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
+        confirm_btn = Button(text=_("Salir"), font_size=sp(22), background_color=(0.85, 0.18, 0.18, 1))
+        btn_row.add_widget(cancel_btn)
+        btn_row.add_widget(confirm_btn)
+
+        root.add_widget(title)
+        root.add_widget(info)
+        root.add_widget(pin_input)
+        root.add_widget(feedback)
+        root.add_widget(btn_row)
+
+        popup = Popup(
+            title="",
+            content=wrap_popup_content(root),
+            size_hint=(0.56, 0.52),
+            auto_dismiss=False,
+            **popup_theme_kwargs(),
+        )
+
+        def _cancel(*_args):
+            self._close_exit_pin_popup()
+
+        def _confirm(*_args):
+            if pin_input.text.strip() == expected_pin:
+                self._close_exit_pin_popup()
+                App.get_running_app().stop()
+                return
+            feedback.text = _("PIN incorrecto")
+            pin_input.text = ""
+
+        cancel_btn.bind(on_release=_cancel)
+        confirm_btn.bind(on_release=_confirm)
+        pin_input.bind(on_text_validate=lambda *_: _confirm())
+        popup.bind(on_dismiss=lambda *_: setattr(self, "_exit_pin_popup", None))
+
+        self._exit_pin_popup = popup
+        popup.open()
+        Clock.schedule_once(lambda _dt: setattr(pin_input, "focus", True), 0)
+
+    def _handle_escape_request(self, *args):
+        keycode = self._extract_window_keycode(*args)
+        if keycode != 27:
+            return False
+        self._show_exit_pin_popup()
+        return True
 
 
     def _show_black_overlay(self, *args):
-        # Sleep/black overlay por inactividad deshabilitado temporalmente.
-        return
-        """
-        if suspend_system():
-            Clock.schedule_once(lambda dt: self._on_wakeup(), 1)
-            return
-
+        # Never suspend the OS on idle; only show black overlay.
         if not getattr(self, "black_overlay", None):
             return
         if self.black_overlay.parent:
             return
         self.black_overlay.open()
-        """
 
     def _on_wakeup(self):
-        # Sleep/black overlay por inactividad deshabilitado temporalmente.
-        # Clock.schedule_once(lambda dt: self._reset_idle_timer(), 0)
+        Clock.schedule_once(lambda dt: self._reset_idle_timer(), 0)
         log_wakeup()
 
 
@@ -2075,17 +2192,16 @@ class MyApp(App):
 
 
     def build(self):
-        # Sleep/black overlay por inactividad deshabilitado temporalmente.
-        # self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
-        self.black_overlay = None
+        self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
         self._idle_event = None
+        self._exit_pin_popup = None
 
-        # Sleep/black overlay por inactividad deshabilitado temporalmente.
-        # Window.bind(
-        #     on_touch_down=self._on_first_user_input,
-        #     on_touch_move=self._on_first_user_input,
-        #     on_key_down=self._on_first_user_input
-        # )
+        Window.bind(
+            on_touch_down=self._on_first_user_input,
+            on_touch_move=self._on_first_user_input,
+            on_key_down=self._on_first_user_input,
+            on_mouse_move=self._on_first_user_input
+        )
         # Charger config et traduction
         self.cfg = AppConfig()
 
