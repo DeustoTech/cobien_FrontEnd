@@ -22,6 +22,7 @@ INSTALL_SYSTEM_DEPS="${COBIEN_INSTALL_SYSTEM_DEPS:-1}"
 RECREATE_VENV="${COBIEN_RECREATE_VENV:-0}"
 ENABLE_WATCH="${COBIEN_ENABLE_WATCH:-1}"
 INSTALL_CRON="${COBIEN_INSTALL_CRON:-0}"
+INSTALL_SYSTEMD_USER="${COBIEN_INSTALL_SYSTEMD_USER:-0}"
 CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE_DEFAULT}"
 NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-0}"
 AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-0}"
@@ -46,8 +47,8 @@ usage() {
   cat <<EOF
 Usage:
   $(basename "$0")
-  $(basename "$0") --workspace /home/cobien/cobien
-  $(basename "$0") --mode setup --workspace /home/cobien/cobien
+  $(basename "$0") --workspace "$HOME/cobien"
+  $(basename "$0") --mode setup --workspace "$HOME/cobien"
   $(basename "$0") --mode update-once
   $(basename "$0") --mode watch
   $(basename "$0") --mode launch
@@ -69,6 +70,7 @@ Options:
   --run-update-once
   --enable-watch
   --install-cron
+  --install-systemd-user
   --cron-schedule "0 1 * * *"
   --device-id NAME
   --videocall-room NAME
@@ -934,8 +936,9 @@ run_watch_loop() {
 }
 
 install_cron_job() {
-  local cron_line current_cron
-  cron_line="$CRON_SCHEDULE /bin/bash \"$SELF_SCRIPT\" --mode update-once --workspace \"$WORKSPACE_ROOT\" --frontend-name \"$FRONTEND_REPO_NAME\" --mqtt-name \"$MQTT_REPO_NAME\" >> /home/cobien/cobien-update.log 2>&1"
+  local cron_line current_cron cron_log_file
+  cron_log_file="${HOME}/cobien-update.log"
+  cron_line="$CRON_SCHEDULE /bin/bash \"$SELF_SCRIPT\" --mode update-once --workspace \"$WORKSPACE_ROOT\" --frontend-name \"$FRONTEND_REPO_NAME\" --mqtt-name \"$MQTT_REPO_NAME\" >> \"$cron_log_file\" 2>&1"
   current_cron="$(crontab -l 2>/dev/null || true)"
   current_cron="$(printf '%s\n' "$current_cron" | awk -v script="$SELF_SCRIPT" 'index($0, script " --mode update-once")==0')"
 
@@ -946,6 +949,23 @@ install_cron_job() {
 
   log "Cron job installed (deduplicated):"
   log "  $cron_line"
+}
+
+install_systemd_user_services() {
+  local installer_script="$FRONTEND_REPO/deploy/ubuntu/install-systemd-user.sh"
+  if [[ ! -x "$installer_script" ]]; then
+    if [[ -f "$installer_script" ]]; then
+      chmod +x "$installer_script" || true
+    fi
+  fi
+
+  if [[ ! -x "$installer_script" ]]; then
+    log "systemd installer not found or not executable: $installer_script"
+    return 1
+  fi
+
+  log "Installing/updating systemd user services..."
+  /bin/bash "$installer_script"
 }
 
 print_dry_run() {
@@ -1074,6 +1094,10 @@ run_full_flow() {
     CRON_SCHEDULE="$(ask "Cron expression for updates" "$CRON_SCHEDULE")"
   fi
 
+  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to install/update systemd user services for auto-start" "y"; then
+    INSTALL_SYSTEMD_USER="1"
+  fi
+
   echo
   echo "Summary:"
   echo "  Workspace:        $WORKSPACE_ROOT"
@@ -1089,6 +1113,7 @@ run_full_flow() {
   if [[ "$INSTALL_CRON" == "1" ]]; then
     echo "  Cron schedule:    $CRON_SCHEDULE"
   fi
+  echo "  Install systemd:  $INSTALL_SYSTEMD_USER"
   echo
 
   if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue" "y"; then
@@ -1122,6 +1147,12 @@ run_full_flow() {
     echo
     echo "[3c/4] Installing cron job..."
     install_cron_job
+  fi
+
+  if [[ "$INSTALL_SYSTEMD_USER" == "1" ]]; then
+    echo
+    echo "[3d/4] Installing systemd user services..."
+    install_systemd_user_services
   fi
 
   save_last_run_config
@@ -1173,6 +1204,10 @@ parse_args() {
         ;;
       --install-cron)
         INSTALL_CRON="1"
+        shift
+        ;;
+      --install-systemd-user)
+        INSTALL_SYSTEMD_USER="1"
         shift
         ;;
       --cron-schedule)

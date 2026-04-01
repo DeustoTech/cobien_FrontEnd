@@ -1,163 +1,151 @@
 # Despliegue Ubuntu
 
-Este directorio usa un unico punto de entrada:
+Punto de entrada unico:
 
-- `cobien-launcher.sh`
+- `deploy/ubuntu/cobien-launcher.sh`
 
-Ese script se encarga de:
+Este launcher se encarga de:
 
-- preparar el entorno
-- instalar dependencias del sistema
-- instalar `uv`
-- asegurar `Python 3.11`
-- crear o recrear `.venv`
-- generar `cobien-update.env`
-- lanzar el sistema del mueble
-- actualizar repos y relanzar
-- vigilar cambios cada minuto
-- instalar una tarea cron
+- preparar entorno Python/uv
+- instalar dependencias del sistema si faltan
+- generar/actualizar `deploy/ubuntu/cobien-update.env`
+- lanzar CAN + bridge + app
+- vigilar actualizaciones en Git y relanzar limpio
+- deduplicar procesos/runtime previos
 
-## Uso normal
+## Modalidades de lanzamiento
+
+Lanzamiento interactivo completo:
 
 ```bash
-bash cobien-launcher.sh
+bash deploy/ubuntu/cobien-launcher.sh
 ```
 
-Si se ejecuta sin parametros:
-
-- pregunta si quieres usar modo desatendido
-- si respondes que no, entra en modo guiado
-- si respondes que si, usa los valores por defecto
-
-## Modos
-
-Flujo completo:
+Lanzamiento desatendido completo:
 
 ```bash
-bash cobien-launcher.sh
-```
-
-Flujo completo desatendido:
-
-```bash
-bash cobien-launcher.sh --non-interactive --yes --workspace /home/cobien/cobien
+bash deploy/ubuntu/cobien-launcher.sh --non-interactive --yes --workspace "$HOME/cobien"
 ```
 
 Solo preparar entorno:
 
 ```bash
-bash cobien-launcher.sh --mode setup --workspace /home/cobien/cobien
+bash deploy/ubuntu/cobien-launcher.sh --mode setup --non-interactive --yes --workspace "$HOME/cobien"
 ```
 
-Solo lanzar el sistema:
+Solo lanzar runtime (con watcher de updates):
 
 ```bash
-bash cobien-launcher.sh --mode launch --workspace /home/cobien/cobien
+bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace "$HOME/cobien"
 ```
 
-Actualizar una vez:
+Update puntual:
 
 ```bash
-bash cobien-launcher.sh --mode update-once --workspace /home/cobien/cobien
+bash deploy/ubuntu/cobien-launcher.sh --mode update-once --non-interactive --yes --workspace "$HOME/cobien"
 ```
 
-Vigilar cambios:
+Watch continuo sin relanzar manualmente:
 
 ```bash
-bash cobien-launcher.sh --mode watch --workspace /home/cobien/cobien
+bash deploy/ubuntu/cobien-launcher.sh --mode watch --non-interactive --yes --workspace "$HOME/cobien"
 ```
 
-Ver configuracion resuelta:
+Ver configuración resuelta:
 
 ```bash
-bash cobien-launcher.sh --mode dry-run --workspace /home/cobien/cobien
+bash deploy/ubuntu/cobien-launcher.sh --mode dry-run --workspace "$HOME/cobien"
 ```
 
-## Version de Python
+## Configuración editable (launcher)
 
-El frontend debe desplegarse con `Python 3.11`.
+Archivo principal:
 
-El launcher:
+- `deploy/ubuntu/cobien-update.env`
 
-- usa `python3.11` si esta disponible
-- intenta instalarlo si Ubuntu lo ofrece
-- usa `uv` para gestionar Python y el entorno
+Parámetros relevantes:
 
-## Entorno con uv
+- `COBIEN_WORKSPACE_ROOT`: ruta raíz que contiene los dos repos.
+- `COBIEN_FRONTEND_REPO_NAME`: carpeta del frontend.
+- `COBIEN_MQTT_REPO_NAME`: carpeta del repo MQTT/CAN.
+- `COBIEN_UPDATE_BRANCH`: rama de despliegue (por defecto `development_fix`).
+- `COBIEN_UPDATE_REMOTE`: remoto Git (normalmente `origin`).
+- `COBIEN_UPDATE_INTERVAL_SEC`: intervalo de watch loop en segundos.
+- `COBIEN_DEVICE_ID`: id del mueble (`CoBien1`, `CoBien2`, ...).
+- `COBIEN_VIDEOCALL_ROOM`: sala de videollamada (case-sensitive).
+- `COBIEN_DEVICE_LOCATION`: ciudad/ubicación del mueble.
+- `COBIEN_LOG_DIR`: ruta de logs (opcional; por defecto `<frontend_repo>/logs`).
+- `COBIEN_BOOTSTRAP_PYTHON_VERSION`: versión Python solicitada (por defecto `3.11`).
+- `COBIEN_CAN_BITRATE`: bitrate CAN (por defecto `500000`).
+- `COBIEN_CAN_LOG_ENABLE`: `1`/`0` para activar/desactivar `candump`.
 
-El despliegue usa:
+La app también permite editar estos parámetros desde:
 
-- instalador oficial de Astral para `uv`
-- `uv python install`
-- `uv venv`
-- `uv sync`
-
-Dependencias del frontend:
-
-- [pyproject.toml](/home/aritz/Development/DT/Projects/cobien/cobien_FrontEnd/CoBienICAM-main/frontend-mueble/pyproject.toml)
-
-## Cron
-
-Si quieres actualizar solo a ciertas horas:
-
-```cron
-0 3,15 * * * /bin/bash /home/cobien/cobien/cobien_FrontEnd/deploy/ubuntu/cobien-launcher.sh --mode update-once --workspace /home/cobien/cobien >> /home/cobien/cobien-update.log 2>&1
-```
-
-## Notas
-
-- `cobien-launcher.sh` es el unico punto de entrada operativo.
-- El sistema solo actualiza si la rama actual coincide con `development_fix`.
+- Administración -> Parámetros Launcher
 
 ## systemd (recomendado)
 
-En lugar de `.desktop` o `bashrc`, se recomienda usar `systemd --user`.
+Usar `systemd --user` en lugar de `bashrc` o `.desktop`.
 
-Archivos incluidos:
+Archivos:
 
 - `deploy/ubuntu/systemd/cobien-launcher.service`
 - `deploy/ubuntu/systemd/cobien-update.service`
 - `deploy/ubuntu/systemd/cobien-update.timer`
 - `deploy/ubuntu/install-systemd-user.sh`
 
-Instalacion:
+Instalación automática:
 
 ```bash
 bash deploy/ubuntu/install-systemd-user.sh
 ```
 
-El script de instalacion hace automaticamente:
+Este script hace automáticamente:
 
 - instala/actualiza unidades `systemd --user`
-- aplica override grafico (`DISPLAY=:0`, `XAUTHORITY=%t/gdm/Xauthority`)
-- elimina `~/.config/autostart/cobien-launcher.desktop` si existe
-- elimina entradas cron legacy de `--mode update-once`
-- recarga y reinicia `cobien-launcher.service`
-- habilita `cobien-update.timer`
+- aplica override gráfico (`DISPLAY=:0`, `XAUTHORITY=%t/gdm/Xauthority`)
+- elimina `~/.config/autostart/cobien-launcher.desktop` legacy
+- elimina entradas cron legacy `--mode update-once`
+- `daemon-reload`
+- `enable --now cobien-launcher.service`
+- `enable --now cobien-update.timer`
+- reinicia `cobien-launcher.service`
 
-Esto habilita:
+## Operación diaria
 
-- arranque automatico del launcher al iniciar sesion de usuario
-- comprobacion diaria de actualizaciones a la 01:00
-
-Comandos utiles:
+Estado del runtime:
 
 ```bash
 systemctl --user status cobien-launcher.service
+```
+
+Ver timer de update:
+
+```bash
 systemctl --user list-timers | grep cobien-update
+```
+
+Forzar update manual:
+
+```bash
+systemctl --user start cobien-update.service
+```
+
+Reinicio limpio del runtime:
+
+```bash
+systemctl --user restart cobien-launcher.service
+```
+
+Logs del launcher:
+
+```bash
 journalctl --user -u cobien-launcher.service -f
 ```
 
-Aplicar cambios tras una actualizacion del repo:
+## Procedimientos completos
 
-```bash
-cd ~/cobien/cobien_FrontEnd
-bash deploy/ubuntu/install-systemd-user.sh
-```
-
-## Procedimiento recomendado
-
-Reparar un mueble existente:
+Reparar mueble existente:
 
 ```bash
 cd ~/cobien/cobien_FrontEnd
@@ -166,7 +154,7 @@ bash deploy/ubuntu/install-systemd-user.sh
 systemctl --user status cobien-launcher.service
 ```
 
-Desplegar desde cero en un mueble nuevo:
+Despliegue desde cero en mueble nuevo:
 
 ```bash
 mkdir -p ~/cobien
@@ -177,3 +165,15 @@ cd cobien_FrontEnd
 bash deploy/ubuntu/cobien-launcher.sh --mode setup --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix
 bash deploy/ubuntu/install-systemd-user.sh
 ```
+
+Configuración de identidad inicial (por CLI):
+
+```bash
+bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix --device-id CoBien1 --videocall-room CoBien1 --device-location Logroño
+```
+
+## Notas importantes
+
+- `cobien-launcher.sh` es el único punto de entrada operativo.
+- Evitar lanzar en paralelo scripts antiguos (`start_cobien.sh`, autostart legacy, cron duplicado).
+- El sistema actualiza solo si la rama activa del repo coincide con la configurada.
