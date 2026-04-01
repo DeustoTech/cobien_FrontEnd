@@ -1,6 +1,9 @@
 import os
+import subprocess
+import threading
 
 from kivy.app import App
+from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.lang import Builder
 from kivy.metrics import dp, sp
@@ -236,6 +239,17 @@ KV = """
                 color: 1,1,1,1
                 font_size: sp(24)
                 on_release: root.parent_screen.save_changes() if root.parent_screen else None
+
+            Button:
+                id: btn_update_reload
+                text: ""
+                size_hint_y: None
+                height: dp(62)
+                background_normal: ""
+                background_color: 0.12, 0.32, 0.78, 1
+                color: 1,1,1,1
+                font_size: sp(22)
+                on_release: root.parent_screen.run_full_update_reload() if root.parent_screen else None
 """
 
 
@@ -287,6 +301,7 @@ class LauncherConfigScreen(Screen):
     def _update_labels(self):
         self.root_view.ids.lbl_title.text = _("Parámetros de lanzamiento")
         self.root_view.ids.btn_save.text = _("Guardar parámetros")
+        self.root_view.ids.btn_update_reload.text = _("Actualizar y recargar ahora")
 
     def go_back(self):
         self.sm.current = "settings"
@@ -334,6 +349,85 @@ class LauncherConfigScreen(Screen):
             app.main_ref.DEVICE_LOCATION = self.cfg.get_device_location()
 
         ids.lbl_status.text = f"{_('Parámetros guardados en')}: {self._env_path()}"
+
+    def _launcher_script_path(self):
+        ids = self.root_view.ids
+        workspace = ids.input_workspace.text.strip() or os.path.join(os.path.expanduser("~"), "cobien")
+        frontend_name = ids.input_frontend.text.strip() or "cobien_FrontEnd"
+        return os.path.join(workspace, frontend_name, "deploy", "ubuntu", "cobien-launcher.sh")
+
+    def run_full_update_reload(self):
+        # Persist current values first so launcher runs with the latest config.
+        self.save_changes()
+        ids = self.root_view.ids
+
+        launcher_script = self._launcher_script_path()
+        if not os.path.isfile(launcher_script):
+            ids.lbl_status.text = f"{_('Error')}: launcher no encontrado: {launcher_script}"
+            return
+
+        workspace = ids.input_workspace.text.strip() or os.path.join(os.path.expanduser("~"), "cobien")
+        frontend_name = ids.input_frontend.text.strip() or "cobien_FrontEnd"
+        mqtt_name = ids.input_mqtt.text.strip() or "cobien_MQTT_Dictionnary"
+        branch = ids.input_branch.text.strip() or "development_fix"
+        device_id = ids.input_device_id.text.strip() or self.cfg.get_device_id()
+        room = ids.input_room.text.strip() or self.cfg.get_videocall_room()
+        location = ids.input_location.text.strip() or self.cfg.get_device_location()
+
+        # Full update + clean relaunch sequence.
+        cmd = [
+            "/bin/bash", launcher_script,
+            "--non-interactive",
+            "--yes",
+            "--force-restart",
+            "--run-update-once",
+            "--mode", "run",
+            "--workspace", workspace,
+            "--frontend-name", frontend_name,
+            "--mqtt-name", mqtt_name,
+            "--branch", branch,
+            "--device-id", device_id,
+            "--videocall-room", room,
+            "--device-location", location,
+        ]
+
+        ids.lbl_status.text = _("Actualizando software y relanzando servicios...")
+
+        def _run():
+            try:
+                completed = subprocess.run(
+                    cmd,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if completed.returncode == 0:
+                    Clock.schedule_once(
+                        lambda _dt: setattr(
+                            ids.lbl_status,
+                            "text",
+                            _("Secuencia de actualización completada. Runtime recargado.")
+                        ),
+                        0,
+                    )
+                else:
+                    stderr_tail = (completed.stderr or "").strip().splitlines()[-1:] or [""]
+                    error_msg = stderr_tail[0] if stderr_tail[0] else f"return code {completed.returncode}"
+                    Clock.schedule_once(
+                        lambda _dt: setattr(
+                            ids.lbl_status,
+                            "text",
+                            f"{_('Error en actualización')}: {error_msg}"
+                        ),
+                        0,
+                    )
+            except Exception as exc:
+                Clock.schedule_once(
+                    lambda _dt: setattr(ids.lbl_status, "text", f"{_('Error en actualización')}: {exc}"),
+                    0,
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def on_pre_enter(self, *args):
         self._update_labels()

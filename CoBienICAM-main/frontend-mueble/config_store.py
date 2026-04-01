@@ -120,23 +120,6 @@ def _ensure_schema(data):
     return merged
 
 
-def _sync_legacy_files(config):
-    try:
-        _write_json(LEGACY_SETTINGS_PATH, config["settings"])
-    except Exception:
-        pass
-    try:
-        _write_json(LEGACY_NOTIFICATIONS_PATH, config["notifications"])
-    except Exception:
-        pass
-    try:
-        os.makedirs(os.path.dirname(LEGACY_PIN_PATH), exist_ok=True)
-        with open(LEGACY_PIN_PATH, "w", encoding="utf-8") as f:
-            f.write(str(config["security"].get("settings_pin", "1234")))
-    except Exception:
-        pass
-
-
 def load_config():
     if os.path.exists(UNIFIED_CONFIG_PATH):
         try:
@@ -148,14 +131,12 @@ def load_config():
 
     normalized = _ensure_schema(data)
     _write_json(UNIFIED_CONFIG_PATH, normalized)
-    _sync_legacy_files(normalized)
     return normalized
 
 
 def save_config(config):
     normalized = _ensure_schema(config)
     _write_json(UNIFIED_CONFIG_PATH, normalized)
-    _sync_legacy_files(normalized)
     return normalized
 
 

@@ -598,25 +598,25 @@ ensure_runtime_dependencies() {
 }
 
 ensure_device_identity_config() {
-  local settings_file
-  settings_file="$FRONTEND_APP_DIR/settings/settings.json"
-  mkdir -p "$(dirname "$settings_file")"
+  local unified_config_file
+  unified_config_file="$FRONTEND_APP_DIR/config/config.json"
+  mkdir -p "$(dirname "$unified_config_file")"
 
   if ! command -v python3 >/dev/null 2>&1; then
     log "Device identity: python3 unavailable, skipping settings.json identity sync"
     return
   fi
 
-  python3 - "$settings_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" <<'PY'
+  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" <<'PY'
 import json
 import os
 import sys
 
-settings_file, device_id, videocall_room, device_location = sys.argv[1:5]
+config_file, device_id, videocall_room, device_location = sys.argv[1:5]
 data = {}
-if os.path.exists(settings_file):
+if os.path.exists(config_file):
     try:
-        with open(settings_file, "r", encoding="utf-8") as fh:
+        with open(config_file, "r", encoding="utf-8") as fh:
             data = json.load(fh)
     except Exception:
         data = {}
@@ -624,11 +624,16 @@ if os.path.exists(settings_file):
 if not isinstance(data, dict):
     data = {}
 
-data["device_id"] = device_id
-data["videocall_room"] = videocall_room
-data["device_location"] = device_location
+settings = data.get("settings")
+if not isinstance(settings, dict):
+    settings = {}
+data["settings"] = settings
 
-with open(settings_file, "w", encoding="utf-8") as fh:
+settings["device_id"] = device_id
+settings["videocall_room"] = videocall_room
+settings["device_location"] = device_location
+
+with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
 PY
 
@@ -636,8 +641,8 @@ PY
 }
 
 configure_audio_input_defaults() {
-  local settings_file
-  settings_file="$FRONTEND_APP_DIR/settings/settings.json"
+  local unified_config_file
+  unified_config_file="$FRONTEND_APP_DIR/config/config.json"
 
   if command -v systemctl >/dev/null 2>&1; then
     systemctl --user restart pipewire pipewire-pulse wireplumber >/dev/null 2>&1 || true
@@ -680,11 +685,30 @@ configure_audio_input_defaults() {
     log "Audio: no HDA/PCH input source found"
   fi
 
-  if [[ -f "$settings_file" ]]; then
-    if grep -q '"microphone_device"' "$settings_file"; then
-      sed -i 's/"microphone_device":[[:space:]]*"[^"]*"/"microphone_device": ""/' "$settings_file" || true
-      log "Audio: reset microphone_device in settings.json to use system default source"
-    fi
+  if [[ -f "$unified_config_file" ]] && command -v python3 >/dev/null 2>&1; then
+    python3 - "$unified_config_file" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+config_file = Path(sys.argv[1])
+try:
+    data = json.loads(config_file.read_text(encoding="utf-8"))
+except Exception:
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+settings = data.get("settings")
+if not isinstance(settings, dict):
+    settings = {}
+    data["settings"] = settings
+
+settings["microphone_device"] = ""
+config_file.write_text(json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")
+PY
+    log "Audio: reset microphone_device in unified config to use system default source"
   fi
 }
 

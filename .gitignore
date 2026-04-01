@@ -213,5 +213,4 @@ CoBienICAM-main/frontend-mueble/face_authentication/face_data.json
 CoBienICAM-main/frontend-mueble/icso_data/*.json
 CoBienICAM-main/frontend-mueble/icso_data/*.txt
 CoBienICAM-main/frontend-mueble/logs/
-CoBienICAM-main/frontend-mueble/settings/settings.json
 CoBienICAM-main/frontend-mueble/weather/weather_today.json

@@ -18,6 +18,7 @@ from translation import _
 import json
 from datetime import datetime
 import paho.mqtt.publish as publish
+import requests
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
@@ -916,6 +917,16 @@ class WeatherChoice(FloatLayout):
             height=dp(72),
             font_size=sp(28),
         )
+        validation_label = Label(
+            text="",
+            size_hint_y=None,
+            height=dp(36),
+            font_size=sp(20),
+            color=(0.85, 0.1, 0.1, 1),
+            halign="center",
+            valign="middle",
+        )
+        validation_label.bind(size=lambda inst, val: setattr(inst, "text_size", val))
         actions = BoxLayout(orientation="horizontal", spacing=dp(20), size_hint_y=None, height=dp(75))
         btn_cancel = Button(
             text=_("Cancelar"),
@@ -944,6 +955,7 @@ class WeatherChoice(FloatLayout):
         content.add_widget(BoxLayout(size_hint_y=0.15))
         content.add_widget(title)
         content.add_widget(city_input)
+        content.add_widget(validation_label)
         content.add_widget(BoxLayout(size_hint_y=0.2))
         content.add_widget(actions)
         popup.add_widget(content)
@@ -954,11 +966,15 @@ class WeatherChoice(FloatLayout):
         def _save(*_args):
             city = self._normalize_city_name(city_input.text)
             if not city:
-                print("[WEATHER CHOICE] Empty city ignored")
+                validation_label.text = _("Debe escribir una ciudad.")
                 return
             if self._city_exists(city):
                 print(f"[WEATHER CHOICE] City already exists: {city}")
+                validation_label.text = _("La ciudad ya existe en la lista.")
                 popup.dismiss()
+                return
+            if not self._is_valid_city(city):
+                validation_label.text = _("Ciudad no válida. Revise el nombre.")
                 return
             try:
                 self._append_city_to_config(city)
@@ -973,6 +989,25 @@ class WeatherChoice(FloatLayout):
         btn_cancel.bind(on_release=_close)
         btn_save.bind(on_release=_save)
         popup.open()
+
+    def _is_valid_city(self, city_name):
+        """Validate that the city name can be geocoded."""
+        try:
+            url = "https://nominatim.openstreetmap.org/search"
+            params = {"format": "json", "q": city_name, "limit": 1}
+            headers = {"User-Agent": "CoBien-App"}
+            response = requests.get(url, params=params, headers=headers, timeout=6)
+            if response.status_code != 200:
+                print(f"[WEATHER CHOICE] City validation HTTP error: {response.status_code}")
+                return False
+            payload = response.json()
+            is_valid = isinstance(payload, list) and len(payload) > 0
+            if not is_valid:
+                print(f"[WEATHER CHOICE] Invalid city name: {city_name}")
+            return is_valid
+        except Exception as exc:
+            print(f"[WEATHER CHOICE] City validation error for '{city_name}': {exc}")
+            return False
     
     def on_pre_enter(self, *args):
         """Appelé avant d'afficher l'écran"""
