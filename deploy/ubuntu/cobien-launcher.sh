@@ -31,6 +31,7 @@ POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_DEFAULT}"
 CAN_LOG_ENABLE="${COBIEN_CAN_LOG_ENABLE:-$CAN_LOG_ENABLE_DEFAULT}"
 LOG_RETENTION_DAYS="${COBIEN_LOG_RETENTION_DAYS:-$LOG_RETENTION_DAYS_DEFAULT}"
 RELAUNCH_AFTER_UPDATE="${COBIEN_RELAUNCH_AFTER_UPDATE:-0}"
+FORCE_RESTART="${COBIEN_FORCE_RESTART:-0}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
@@ -76,6 +77,7 @@ Options:
   --videocall-room NAME
   --device-location LOCATION
   --recreate-venv
+  --force-restart
   --skip-system-deps
   --non-interactive
   --yes
@@ -85,6 +87,53 @@ EOF
 
 log() {
   echo "[COBIEN] $*"
+}
+
+read_lock_pid() {
+  if [[ -f "$LOCK_FILE" ]]; then
+    head -n1 "$LOCK_FILE" 2>/dev/null | tr -dc '0-9'
+  fi
+}
+
+stop_existing_launcher_instance() {
+  local lock_pid
+  lock_pid="$(read_lock_pid)"
+
+  if [[ -z "${lock_pid:-}" ]]; then
+    log "Could not determine running launcher PID from lock file."
+    return 1
+  fi
+
+  if [[ "$lock_pid" == "$$" ]]; then
+    log "Lock file points to current PID; refusing to stop self."
+    return 1
+  fi
+
+  if ! kill -0 "$lock_pid" >/dev/null 2>&1; then
+    log "Stale lock detected (PID $lock_pid not running)."
+    return 0
+  fi
+
+  log "Stopping existing launcher instance PID=$lock_pid"
+  kill -TERM "$lock_pid" >/dev/null 2>&1 || true
+
+  local i
+  for i in {1..10}; do
+    if ! kill -0 "$lock_pid" >/dev/null 2>&1; then
+      log "Existing launcher stopped."
+      return 0
+    fi
+    sleep 1
+  done
+
+  log "Existing launcher did not stop in time; forcing kill."
+  kill -KILL "$lock_pid" >/dev/null 2>&1 || true
+  sleep 1
+  if kill -0 "$lock_pid" >/dev/null 2>&1; then
+    log "Failed to terminate existing launcher PID=$lock_pid"
+    return 1
+  fi
+  return 0
 }
 
 acquire_single_instance_lock() {
@@ -97,8 +146,34 @@ acquire_single_instance_lock() {
 
   eval "exec ${LOCK_FD}>\"$LOCK_FILE\""
   if ! flock -n "$LOCK_FD"; then
-    log "Another cobien-launcher instance is already running. Exiting."
-    exit 0
+    local lock_pid
+    lock_pid="$(read_lock_pid)"
+    log "Another cobien-launcher instance is already running (PID=${lock_pid:-unknown})."
+
+    if [[ "$FORCE_RESTART" == "1" ]]; then
+      if stop_existing_launcher_instance; then
+        if ! flock -n "$LOCK_FD"; then
+          log "Unable to acquire lock after stopping previous instance."
+          exit 1
+        fi
+      else
+        log "Unable to stop existing launcher instance."
+        exit 1
+      fi
+    elif [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to stop the previous launcher instance and continue" "y"; then
+      if stop_existing_launcher_instance; then
+        if ! flock -n "$LOCK_FD"; then
+          log "Unable to acquire lock after stopping previous instance."
+          exit 1
+        fi
+      else
+        log "Unable to stop existing launcher instance."
+        exit 1
+      fi
+    else
+      log "Exiting without changes. Use --force-restart to stop the existing instance automatically."
+      exit 0
+    fi
   fi
 
   printf '%s\n' "$$" 1>&"$LOCK_FD" || true
@@ -1279,6 +1354,10 @@ parse_args() {
         ;;
       --relaunch-after-update)
         RELAUNCH_AFTER_UPDATE="1"
+        shift
+        ;;
+      --force-restart)
+        FORCE_RESTART="1"
         shift
         ;;
       --yes)
