@@ -766,9 +766,23 @@ configure_tts_runtime() {
       TTS_PIPER_BIN="$(command -v piper)"
       log "Piper installed successfully: $TTS_PIPER_BIN"
     else
-      log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
-      TTS_ENGINE="pyttsx3"
-      return 0
+      log "WARN: Piper not available from apt. Trying Python user install (pip --user)..."
+      if command -v python3 >/dev/null 2>&1; then
+        python3 -m pip install --user --upgrade pip >/dev/null 2>&1 || true
+        python3 -m pip install --user piper-tts >/dev/null 2>&1 || true
+      fi
+
+      if command -v piper >/dev/null 2>&1; then
+        TTS_PIPER_BIN="$(command -v piper)"
+        log "Piper installed successfully via pip: $TTS_PIPER_BIN"
+      elif [[ -x "$HOME/.local/bin/piper" ]]; then
+        TTS_PIPER_BIN="$HOME/.local/bin/piper"
+        log "Piper installed at user path: $TTS_PIPER_BIN"
+      else
+        log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
+        TTS_ENGINE="pyttsx3"
+        return 0
+      fi
     fi
   fi
 
