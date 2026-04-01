@@ -35,6 +35,7 @@ FORCE_RESTART="${COBIEN_FORCE_RESTART:-0}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
+HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
 TTS_ENGINE="${COBIEN_TTS_ENGINE:-pyttsx3}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
 TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
@@ -92,6 +93,7 @@ Options:
   --device-id NAME
   --videocall-room NAME
   --device-location LOCATION
+  --hardware-mode real|mock|auto
   --tts-engine ENGINE
   --tts-piper-bin PATH
   --tts-piper-model-es PATH
@@ -291,6 +293,7 @@ COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
+COBIEN_HARDWARE_MODE=$HARDWARE_MODE
 COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
@@ -322,6 +325,7 @@ load_last_run_config() {
   DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
   VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
+  HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
   TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
   TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
   TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
@@ -345,6 +349,7 @@ print_last_run_config_summary() {
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
   echo "  Device location:  $DEVICE_LOCATION"
+  echo "  Hardware mode:    $HARDWARE_MODE"
   echo "  TTS engine:       $TTS_ENGINE"
   echo "  Cron schedule:    $CRON_SCHEDULE"
   echo "  Python request:   $PYTHON_REQUEST"
@@ -386,6 +391,11 @@ normalize_device_identity() {
   if [[ -z "$DEVICE_LOCATION" ]]; then
     DEVICE_LOCATION="Bilbao"
   fi
+  case "${HARDWARE_MODE,,}" in
+    real|prod|production) HARDWARE_MODE="real" ;;
+    mock|test|vm|virtual) HARDWARE_MODE="mock" ;;
+    *) HARDWARE_MODE="auto" ;;
+  esac
 }
 
 setup_can_bus() {
@@ -393,6 +403,27 @@ setup_can_bus() {
   sudo -n /sbin/ip link set can0 down
   sudo -n /sbin/ip link set can0 type can bitrate "${COBIEN_CAN_BITRATE:-500000}"
   sudo -n /sbin/ip link set can0 up
+}
+
+can_hardware_available() {
+  ip link show can0 >/dev/null 2>&1
+}
+
+should_enable_hardware_runtime() {
+  case "${HARDWARE_MODE,,}" in
+    mock|test|vm|virtual)
+      return 1
+      ;;
+    real|prod|production)
+      return 0
+      ;;
+    auto|*)
+      if can_hardware_available; then
+        return 0
+      fi
+      return 1
+      ;;
+  esac
 }
 
 start_can_logger_background() {
@@ -563,12 +594,19 @@ launch_runtime() {
   fi
   perform_preflight_runtime_cleanup
 
-  setup_can_bus
-  start_can_logger_background
+  if should_enable_hardware_runtime; then
+    log "Hardware runtime enabled (mode=$HARDWARE_MODE)"
+    setup_can_bus
+    start_can_logger_background
+  else
+    log "WARN: Hardware runtime disabled (mode=$HARDWARE_MODE). Skipping CAN setup/logger/bridge."
+  fi
 
   sleep 2
 
-  runtime_launch_background "mqtt-can-bridge" "$(runtime_bridge_command)"
+  if should_enable_hardware_runtime; then
+    runtime_launch_background "mqtt-can-bridge" "$(runtime_bridge_command)"
+  fi
 
   sleep 2
 
@@ -1110,6 +1148,7 @@ COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
+COBIEN_HARDWARE_MODE=$HARDWARE_MODE
 COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
@@ -1188,6 +1227,7 @@ handoff_to_updated_launcher() {
     --device-id "$DEVICE_ID" \
     --videocall-room "$VIDEOCALL_ROOM" \
     --device-location "$DEVICE_LOCATION" \
+    --hardware-mode "$HARDWARE_MODE" \
     --tts-engine "$TTS_ENGINE" \
     --tts-piper-bin "$TTS_PIPER_BIN" \
     --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
@@ -1279,6 +1319,7 @@ restart_software() {
       --device-id "$DEVICE_ID" \
       --videocall-room "$VIDEOCALL_ROOM" \
       --device-location "$DEVICE_LOCATION" \
+      --hardware-mode "$HARDWARE_MODE" \
       --tts-engine "$TTS_ENGINE" \
       --tts-piper-bin "$TTS_PIPER_BIN" \
       --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
@@ -1407,6 +1448,7 @@ print_dry_run() {
   log "DEVICE_ID=$DEVICE_ID"
   log "VIDEOCALL_ROOM=$VIDEOCALL_ROOM"
   log "DEVICE_LOCATION=$DEVICE_LOCATION"
+  log "HARDWARE_MODE=$HARDWARE_MODE"
   log "TTS_ENGINE=$TTS_ENGINE"
   log "TTS_PIPER_BIN=${TTS_PIPER_BIN:-auto}"
   log "TTS_PIPER_MODEL_ES=${TTS_PIPER_MODEL_ES:-unset}"
@@ -1453,6 +1495,7 @@ run_full_flow() {
     DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
     VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
+    HARDWARE_MODE="$(ask "Hardware mode (auto/real/mock)" "$HARDWARE_MODE")"
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
     if [[ "$TTS_ENGINE" == "piper" ]]; then
       TTS_PIPER_BIN="$(ask "Piper binary path (empty=auto detect)" "$TTS_PIPER_BIN")"
@@ -1550,6 +1593,7 @@ run_full_flow() {
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
   echo "  Device location:  $DEVICE_LOCATION"
+  echo "  Hardware mode:    $HARDWARE_MODE"
   echo "  TTS engine:       $TTS_ENGINE"
   echo "  Install cron:     $INSTALL_CRON"
   if [[ "$INSTALL_CRON" == "1" ]]; then
@@ -1660,6 +1704,10 @@ parse_args() {
         ;;
       --device-location)
         DEVICE_LOCATION="$2"
+        shift 2
+        ;;
+      --hardware-mode)
+        HARDWARE_MODE="$2"
         shift 2
         ;;
       --tts-engine)
