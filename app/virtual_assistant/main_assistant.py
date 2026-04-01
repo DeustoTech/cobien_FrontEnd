@@ -1,4 +1,4 @@
-# frontend-mueble/virtual_assistant/main_assistant.py
+# app/virtual_assistant/main_assistant.py
 
 from virtual_assistant.recognizer import SpeechRecognizer
 from virtual_assistant.actions import ActionExecutor

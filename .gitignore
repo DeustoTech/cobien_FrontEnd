@@ -207,10 +207,10 @@ marimo/_lsp/
 __marimo__/
 
 # CoBien frontend runtime artifacts
-CoBienICAM-main/frontend-mueble/board/board_cache/
-CoBienICAM-main/frontend-mueble/events/eventos_local.json
-CoBienICAM-main/frontend-mueble/face_authentication/face_data.json
-CoBienICAM-main/frontend-mueble/icso_data/*.json
-CoBienICAM-main/frontend-mueble/icso_data/*.txt
-CoBienICAM-main/frontend-mueble/logs/
-CoBienICAM-main/frontend-mueble/weather/weather_today.json
+app/board/board_cache/
+app/events/eventos_local.json
+app/face_authentication/face_data.json
+app/icso_data/*.json
+app/icso_data/*.txt
+app/logs/
+app/weather/weather_today.json

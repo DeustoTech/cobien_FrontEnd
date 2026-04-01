@@ -1,4 +1,4 @@
-# frontend-mueble/virtual_assistant/actions.py
+# app/virtual_assistant/actions.py
 
 from kivy.clock import Clock
 from datetime import datetime

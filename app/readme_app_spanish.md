@@ -17,7 +17,7 @@ Software del mueble inteligente del proyecto europeo CoBien, orientado a la incl
 
 ## Estructura general
 
-frontend-mueble/
+app/
 │
 ├── mainApp.py                 # Ventana principal (Kivy) y orquestación UI
 ├── startApp.py                # Arranque con control de acceso facial

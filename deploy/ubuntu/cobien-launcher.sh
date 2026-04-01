@@ -270,7 +270,7 @@ print_last_run_config_summary() {
 resolve_paths() {
   FRONTEND_REPO="$WORKSPACE_ROOT/$FRONTEND_REPO_NAME"
   MQTT_REPO="$WORKSPACE_ROOT/$MQTT_REPO_NAME"
-  FRONTEND_APP_DIR="$FRONTEND_REPO/CoBienICAM-main/frontend-mueble"
+  FRONTEND_APP_DIR="$FRONTEND_REPO/app"
   VENV_DIR="$FRONTEND_REPO/.venv"
   ENV_FILE="$FRONTEND_REPO/deploy/ubuntu/cobien-update.env"
   BRIDGE_DIR="$MQTT_REPO/Interface_MQTT_CAN_c"

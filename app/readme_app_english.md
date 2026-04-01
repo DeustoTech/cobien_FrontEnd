@@ -17,7 +17,7 @@ Software for the CoBien smart furniture project, aimed at digital inclusion for 
 
 ## General Structure
 
-frontend-mueble/
+app/
 │
 ├── mainApp.py                 # Main window (Kivy) and UI orchestration
 ├── startApp.py                # Launch with facial access control
