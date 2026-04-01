@@ -138,3 +138,12 @@ systemctl --user status cobien-launcher.service
 systemctl --user list-timers | grep cobien-update
 journalctl --user -u cobien-launcher.service -f
 ```
+
+Aplicar cambios tras una actualizacion del repo:
+
+```bash
+cd ~/cobien/cobien_FrontEnd
+bash deploy/ubuntu/install-systemd-user.sh
+systemctl --user daemon-reload
+systemctl --user restart cobien-launcher.service
+```
