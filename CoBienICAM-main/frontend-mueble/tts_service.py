@@ -1,5 +1,8 @@
 import os
 import threading
+import subprocess
+import tempfile
+import shutil
 from config_store import load_section
 
 
@@ -10,8 +13,12 @@ except Exception:
 
 
 _SERVICES_CFG = load_section("services", {})
+TTS_ENGINE = (_SERVICES_CFG.get("tts_engine", "pyttsx3") or "pyttsx3").strip().lower()
 DEFAULT_RATE = int(_SERVICES_CFG.get("tts_rate", os.getenv("COBIEN_TTS_RATE", "155")))
 DEFAULT_VOLUME = float(_SERVICES_CFG.get("tts_volume", os.getenv("COBIEN_TTS_VOLUME", "0.85")))
+PIPER_BIN = (_SERVICES_CFG.get("tts_piper_bin", "") or "").strip()
+PIPER_MODEL_ES = (_SERVICES_CFG.get("tts_piper_model_es", "") or "").strip()
+PIPER_MODEL_FR = (_SERVICES_CFG.get("tts_piper_model_fr", "") or "").strip()
 
 
 class TTSService:
@@ -19,6 +26,7 @@ class TTSService:
         self._engine = None
         self._lock = threading.Lock()
         self._voice_cache = {}
+        self._piper_bin_cache = None
 
     def _ensure_engine(self):
         if pyttsx3 is None:
@@ -61,6 +69,10 @@ class TTSService:
         if not text:
             return False
 
+        if TTS_ENGINE == "piper":
+            if self._speak_with_piper(text, language=language):
+                return True
+
         engine = self._ensure_engine()
         if engine is None:
             print(f"[TTS fallback] {text}")
@@ -80,6 +92,61 @@ class TTSService:
                 print(f"[TTS ERROR] {exc}")
                 print(text)
                 return False
+
+    def _resolve_piper_bin(self):
+        if self._piper_bin_cache:
+            return self._piper_bin_cache
+        candidates = []
+        if PIPER_BIN:
+            candidates.append(PIPER_BIN)
+        candidates.extend([
+            "piper",
+            os.path.expanduser("~/.local/bin/piper"),
+            "/usr/bin/piper",
+            "/usr/local/bin/piper",
+        ])
+        for candidate in candidates:
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                self._piper_bin_cache = candidate
+                return candidate
+            if "/" not in candidate:
+                found = shutil.which(candidate)
+                if found:
+                    self._piper_bin_cache = found
+                    return found
+        return None
+
+    def _resolve_piper_model(self, language):
+        model = PIPER_MODEL_FR if language == "fr" else PIPER_MODEL_ES
+        if model and os.path.exists(model):
+            return model
+        return None
+
+    def _speak_with_piper(self, text, language="es"):
+        piper_bin = self._resolve_piper_bin()
+        model_path = self._resolve_piper_model(language)
+        if not piper_bin or not model_path:
+            return False
+        if not shutil.which("aplay"):
+            return False
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                wav_path = tmp_file.name
+            cmd = [piper_bin, "--model", model_path, "--output_file", wav_path]
+            proc = subprocess.run(cmd, input=text.encode("utf-8"), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            if proc.returncode != 0:
+                return False
+            play = subprocess.run(["aplay", "-q", wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            return play.returncode == 0
+        except Exception:
+            return False
+        finally:
+            try:
+                if 'wav_path' in locals() and os.path.exists(wav_path):
+                    os.remove(wav_path)
+            except Exception:
+                pass
 
 
 tts_service = TTSService()

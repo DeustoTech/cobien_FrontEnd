@@ -35,6 +35,10 @@ FORCE_RESTART="${COBIEN_FORCE_RESTART:-0}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
+TTS_ENGINE="${COBIEN_TTS_ENGINE:-pyttsx3}"
+TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
+TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
+TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-}"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
@@ -76,6 +80,10 @@ Options:
   --device-id NAME
   --videocall-room NAME
   --device-location LOCATION
+  --tts-engine ENGINE
+  --tts-piper-bin PATH
+  --tts-piper-model-es PATH
+  --tts-piper-model-fr PATH
   --recreate-venv
   --force-restart
   --skip-system-deps
@@ -207,6 +215,10 @@ COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
+COBIEN_TTS_ENGINE=$TTS_ENGINE
+COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
+COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
+COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
 COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE
 COBIEN_BOOTSTRAP_PYTHON_VERSION=$PYTHON_REQUEST
 EOF
@@ -230,6 +242,10 @@ load_last_run_config() {
   DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
   VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
+  TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
+  TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
+  TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
+  TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-$TTS_PIPER_MODEL_FR}"
   CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
   PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-$PYTHON_REQUEST}"
   return 0
@@ -245,6 +261,7 @@ print_last_run_config_summary() {
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
   echo "  Device location:  $DEVICE_LOCATION"
+  echo "  TTS engine:       $TTS_ENGINE"
   echo "  Cron schedule:    $CRON_SCHEDULE"
   echo "  Python request:   $PYTHON_REQUEST"
   echo
@@ -435,6 +452,7 @@ launch_runtime() {
   normalize_device_identity
   ensure_device_identity_config
   ensure_runtime_dependencies
+  configure_tts_runtime
   configure_audio_input_defaults
   resolve_python_bin
   resolve_uv_bin
@@ -597,6 +615,28 @@ ensure_runtime_dependencies() {
   fi
 }
 
+configure_tts_runtime() {
+  if [[ "$TTS_ENGINE" != "piper" ]]; then
+    return 0
+  fi
+
+  if command -v piper >/dev/null 2>&1; then
+    [[ -z "$TTS_PIPER_BIN" ]] && TTS_PIPER_BIN="$(command -v piper)"
+    return 0
+  fi
+
+  log "Piper TTS selected but binary not found. Trying apt install..."
+  sudo apt update || true
+  sudo apt install -y piper-tts || true
+
+  if command -v piper >/dev/null 2>&1; then
+    [[ -z "$TTS_PIPER_BIN" ]] && TTS_PIPER_BIN="$(command -v piper)"
+    log "Piper installed successfully: $TTS_PIPER_BIN"
+  else
+    log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
+  fi
+}
+
 ensure_device_identity_config() {
   local unified_config_file
   unified_config_file="$FRONTEND_APP_DIR/config/config.json"
@@ -607,12 +647,12 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" <<'PY'
+  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" <<'PY'
 import json
 import os
 import sys
 
-config_file, device_id, videocall_room, device_location = sys.argv[1:5]
+config_file, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr = sys.argv[1:9]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -633,11 +673,20 @@ settings["device_id"] = device_id
 settings["videocall_room"] = videocall_room
 settings["device_location"] = device_location
 
+services = data.get("services")
+if not isinstance(services, dict):
+    services = {}
+data["services"] = services
+services["tts_engine"] = tts_engine or "pyttsx3"
+services["tts_piper_bin"] = tts_piper_bin
+services["tts_piper_model_es"] = tts_piper_model_es
+services["tts_piper_model_fr"] = tts_piper_model_fr
+
 with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
 PY
 
-  log "Device identity synced: device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', location='$DEVICE_LOCATION'"
+  log "Device identity synced: device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', location='$DEVICE_LOCATION', tts_engine='$TTS_ENGINE'"
 }
 
 configure_audio_input_defaults() {
@@ -855,6 +904,10 @@ COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
+COBIEN_TTS_ENGINE=$TTS_ENGINE
+COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
+COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
+COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
 COBIEN_PYTHON_BIN=$PYTHON_BIN
 COBIEN_UV_BIN=$UV_BIN
@@ -924,7 +977,11 @@ handoff_to_updated_launcher() {
     --mqtt-name "$MQTT_REPO_NAME" \
     --device-id "$DEVICE_ID" \
     --videocall-room "$VIDEOCALL_ROOM" \
-    --device-location "$DEVICE_LOCATION"
+    --device-location "$DEVICE_LOCATION" \
+    --tts-engine "$TTS_ENGINE" \
+    --tts-piper-bin "$TTS_PIPER_BIN" \
+    --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
+    --tts-piper-model-fr "$TTS_PIPER_MODEL_FR"
 }
 
 update_repo_if_needed() {
@@ -1008,6 +1065,10 @@ restart_software() {
       --device-id "$DEVICE_ID" \
       --videocall-room "$VIDEOCALL_ROOM" \
       --device-location "$DEVICE_LOCATION" \
+      --tts-engine "$TTS_ENGINE" \
+      --tts-piper-bin "$TTS_PIPER_BIN" \
+      --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
+      --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
       --branch "$BRANCH_NAME"
   fi
   launch_runtime 0
@@ -1128,6 +1189,10 @@ print_dry_run() {
   log "DEVICE_ID=$DEVICE_ID"
   log "VIDEOCALL_ROOM=$VIDEOCALL_ROOM"
   log "DEVICE_LOCATION=$DEVICE_LOCATION"
+  log "TTS_ENGINE=$TTS_ENGINE"
+  log "TTS_PIPER_BIN=${TTS_PIPER_BIN:-auto}"
+  log "TTS_PIPER_MODEL_ES=${TTS_PIPER_MODEL_ES:-unset}"
+  log "TTS_PIPER_MODEL_FR=${TTS_PIPER_MODEL_FR:-unset}"
   log "ENV_FILE=$ENV_FILE"
   log "UV_BIN=${UV_BIN:-unresolved}"
   log "PYTHON_REQUEST=$PYTHON_REQUEST"
@@ -1169,6 +1234,12 @@ run_full_flow() {
     DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
     VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
+    TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
+    if [[ "$TTS_ENGINE" == "piper" ]]; then
+      TTS_PIPER_BIN="$(ask "Piper binary path (empty=auto detect)" "$TTS_PIPER_BIN")"
+      TTS_PIPER_MODEL_ES="$(ask "Piper Spanish model path (.onnx)" "$TTS_PIPER_MODEL_ES")"
+      TTS_PIPER_MODEL_FR="$(ask "Piper French model path (.onnx)" "$TTS_PIPER_MODEL_FR")"
+    fi
   fi
   resolve_paths
   if ! has_systemd_user_launcher_service; then
@@ -1260,6 +1331,7 @@ run_full_flow() {
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
   echo "  Device location:  $DEVICE_LOCATION"
+  echo "  TTS engine:       $TTS_ENGINE"
   echo "  Install cron:     $INSTALL_CRON"
   if [[ "$INSTALL_CRON" == "1" ]]; then
     echo "  Cron schedule:    $CRON_SCHEDULE"
@@ -1377,6 +1449,22 @@ parse_args() {
         ;;
       --device-location)
         DEVICE_LOCATION="$2"
+        shift 2
+        ;;
+      --tts-engine)
+        TTS_ENGINE="$2"
+        shift 2
+        ;;
+      --tts-piper-bin)
+        TTS_PIPER_BIN="$2"
+        shift 2
+        ;;
+      --tts-piper-model-es)
+        TTS_PIPER_MODEL_ES="$2"
+        shift 2
+        ;;
+      --tts-piper-model-fr)
+        TTS_PIPER_MODEL_FR="$2"
         shift 2
         ;;
       --recreate-venv)

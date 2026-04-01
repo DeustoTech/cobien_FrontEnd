@@ -74,6 +74,10 @@ Parámetros relevantes:
 - `COBIEN_DEVICE_ID`: id del mueble (`CoBien1`, `CoBien2`, ...).
 - `COBIEN_VIDEOCALL_ROOM`: sala de videollamada (case-sensitive).
 - `COBIEN_DEVICE_LOCATION`: ciudad/ubicación del mueble.
+- `COBIEN_TTS_ENGINE`: motor TTS (`pyttsx3` o `piper`).
+- `COBIEN_TTS_PIPER_BIN`: ruta binario `piper` (opcional).
+- `COBIEN_TTS_PIPER_MODEL_ES`: ruta modelo Piper español `.onnx`.
+- `COBIEN_TTS_PIPER_MODEL_FR`: ruta modelo Piper francés `.onnx`.
 - `COBIEN_LOG_DIR`: ruta de logs (opcional; por defecto `<frontend_repo>/logs`).
 - `COBIEN_BOOTSTRAP_PYTHON_VERSION`: versión Python solicitada (por defecto `3.11`).
 - `COBIEN_CAN_BITRATE`: bitrate CAN (por defecto `500000`).
@@ -178,6 +182,12 @@ Configuración de identidad inicial (por CLI):
 
 ```bash
 bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix --device-id CoBien1 --videocall-room CoBien1 --device-location Logroño
+```
+
+Configuración de TTS con Piper (opcional):
+
+```bash
+bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix --tts-engine piper --tts-piper-model-es "/ruta/modelo-es.onnx" --tts-piper-model-fr "/ruta/modelo-fr.onnx"
 ```
 
 ## Notas importantes
