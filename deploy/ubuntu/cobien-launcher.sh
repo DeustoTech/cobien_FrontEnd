@@ -41,10 +41,16 @@ TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
 TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-}"
 TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-}"
 TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-}"
-TTS_PIPER_DEFAULT_MODEL_ES="es_ES-sharvard-medium"
-TTS_PIPER_DEFAULT_MODEL_FR="fr_FR-siwis-medium"
-TTS_PIPER_DEFAULT_MODEL_ES_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx"
-TTS_PIPER_DEFAULT_MODEL_FR_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
+TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-male}"
+TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-male}"
+TTS_PIPER_DEFAULT_MODEL_ES_MALE="es_ES-davefx-medium"
+TTS_PIPER_DEFAULT_MODEL_ES_FEMALE="es_ES-mls_10246-low"
+TTS_PIPER_DEFAULT_MODEL_FR_MALE="fr_FR-mls_1840-low"
+TTS_PIPER_DEFAULT_MODEL_FR_FEMALE="fr_FR-siwis-medium"
+TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
+TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/mls_10246/low/es_ES-mls_10246-low.onnx"
+TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/mls_1840/low/fr_FR-mls_1840-low.onnx"
+TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
@@ -92,6 +98,8 @@ Options:
   --tts-piper-model-fr PATH
   --tts-piper-model-es-url URL
   --tts-piper-model-fr-url URL
+  --tts-piper-voice-es male|female
+  --tts-piper-voice-fr male|female
   --recreate-venv
   --force-restart
   --skip-system-deps
@@ -256,6 +264,8 @@ COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
 COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
 COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL
 COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL
+COBIEN_TTS_PIPER_VOICE_ES=$TTS_PIPER_VOICE_ES
+COBIEN_TTS_PIPER_VOICE_FR=$TTS_PIPER_VOICE_FR
 COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE
 COBIEN_BOOTSTRAP_PYTHON_VERSION=$PYTHON_REQUEST
 EOF
@@ -285,6 +295,8 @@ load_last_run_config() {
   TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-$TTS_PIPER_MODEL_FR}"
   TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-$TTS_PIPER_MODEL_ES_URL}"
   TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-$TTS_PIPER_MODEL_FR_URL}"
+  TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-$TTS_PIPER_VOICE_ES}"
+  TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-$TTS_PIPER_VOICE_FR}"
   CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
   PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-$PYTHON_REQUEST}"
   return 0
@@ -727,14 +739,31 @@ configure_tts_runtime() {
     fi
   fi
 
-  if [[ -z "$TTS_PIPER_MODEL_ES" ]]; then
-    TTS_PIPER_MODEL_ES="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES}.onnx"
-  fi
-  if [[ -z "$TTS_PIPER_MODEL_FR" ]]; then
-    TTS_PIPER_MODEL_FR="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR}.onnx"
-  fi
-  [[ -z "$TTS_PIPER_MODEL_ES_URL" ]] && TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_DEFAULT_MODEL_ES_URL"
-  [[ -z "$TTS_PIPER_MODEL_FR_URL" ]] && TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_DEFAULT_MODEL_FR_URL"
+  case "${TTS_PIPER_VOICE_ES,,}" in
+    female|mujer)
+      TTS_PIPER_VOICE_ES="female"
+      [[ -z "$TTS_PIPER_MODEL_ES" ]] && TTS_PIPER_MODEL_ES="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_FEMALE}.onnx"
+      [[ -z "$TTS_PIPER_MODEL_ES_URL" ]] && TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL"
+      ;;
+    *)
+      TTS_PIPER_VOICE_ES="male"
+      [[ -z "$TTS_PIPER_MODEL_ES" ]] && TTS_PIPER_MODEL_ES="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_MALE}.onnx"
+      [[ -z "$TTS_PIPER_MODEL_ES_URL" ]] && TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL"
+      ;;
+  esac
+
+  case "${TTS_PIPER_VOICE_FR,,}" in
+    female|mujer)
+      TTS_PIPER_VOICE_FR="female"
+      [[ -z "$TTS_PIPER_MODEL_FR" ]] && TTS_PIPER_MODEL_FR="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_FEMALE}.onnx"
+      [[ -z "$TTS_PIPER_MODEL_FR_URL" ]] && TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL"
+      ;;
+    *)
+      TTS_PIPER_VOICE_FR="male"
+      [[ -z "$TTS_PIPER_MODEL_FR" ]] && TTS_PIPER_MODEL_FR="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_MALE}.onnx"
+      [[ -z "$TTS_PIPER_MODEL_FR_URL" ]] && TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL"
+      ;;
+  esac
 
   local ok_es="0"
   local ok_fr="0"
@@ -757,12 +786,12 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" <<'PY'
+  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" <<'PY'
 import json
 import os
 import sys
 
-config_file, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url = sys.argv[1:11]
+config_file, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr = sys.argv[1:13]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -793,6 +822,8 @@ services["tts_piper_model_es"] = tts_piper_model_es
 services["tts_piper_model_fr"] = tts_piper_model_fr
 services["tts_piper_model_es_url"] = tts_piper_model_es_url
 services["tts_piper_model_fr_url"] = tts_piper_model_fr_url
+services["tts_piper_voice_es"] = tts_piper_voice_es
+services["tts_piper_voice_fr"] = tts_piper_voice_fr
 
 with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
@@ -1022,6 +1053,8 @@ COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
 COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
 COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL
 COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL
+COBIEN_TTS_PIPER_VOICE_ES=$TTS_PIPER_VOICE_ES
+COBIEN_TTS_PIPER_VOICE_FR=$TTS_PIPER_VOICE_FR
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
 COBIEN_PYTHON_BIN=$PYTHON_BIN
 COBIEN_UV_BIN=$UV_BIN
@@ -1097,7 +1130,9 @@ handoff_to_updated_launcher() {
     --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
     --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
     --tts-piper-model-es-url "$TTS_PIPER_MODEL_ES_URL" \
-    --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL"
+    --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL" \
+    --tts-piper-voice-es "$TTS_PIPER_VOICE_ES" \
+    --tts-piper-voice-fr "$TTS_PIPER_VOICE_FR"
 }
 
 update_repo_if_needed() {
@@ -1187,6 +1222,8 @@ restart_software() {
       --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
       --tts-piper-model-es-url "$TTS_PIPER_MODEL_ES_URL" \
       --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL" \
+      --tts-piper-voice-es "$TTS_PIPER_VOICE_ES" \
+      --tts-piper-voice-fr "$TTS_PIPER_VOICE_FR" \
       --branch "$BRANCH_NAME"
   fi
   launch_runtime 0
@@ -1313,6 +1350,8 @@ print_dry_run() {
   log "TTS_PIPER_MODEL_FR=${TTS_PIPER_MODEL_FR:-unset}"
   log "TTS_PIPER_MODEL_ES_URL=${TTS_PIPER_MODEL_ES_URL:-default}"
   log "TTS_PIPER_MODEL_FR_URL=${TTS_PIPER_MODEL_FR_URL:-default}"
+  log "TTS_PIPER_VOICE_ES=${TTS_PIPER_VOICE_ES:-male}"
+  log "TTS_PIPER_VOICE_FR=${TTS_PIPER_VOICE_FR:-male}"
   log "ENV_FILE=$ENV_FILE"
   log "UV_BIN=${UV_BIN:-unresolved}"
   log "PYTHON_REQUEST=$PYTHON_REQUEST"
@@ -1356,13 +1395,9 @@ run_full_flow() {
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
     if [[ "$TTS_ENGINE" == "piper" ]]; then
-      local default_app_dir
-      default_app_dir="${WORKSPACE_ROOT}/${FRONTEND_REPO_NAME}/app"
       TTS_PIPER_BIN="$(ask "Piper binary path (empty=auto detect)" "$TTS_PIPER_BIN")"
-      TTS_PIPER_MODEL_ES="$(ask "Piper Spanish model path (.onnx)" "${TTS_PIPER_MODEL_ES:-$default_app_dir/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES}.onnx}")"
-      TTS_PIPER_MODEL_FR="$(ask "Piper French model path (.onnx)" "${TTS_PIPER_MODEL_FR:-$default_app_dir/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR}.onnx}")"
-      TTS_PIPER_MODEL_ES_URL="$(ask "Piper Spanish model URL" "${TTS_PIPER_MODEL_ES_URL:-$TTS_PIPER_DEFAULT_MODEL_ES_URL}")"
-      TTS_PIPER_MODEL_FR_URL="$(ask "Piper French model URL" "${TTS_PIPER_MODEL_FR_URL:-$TTS_PIPER_DEFAULT_MODEL_FR_URL}")"
+      TTS_PIPER_VOICE_ES="$(ask "Piper Spanish voice (male/female)" "$TTS_PIPER_VOICE_ES")"
+      TTS_PIPER_VOICE_FR="$(ask "Piper French voice (male/female)" "$TTS_PIPER_VOICE_FR")"
     fi
   fi
   resolve_paths
@@ -1597,6 +1632,14 @@ parse_args() {
         ;;
       --tts-piper-model-fr-url)
         TTS_PIPER_MODEL_FR_URL="$2"
+        shift 2
+        ;;
+      --tts-piper-voice-es)
+        TTS_PIPER_VOICE_ES="$2"
+        shift 2
+        ;;
+      --tts-piper-voice-fr)
+        TTS_PIPER_VOICE_FR="$2"
         shift 2
         ;;
       --recreate-venv)
