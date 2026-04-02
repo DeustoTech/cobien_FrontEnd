@@ -32,8 +32,6 @@ class ActionExecutor:
 
     def ejecutar(self, intencion, *args):
         acciones = {
-            "abrir_radio": self.abrir_radio,
-            "escuchar_radio": self.escuchar_radio,
             "ver_eventos": self.ver_eventos,
             "consultar_clima": self.consultar_clima,
             "iniciar_llamada": self.iniciar_llamada,
@@ -52,16 +50,8 @@ class ActionExecutor:
         if intencion not in acciones:
             texto_a_decir = self._respuesta_sin_intencion(self.app.ultimo_texto)
         else:
-            # Caso especial: escuchar_radio sin args
-            if intencion == "escuchar_radio" and not args:
-                if hasattr(self.app, "ultimo_texto"):
-                    nombre_radio = self.extraer_nombre_radio(self.app.ultimo_texto)
-                    texto_a_decir = acciones[intencion](nombre_radio)
-                else:
-                    texto_a_decir = "No se ha especificado una emisora para reproducir."
-
             # Caso especial: consultar_receta sin args
-            elif intencion == "consultar_receta" and not args:
+            if intencion == "consultar_receta" and not args:
                 receta = self.extraer_receta(self.app.ultimo_texto)
                 texto_a_decir = acciones[intencion](receta)
 
@@ -80,49 +70,6 @@ class ActionExecutor:
     # ------------------------------------------------------------
     # ACCIONES PRINCIPALES
     # ------------------------------------------------------------
-    def abrir_radio(self):
-        texto = "Abriendo la radio..."
-        print(texto)
-        Clock.schedule_once(lambda dt: self.app.cambiar_a_pantalla("radio"))
-        return texto
-
-    def escuchar_radio(self, nombre_radio):
-        texto = f"Buscando la emisora {nombre_radio}..."
-        print(texto)
-
-        self.app.cambiar_a_pantalla("radio")
-        Clock.schedule_once(lambda dt: self.reproducir_radio(nombre_radio), 1)
-        return texto
-
-    def reproducir_radio(self, nombre_radio):
-        radio_screen = self.app.sm.get_screen("radio").children[0]  # Acceder al widget RadioScreen
-        nombre_radio = nombre_radio.lower()
-        for station_name, station_url in radio_screen.stations.items():
-            if nombre_radio in station_name.lower():
-                radio_screen.play_radio(station_url)
-                texto = f"Reproduciendo {station_name}."
-                print(texto)
-                self.app.speak_text(texto)
-                return
-        texto = f"No he encontrado la emisora {nombre_radio}."
-        print(texto)
-        self.app.speak_text(texto)
-
-    def extraer_nombre_radio(self, texto):
-        emisoras = {
-            "cadena cien": "Cadena 100",
-            "los cuarenta": "Los 40",
-            "rne": "RNE",
-            "cope": "COPE",
-            "npr": "National Public Radio",
-            "cadena ser": "Cadena SER",
-        }
-        texto = texto.lower()
-        for alias in emisoras:
-            if alias in texto:
-                return emisoras[alias]
-        return texto
-
     def ver_eventos(self):
         texto = "Mostrando eventos..."
         print(texto)

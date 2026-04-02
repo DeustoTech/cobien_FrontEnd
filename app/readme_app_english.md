@@ -1,6 +1,6 @@
 # CoBien Smart Furniture App
 
-Software for the CoBien smart furniture project, aimed at digital inclusion for elderly users. The app runs on an embedded PC and provides: voice assistant, calendar with MongoDB, weather, radio, reminders, jokes, video calls, and MQTT messaging.
+Software for the CoBien smart furniture project, aimed at digital inclusion for elderly users. The app runs on an embedded PC and provides: voice assistant, calendar with MongoDB, weather, reminders, jokes, video calls, and MQTT messaging.
 
 ## Stack
 
@@ -10,7 +10,6 @@ Software for the CoBien smart furniture project, aimed at digital inclusion for 
 - Transformers (RoBERTa) + scikit-learn (NLP intent classification)
 - MongoDB Atlas + PyMongo (events)
 - OpenWeather + Open-Meteo (weather)
-- python-vlc (radio)
 - paho-mqtt (messaging)
 - PyQt5 / QWebEngine (embedded video call)
 
@@ -23,7 +22,6 @@ app/
 │
 ├── events/
 ├── weather/
-├── radio/
 ├── reminders/
 ├── jokes/
 ├── videocall/
@@ -119,11 +117,11 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 
 #### actions.py
 - Intent routing → methods:
-  - open_radio, play_radio, show_events, start_call
+  - show_events, start_call
   - get_date, get_time, get_weather, get_forecast
   - set_reminder, establish_reminder
   - get_news, get_recipe, tell_joke, greet, say_goodbye
-- Extractors: radio name, reminder time, recipe name.
+- Extractors: reminder time, recipe name.
 - UI integration: screen change and speech output.
 
 #### intent_classifier.py
@@ -146,14 +144,7 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 #### Data
 - intent_dataset.json (sample phrases).
 
-### 4) radio/
-
-#### radioScreen.py
-- Vertical layout with Back button and radio list.
-- Plays using vlc.MediaPlayer.
-- play_radio(url) stops current playback and starts new one.
-
-### 5) jokes/
+### 4) jokes/
 
 #### jokesScreen.py
 - Loads dataset mrm8488/CHISTES_spanish_jokes.
@@ -161,7 +152,7 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 - Displays one random joke.
 - Avoids repeating the previous one.
 
-### 6) reminders/
+### 5) reminders/
 
 #### reminders.py
 - RecordatorioManager with persistent storage in reminders/recordatorios.json.
@@ -169,12 +160,12 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 - Reschedules pending reminders at startup.
 - Announces reminders via app.speak_text and removes them after execution.
 
-### 7) videocall/
+### 6) videocall/
 - PyQt5/QWebEngine window loading project website.
 - Default room and user: Maria.
 - Fullscreen; exit button returns to main app.
 
-### 8) mqtt_publisher.py
+### 7) mqtt_publisher.py
 - MQTT CLI testing tool.
 - Broker: broker.hivemq.com (port 1883).
 - Topics: tarjeta and videollamada.
@@ -200,7 +191,7 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 2) Dependencies (requierements.txt)
 pip install kivy paho-mqtt pyttsx3 requests onnxruntime opencv-python
 pip install torch transformers scikit-learn joblib sounddevice vosk
-pip install pymongo googletrans==4.0.0-rc1 beautifulsoup4 python-vlc
+pip install pymongo googletrans==4.0.0-rc1 beautifulsoup4
 pip install pyqt5 pyqtwebengine
 
 3) Keys and Connection

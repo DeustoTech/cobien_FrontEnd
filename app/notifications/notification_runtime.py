@@ -1,6 +1,16 @@
+"""Runtime helpers for notification configuration and ringtone playback.
+
+This module provides:
+
+- Unified config read/write for notifications settings.
+- Ringtone discovery from the local ringtones directory.
+- Playback abstraction over available backends (`pygame` or `playsound`).
+"""
+
 import json
 import os
 import threading
+from typing import Any, Callable, Dict, List, Optional
 from config_store import load_section, save_section
 
 
@@ -41,7 +51,19 @@ except Exception:
         AUDIO_BACKEND = None
 
 
-def normalize_ringtone_name(ringtone):
+def normalize_ringtone_name(ringtone: Any) -> str:
+    """Normalize ringtone names across legacy and localized values.
+
+    Args:
+        ringtone: Raw ringtone value from config/UI.
+
+    Returns:
+        str: Normalized ringtone file name or `NONE_RINGTONE`.
+
+    Examples:
+        >>> normalize_ringtone_name("Ninguna")
+        ''
+    """
     if ringtone is None:
         return NONE_RINGTONE
 
@@ -55,7 +77,15 @@ def normalize_ringtone_name(ringtone):
     return ringtone_name
 
 
-def load_notification_config():
+def load_notification_config() -> Dict[str, Dict[str, Any]]:
+    """Load and sanitize notification configuration from unified config.
+
+    Returns:
+        Dict[str, Dict[str, Any]]: Normalized notification config map.
+
+    Raises:
+        No exception is propagated. Failures return default configuration.
+    """
     try:
         config = load_section("notifications", DEFAULT_NOTIFICATION_CONFIG)
     except Exception as exc:
@@ -70,7 +100,18 @@ def load_notification_config():
     return merged
 
 
-def save_notification_config(config):
+def save_notification_config(config: Dict[str, Dict[str, Any]]) -> bool:
+    """Persist notification configuration into unified config storage.
+
+    Args:
+        config: Notification config map to save.
+
+    Returns:
+        bool: `True` if save succeeds, `False` otherwise.
+
+    Raises:
+        No exception is propagated. Failures are logged and return `False`.
+    """
     try:
         sanitized = json.loads(json.dumps(config))
         for value in sanitized.values():
@@ -83,7 +124,12 @@ def save_notification_config(config):
         return False
 
 
-def load_ringtones():
+def load_ringtones() -> List[str]:
+    """Load available ringtone file names from local ringtones directory.
+
+    Returns:
+        List[str]: Available ringtone names, including `NONE_RINGTONE` entry.
+    """
     ringtones = [NONE_RINGTONE]
     if not os.path.exists(RINGTONES_DIR):
         try:
@@ -102,7 +148,8 @@ def load_ringtones():
     return ringtones
 
 
-def stop_ringtone():
+def stop_ringtone() -> None:
+    """Stop currently playing ringtone (if any)."""
     _audio_stop_event.set()
     if not AUDIO_AVAILABLE:
         return
@@ -113,7 +160,26 @@ def stop_ringtone():
         print(f"[RINGTONE] Stop error: {exc}")
 
 
-def play_ringtone_file(ringtone_name, on_finish=None):
+def play_ringtone_file(
+    ringtone_name: Any,
+    on_finish: Optional[Callable[[], None]] = None,
+) -> bool:
+    """Play one ringtone file asynchronously using available backend.
+
+    Args:
+        ringtone_name: Requested ringtone name.
+        on_finish: Optional callback invoked after playback ends/stops.
+
+    Returns:
+        bool: `True` if playback thread was started, `False` otherwise.
+
+    Raises:
+        No exception is propagated. Playback errors are logged.
+
+    Examples:
+        >>> play_ringtone_file("ringtone.wav")
+        True
+    """
     global _active_audio_thread
 
     ringtone_name = normalize_ringtone_name(ringtone_name)

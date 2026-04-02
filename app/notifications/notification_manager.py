@@ -7,6 +7,7 @@ IMPORTANT: Room names are CASE-SENSITIVE to distinguish between:
 - 'CoBien' and 'cobien' (different rooms)
 - 'Maria' and 'maria' (different rooms)
 """
+from typing import Any, Callable, Dict, List, Optional
 from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -51,11 +52,25 @@ NOTIFICATION_CACHE_DIR = os.path.join(
 NOTIFICATION_CACHE_FILE = os.path.join(NOTIFICATION_CACHE_DIR, "active_notifications.json")
 
 
-def _notification_cache_key(kind, data):
+def _notification_cache_key(kind: Any, data: Any) -> str:
+    """Build a stable cache key for one notification payload.
+
+    Args:
+        kind: Notification kind identifier (`videocall`, `event`, etc.).
+        data: Notification payload.
+
+    Returns:
+        str: Deterministic JSON key.
+    """
     return json.dumps({"kind": kind, "data": data}, ensure_ascii=False, sort_keys=True, default=str)
 
 
-def load_cached_notifications():
+def load_cached_notifications() -> List[Dict[str, Any]]:
+    """Load persisted active notifications cache.
+
+    Returns:
+        List[Dict[str, Any]]: Cached notification entries, empty on failure.
+    """
     if not os.path.exists(NOTIFICATION_CACHE_FILE):
         return []
     try:
@@ -67,7 +82,15 @@ def load_cached_notifications():
         return []
 
 
-def save_cached_notifications(items):
+def save_cached_notifications(items: List[Dict[str, Any]]) -> None:
+    """Persist active notifications cache atomically.
+
+    Args:
+        items: Notification cache entries.
+
+    Returns:
+        None.
+    """
     try:
         os.makedirs(NOTIFICATION_CACHE_DIR, exist_ok=True)
         tmp_path = NOTIFICATION_CACHE_FILE + ".tmp"
@@ -78,7 +101,16 @@ def save_cached_notifications(items):
         print(f"[NOTIF_CACHE] ⚠️ Error saving cache: {e}")
 
 
-def append_cached_notification(kind, data):
+def append_cached_notification(kind: str, data: Dict[str, Any]) -> None:
+    """Insert or update one notification entry in cache.
+
+    Args:
+        kind: Notification kind.
+        data: Notification payload.
+
+    Returns:
+        None.
+    """
     cached = load_cached_notifications()
     entry_key = _notification_cache_key(kind, data)
     filtered = [item for item in cached if _notification_cache_key(item.get("kind"), item.get("data")) != entry_key]
@@ -86,19 +118,31 @@ def append_cached_notification(kind, data):
     save_cached_notifications(filtered[:50])
 
 
-def remove_cached_notification(kind, data):
+def remove_cached_notification(kind: str, data: Dict[str, Any]) -> None:
+    """Remove one notification entry from cache.
+
+    Args:
+        kind: Notification kind.
+        data: Notification payload used to derive unique cache key.
+
+    Returns:
+        None.
+    """
     entry_key = _notification_cache_key(kind, data)
     cached = load_cached_notifications()
     filtered = [item for item in cached if _notification_cache_key(item.get("kind"), item.get("data")) != entry_key]
     if len(filtered) != len(cached):
         save_cached_notifications(filtered)
 
-def play_notification_ringtone(notification_type):
-    """
-    Play the configured ringtone for a notification type
-    
+def play_notification_ringtone(notification_type: str) -> None:
+    """Play the configured ringtone for a notification type.
+
     Args:
-        notification_type: 'videollamada', 'nuevo_evento', or 'nueva_foto'
+        notification_type (str): Notification key (for example:
+            ``videollamada``, ``nuevo_evento``, or ``nueva_foto``).
+
+    Returns:
+        None.
     """
     config = load_notification_config()
     
@@ -115,12 +159,15 @@ def play_notification_ringtone(notification_type):
     print(f"[RINGTONE] Playing: {ringtone} for {notification_type}")
     play_ringtone_file(ringtone)
 
-def send_led_mqtt(notification_type):
-    """
-    Send LED configuration to furniture via MQTT using centralized module
-    
+def send_led_mqtt(notification_type: str) -> None:
+    """Send LED configuration for a notification type over MQTT.
+
     Args:
-        notification_type: 'videollamada', 'nuevo_evento', or 'nueva_foto'
+        notification_type (str): Notification key (for example:
+            ``videollamada``, ``nuevo_evento``, or ``nueva_foto``).
+
+    Returns:
+        None.
     """
     print(f"[NOTIF_MANAGER] Sending LED for type: {notification_type}")
     
@@ -135,8 +182,12 @@ def send_led_mqtt(notification_type):
     # Use centralized module
     send_led_config_from_dict(params)
 
-def publish_events_reload():
-    """Publish MQTT event to request events screen reload"""
+def publish_events_reload() -> None:
+    """Publish MQTT event requesting events screen reload.
+
+    Returns:
+        None.
+    """
     try:
         payload = {
             "target": "events",
@@ -153,8 +204,12 @@ def publish_events_reload():
     except Exception as e:
         print(f"[NOTIF_MANAGER] ⚠️ MQTT publish error: {e}")
 
-def publish_board_reload():
-    """Publish MQTT event to request board screen reload"""
+def publish_board_reload() -> None:
+    """Publish MQTT event requesting board screen reload.
+
+    Returns:
+        None.
+    """
     try:
         payload = {
             "action": "reload",
@@ -170,9 +225,11 @@ def publish_board_reload():
     except Exception as e:
         print(f"[NOTIF_MANAGER] ⚠️ MQTT publish error: {e}")
 
-def publish_board_reload_last():
-    """
-    Publish MQTT event to request board screen reload AND show last message.
+def publish_board_reload_last() -> None:
+    """Request board reload and auto-focus on the latest message.
+
+    Returns:
+        None.
     """
     try:
         payload = {
@@ -196,7 +253,21 @@ def publish_board_reload_last():
 class NotificationPopup(ModalView):
     """Customizable notification popup based on type"""
     
-    def __init__(self, notification_type, data, callback=None, **kwargs):
+    def __init__(
+        self,
+        notification_type: str,
+        data: Dict[str, Any],
+        callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize a typed notification popup.
+
+        Args:
+            notification_type: Popup kind (`videocall`, `event`, `message`).
+            data: Popup payload.
+            callback: Action callback invoked on user choice.
+            **kwargs: Standard Kivy `ModalView` kwargs.
+        """
         print(f"[NOTIF] __init__ NotificationPopup for {notification_type}")
         
         # Ensure translation context is applied before building UI.
@@ -230,8 +301,12 @@ class NotificationPopup(ModalView):
         
         print(f"[NOTIF] __init__ completed successfully")
     
-    def _build_content(self):
-        """Build content based on notification type"""
+    def _build_content(self) -> BoxLayout:
+        """Build popup body according to notification type.
+
+        Returns:
+            BoxLayout: Built content layout.
+        """
         main_layout = BoxLayout(orientation='vertical', padding=dp(40), spacing=dp(30))
         
         # White rounded background with border - CORRECT ORDER
@@ -263,8 +338,8 @@ class NotificationPopup(ModalView):
         
         return main_layout
     
-    def _build_videocall_content(self, main_layout):
-        """Build popup for video call"""
+    def _build_videocall_content(self, main_layout: BoxLayout) -> BoxLayout:
+        """Build popup content for an incoming video call."""
         caller = self.data.get('caller', _('Desconocido'))
         
         # Icon at top
@@ -343,8 +418,8 @@ class NotificationPopup(ModalView):
         
         return main_layout
     
-    def _build_event_content(self, main_layout):
-        """Build popup for new event"""
+    def _build_event_content(self, main_layout: BoxLayout) -> BoxLayout:
+        """Build popup content for a new event notification."""
         title_text = self.data.get('title', _('Nuevo evento'))
         date_str = self.data.get('date', '')
         
@@ -431,8 +506,8 @@ class NotificationPopup(ModalView):
         
         return main_layout
     
-    def _build_message_content(self, main_layout):
-        """Build popup for new pizarra message"""
+    def _build_message_content(self, main_layout: BoxLayout) -> BoxLayout:
+        """Build popup content for a new board message notification."""
         sender = self.data.get('sender', _('Desconocido'))
         has_image = self.data.get('has_image', False)
         has_text = self.data.get('has_text', False)
@@ -517,8 +592,8 @@ class NotificationPopup(ModalView):
         
         return main_layout
     
-    def _update_rect(self, *args):
-        """Update background rectangle"""
+    def _update_rect(self, *args: Any) -> None:
+        """Synchronize popup rounded rectangles with layout geometry."""
         # Update white background
         self.bg_rect.pos = self.content.pos
         self.bg_rect.size = self.content.size
@@ -527,8 +602,8 @@ class NotificationPopup(ModalView):
         self.border_rect.pos = (self.content.x - 3, self.content.y - 3)
         self.border_rect.size = (self.content.width + 6, self.content.height + 6)
     
-    def _on_action(self, action):
-        """Handle user actions"""        
+    def _on_action(self, action: str) -> None:
+        """Handle popup actions and delegate via callback."""
         # ========== STOP SOUND AND LEDS ==========
         stop_ringtone()
         turn_off_leds()
@@ -539,9 +614,23 @@ class NotificationPopup(ModalView):
         self.dismiss()
 
 class NotificationManager:
-    """Central notification manager"""
+    """Central runtime manager for all user-facing notifications.
+
+    The manager coordinates:
+    - Popups and user actions.
+    - Ringtone playback.
+    - LED signaling via MQTT.
+    - Screen navigation side-effects.
+    - Notification cache bookkeeping.
+    """
     
-    def __init__(self, screen_manager, main_screen):
+    def __init__(self, screen_manager: Any, main_screen: Any) -> None:
+        """Initialize notification manager.
+
+        Args:
+            screen_manager: Kivy `ScreenManager`.
+            main_screen: Main screen instance reference.
+        """
         self.sm = screen_manager
         self.main_screen = main_screen
         self.active_notifications = []
@@ -571,15 +660,22 @@ class NotificationManager:
         
         print("[NOTIF_MANAGER] ✅ Notification manager initialized (CASE-SENSITIVE)")
     
-    def show_videocall_notification(self, caller, room=None):
-        """
-        Show video call notification
-        
+    def show_videocall_notification(self, caller: str, room: Optional[str] = None) -> None:
+        """Display an incoming video call notification popup.
+
         Args:
-            caller: Caller name (CASE-SENSITIVE)
-            room: Room name (CASE-SENSITIVE, optional)
-        
-        Note: 'CoBien' and 'cobien' are treated as DIFFERENT rooms
+            caller (str): Caller name (case-sensitive).
+            room (Optional[str]): Target room name (case-sensitive). If missing,
+                runtime fallback logic uses configured local room.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Runtime errors are logged.
+
+        Note:
+            ``CoBien`` and ``cobien`` are intentionally treated as different rooms.
         """
         if self.active_call_process and self.active_call_process.poll() is None:
             print(f"[NOTIF] ⚠️ Active call already running, incoming call ignored")
@@ -673,8 +769,16 @@ class NotificationManager:
         
         Clock.schedule_once(_create_popup, 0)
     
-    def show_event_notification(self, title, date_str):
-        """Show new event notification"""
+    def show_event_notification(self, title: str, date_str: str) -> None:
+        """Show a new event notification popup.
+
+        Args:
+            title: Event title.
+            date_str: Human-readable event date.
+
+        Returns:
+            None.
+        """
         # ========== SEND LED CONFIG TO FURNITURE ==========
         send_led_mqtt("nuevo_evento")
         
@@ -718,8 +822,22 @@ class NotificationManager:
         #ICSO
         log_added_events()
     
-    def show_message_notification(self, sender, has_image=False, has_text=False):
-        """Show new pizarra message notification"""
+    def show_message_notification(
+        self,
+        sender: str,
+        has_image: bool = False,
+        has_text: bool = False,
+    ) -> None:
+        """Show a new board-message notification popup.
+
+        Args:
+            sender: Sender display name.
+            has_image: Whether payload includes image content.
+            has_text: Whether payload includes text content.
+
+        Returns:
+            None.
+        """
         # ========== SEND LED CONFIG TO FURNITURE ==========
         send_led_mqtt("nueva_foto")
         
@@ -764,12 +882,22 @@ class NotificationManager:
         #ICSO
         log_received_photos()
     
-    def _handle_videocall_action(self, action, data):
-        """
-        Handle video call notification actions
-        
-        IMPORTANT: Uses exact room name from notification (CASE-SENSITIVE)
-        Falls back to settings.json videocall_room if not provided
+    def _handle_videocall_action(self, action: str, data: Dict[str, Any]) -> None:
+        """Handle user actions from an incoming video-call notification.
+
+        Args:
+            action (str): User action (`accept`, `decline`, `timeout`).
+            data (Dict[str, Any]): Notification payload.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Launch/navigation errors are logged.
+
+        Note:
+            Uses the exact room name from notification payload (case-sensitive),
+            and falls back to configured `videocall_room` when unavailable.
         """
         self._remove_from_active(data)
         remove_cached_notification('videocall', data)
@@ -857,8 +985,8 @@ class NotificationManager:
             print(f"[NOTIF] ⏰ Call expired")
             print(f"[NOTIF]    From: '{caller}', Room: '{room}'")
     
-    def _handle_event_action(self, action, data):
-        """Handle event notification actions"""
+    def _handle_event_action(self, action: str, data: Dict[str, Any]) -> None:
+        """Handle event-notification user actions."""
         self._remove_from_active(data)
         remove_cached_notification('event', data)
         
@@ -868,8 +996,8 @@ class NotificationManager:
             print(f"[NOTIF] Opening calendar for '{data['title']}'")
             self.sm.current = 'events'
     
-    def _handle_message_action(self, action, data):
-        """Handle message notification actions"""
+    def _handle_message_action(self, action: str, data: Dict[str, Any]) -> None:
+        """Handle message-notification user actions."""
         self._remove_from_active(data)
         remove_cached_notification('message', data)
         
@@ -921,21 +1049,35 @@ class NotificationManager:
             sender = data.get('sender', '?')
             print(f"[NOTIF] ⏰ Message from '{sender}' postponed")
     
-    def _remove_from_active(self, data):
-        """Remove notification from active list"""
+    def _remove_from_active(self, data: Dict[str, Any]) -> None:
+        """Remove one notification payload from active in-memory list."""
         self.active_notifications = [
             n for n in self.active_notifications 
             if n.data != data
         ]
     
-    def clear_all(self):
-        """Close all active notifications"""
+    def clear_all(self) -> None:
+        """Close all active popup notifications and clear active list."""
         for popup in self.active_notifications:
             popup.dismiss()
         self.active_notifications.clear()
 
-    def show_system_info_notification(self, title_text, message_text, version_text=None):
-        """Show a generic system information popup with an OK button."""
+    def show_system_info_notification(
+        self,
+        title_text: str,
+        message_text: str,
+        version_text: Optional[str] = None,
+    ) -> None:
+        """Show a timed system information popup.
+
+        Args:
+            title_text: Popup title.
+            message_text: Popup message.
+            version_text: Optional version string shown under message.
+
+        Returns:
+            None.
+        """
         from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout
         from kivy.uix.label import Label
@@ -1066,6 +1208,9 @@ class NotificationManager:
             time_str: Heure de l'appel (ex: "15:30")
         
         Note: Caller name preserves exact case
+
+        Returns:
+            None.
         """
         from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout

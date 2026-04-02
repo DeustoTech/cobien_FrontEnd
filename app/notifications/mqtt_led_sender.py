@@ -5,6 +5,7 @@ Used by notification_manager.py and notificationsScreen.py.
 """
 import paho.mqtt.client as mqtt
 import json
+from typing import Any, Dict
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ========== MQTT CONFIGURATION ==========
@@ -30,7 +31,7 @@ MODE_MAPPING = {
 
 # ========== SEND HELPERS ==========
 
-def send_led_config(group, color, intensity, mode):
+def send_led_config(group: Any, color: Any, intensity: Any, mode: Any) -> None:
     """
     Send LED configuration directly from explicit parameters.
     
@@ -39,6 +40,14 @@ def send_led_config(group, color, intensity, mode):
         color (str): Color in "#RRGGBB" format.
         intensity (int): Intensity (0-255).
         mode (int or str): Mode (0-9 or "ON"/"OFF"/"BLINK"/"FADING_BLINK").
+    Returns:
+        None.
+
+    Raises:
+        No exception is propagated. Validation and publish errors are logged.
+
+    Examples:
+        >>> send_led_config(group=7, color="#FF0000", intensity=180, mode="BLINK")
     """
     # ========== FORCE GROUP TO 7 ==========
     group = 7
@@ -89,16 +98,21 @@ def send_led_config(group, color, intensity, mode):
     except Exception as e:
         print(f"[LED_SENDER] ✗ Publish error: {e}")
 
-def send_led_config_from_dict(config_dict):
-    """
-    Send LED configuration from a dictionary.
-    
+def send_led_config_from_dict(config_dict: Dict[str, Any]) -> None:
+    """Send LED configuration from a mapping structure.
+
     Args:
-        config_dict (dict): Dictionary containing:
-            - group (int): LED group - forced to 7
-            - color (str): Color "#RRGGBB"
-            - intensity (int): Intensity 0-255
-            - mode (str ou int): Mode
+        config_dict (Dict[str, Any]): Dictionary containing optional LED fields:
+            ``group``, ``color``, ``intensity``, and ``mode``.
+
+    Returns:
+        None.
+
+    Raises:
+        No exception is propagated. Validation and publish errors are logged.
+
+    Examples:
+        >>> send_led_config_from_dict({"color": "#00FF00", "mode": "ON"})
     """
     group = config_dict.get("group", 7)  # Default 7, and still forced
     color = config_dict.get("color", "#FFFFFF")
@@ -107,12 +121,20 @@ def send_led_config_from_dict(config_dict):
     
     send_led_config(group, color, intensity, mode)
 
-def turn_off_leds(group=7):
-    """
-    Turn off LEDs for the configured group.
-    
+def turn_off_leds(group: int = 7) -> None:
+    """Turn off LEDs for the configured group.
+
     Args:
-        group (int): Target LED group (default: 7)
+        group (int): Target LED group (kept for API compatibility).
+
+    Returns:
+        None.
+
+    Raises:
+        No exception is propagated. Publish errors are logged.
+
+    Examples:
+        >>> turn_off_leds()
     """
     payload = {
         "group": 7,  # Always group 7

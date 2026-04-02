@@ -1,6 +1,6 @@
 # CoBien Smart Furniture App
 
-Software del mueble inteligente del proyecto europeo CoBien, orientado a la inclusión digital de personas mayores. La app corre en un PC embebido y ofrece: asistente de voz, calendario con MongoDB, tiempo, radio, recordatorios, chistes/curiosidades, videollamada y mensajería MQTT.
+Software del mueble inteligente del proyecto europeo CoBien, orientado a la inclusión digital de personas mayores. La app corre en un PC embebido y ofrece: asistente de voz, calendario con MongoDB, tiempo, recordatorios, chistes/curiosidades, videollamada y mensajería MQTT.
 
 ## Tecnologias
 
@@ -10,7 +10,6 @@ Software del mueble inteligente del proyecto europeo CoBien, orientado a la incl
 - Transformers (RoBERTa) + scikit-learn (NLP intenciones)
 - MongoDB Atlas + PyMongo (eventos)
 - OpenWeather + Open-Meteo (tiempo)
-- python-vlc (radio)
 - paho-mqtt (mensajería)
 - PyQt5 / QWebEngine (videollamada web embebida)
 
@@ -23,7 +22,6 @@ app/
 │
 ├── events/
 ├── weather/
-├── radio/
 ├── reminders/
 ├── jokes/
 ├── videocall/
@@ -119,11 +117,11 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 
 #### actions.py
 - Router de intenciones → métodos:
-  - abrir_radio, escuchar_radio, ver_eventos, iniciar_llamada
+  - ver_eventos, iniciar_llamada
   - consultar_fecha, consultar_hora, consultar_clima, consultar_pronostico
   - configurar_recordatorio, establecer_recordatorio
   - consultar_noticias, consultar_receta, contar_chiste, saludar, despedirse
-- Extractores: emisora, tiempo del recordatorio y receta.
+- Extractores: tiempo del recordatorio y receta.
 - Integración UI: cambiar pantalla y TTS.
 
 #### intent_classifier.py
@@ -146,14 +144,7 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 #### Datos
 - intent_dataset.json (frases de ejemplo).
 
-### 4) radio/
-
-#### radioScreen.py
-- UI vertical con botón Volver y lista de emisoras.
-- Reproduce con vlc.MediaPlayer.
-- play_radio(url) detiene si ya hay algo y lanza reproducción.
-
-### 5) jokes/
+### 4) jokes/
 
 #### jokesScreen.py
 - Carga dataset mrm8488/CHISTES_spanish_jokes.
@@ -161,7 +152,7 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 - Muestra un chiste aleatorio.
 - Evita repetir el último.
 
-### 6) reminders/
+### 5) reminders/
 
 #### reminders.py
 - RecordatorioManager con persistencia en reminders/recordatorios.json.
@@ -169,12 +160,12 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 - Reprograma pendientes al iniciar.
 - Muestra recordatorios con app.speak_text y los elimina tras ejecutarse.
 
-### 7) videocall/
+### 6) videocall/
 - Ventana PyQt5/QWebEngine que carga la web del proyecto.
 - Sala y usuario por defecto: Maria.
 - Pantalla completa; botón salir vuelve a la app.
 
-### 8) mqtt_publisher.py
+### 7) mqtt_publisher.py
 - CLI de pruebas MQTT.
 - Broker: broker.hivemq.com (port 1883).
 - Topics: tarjeta y videollamada.
@@ -200,7 +191,7 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 2) Dependencias (requierements.txt)
 pip install kivy paho-mqtt pyttsx3 requests onnxruntime opencv-python
 pip install torch transformers scikit-learn joblib sounddevice vosk
-pip install pymongo googletrans==4.0.0-rc1 beautifulsoup4 python-vlc
+pip install pymongo googletrans==4.0.0-rc1 beautifulsoup4
 pip install pyqt5 pyqtwebengine
 
 3) Claves y conexión
