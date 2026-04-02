@@ -5,6 +5,7 @@ trigger an immediate update/reload workflow.
 """
 
 import os
+import shutil
 import subprocess
 import threading
 from typing import Any, Dict
@@ -230,6 +231,19 @@ KV = """
                     multiline: False
                     font_size: sp(18)
 
+                Label:
+                    text: "TTS engine (pyttsx3/piper)"
+                    color: 0,0,0,1
+                    font_size: sp(20)
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Spinner:
+                    id: input_tts_engine
+                    text: "pyttsx3"
+                    values: ("pyttsx3", "piper")
+                    font_size: sp(18)
+
             Label:
                 id: lbl_status
                 text: ""
@@ -309,7 +323,7 @@ class LauncherConfigScreen(Screen):
         """Persist launcher environment key/values to disk."""
         path = self._env_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        lines = [f"{k}={v}" for k, v in data.items()]
+        lines = [f"{k}={v}" for k, v in sorted(data.items())]
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
 
@@ -337,12 +351,13 @@ class LauncherConfigScreen(Screen):
         ids.input_room.text = env.get("COBIEN_VIDEOCALL_ROOM", self.cfg.get_videocall_room())
         ids.input_location.text = env.get("COBIEN_DEVICE_LOCATION", self.cfg.get_device_location())
         ids.input_interval.text = env.get("COBIEN_UPDATE_INTERVAL_SEC", "60")
+        ids.input_tts_engine.text = env.get("COBIEN_TTS_ENGINE", "pyttsx3") or "pyttsx3"
         ids.lbl_status.text = f"{_('Configuración cargada desde')}: {self._env_path()}"
 
-    def save_changes(self) -> None:
-        """Save current form values to env file and runtime config."""
+    def _collect_form_values(self) -> Dict[str, str]:
+        """Collect and normalize user inputs from launcher settings form."""
         ids = self.root_view.ids
-        data = {
+        return {
             "COBIEN_WORKSPACE_ROOT": ids.input_workspace.text.strip(),
             "COBIEN_FRONTEND_REPO_NAME": ids.input_frontend.text.strip(),
             "COBIEN_MQTT_REPO_NAME": ids.input_mqtt.text.strip(),
@@ -352,13 +367,20 @@ class LauncherConfigScreen(Screen):
             "COBIEN_VIDEOCALL_ROOM": ids.input_room.text.strip(),
             "COBIEN_DEVICE_LOCATION": ids.input_location.text.strip(),
             "COBIEN_UPDATE_INTERVAL_SEC": ids.input_interval.text.strip() or "60",
+            "COBIEN_TTS_ENGINE": (ids.input_tts_engine.text or "pyttsx3").strip().lower(),
         }
-        self._write_env(data)
+
+    def save_changes(self) -> None:
+        """Save current form values to env file and runtime config."""
+        ids = self.root_view.ids
+        current_env = self._read_env()
+        current_env.update(self._collect_form_values())
+        self._write_env(current_env)
 
         # sync runtime app config for immediate consistency
-        self.cfg.data["device_id"] = data["COBIEN_DEVICE_ID"] or self.cfg.data.get("device_id", "CoBien1")
-        self.cfg.data["videocall_room"] = data["COBIEN_VIDEOCALL_ROOM"] or self.cfg.data.get("videocall_room", "CoBien1")
-        self.cfg.data["device_location"] = data["COBIEN_DEVICE_LOCATION"] or self.cfg.data.get("device_location", "Bilbao")
+        self.cfg.data["device_id"] = current_env["COBIEN_DEVICE_ID"] or self.cfg.data.get("device_id", "CoBien1")
+        self.cfg.data["videocall_room"] = current_env["COBIEN_VIDEOCALL_ROOM"] or self.cfg.data.get("videocall_room", "CoBien1")
+        self.cfg.data["device_location"] = current_env["COBIEN_DEVICE_LOCATION"] or self.cfg.data.get("device_location", "Bilbao")
         self.cfg.save()
 
         app = App.get_running_app()
@@ -381,6 +403,7 @@ class LauncherConfigScreen(Screen):
         # Persist current values first so launcher runs with the latest config.
         self.save_changes()
         ids = self.root_view.ids
+        env = self._read_env()
 
         launcher_script = self._launcher_script_path()
         if not os.path.isfile(launcher_script):
@@ -394,6 +417,7 @@ class LauncherConfigScreen(Screen):
         device_id = ids.input_device_id.text.strip() or self.cfg.get_device_id()
         room = ids.input_room.text.strip() or self.cfg.get_videocall_room()
         location = ids.input_location.text.strip() or self.cfg.get_device_location()
+        tts_engine = (ids.input_tts_engine.text or "pyttsx3").strip().lower()
 
         # Full update + clean relaunch sequence.
         cmd = [
@@ -410,9 +434,24 @@ class LauncherConfigScreen(Screen):
             "--device-id", device_id,
             "--videocall-room", room,
             "--device-location", location,
+            "--tts-engine", tts_engine,
         ]
 
-        ids.lbl_status.text = _("Actualizando software y relanzando servicios...")
+        piper_bin = shutil.which("piper")
+        piper_model_es = env.get("COBIEN_TTS_PIPER_MODEL_ES", "").strip()
+        piper_model_fr = env.get("COBIEN_TTS_PIPER_MODEL_FR", "").strip()
+        piper_models_ok = bool(piper_model_es and os.path.isfile(piper_model_es)) and bool(
+            piper_model_fr and os.path.isfile(piper_model_fr)
+        )
+        if tts_engine == "piper":
+            if piper_bin and piper_models_ok:
+                ids.lbl_status.text = _("Piper detectado. Actualizando y relanzando runtime...")
+            else:
+                ids.lbl_status.text = _(
+                    "Piper no está completo en este equipo. Se intentará instalar/configurar durante la actualización..."
+                )
+        else:
+            ids.lbl_status.text = _("Actualizando software y relanzando servicios...")
 
         def _run():
             try:
