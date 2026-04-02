@@ -1,8 +1,14 @@
-# videocall/videocall_launcher.py
+"""Standalone PyQt launcher for browser-based video calls.
+
+This module starts a fullscreen Qt WebEngine window, auto-fills room/device
+prompts, notifies backend call acceptance, and records call duration metrics.
+"""
+
 import sys
 import os
 import json
 import datetime
+from typing import Any, Dict, Optional, Tuple
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
@@ -19,7 +25,7 @@ from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEnginePage, QWebEngineProfile, QWebEngineSettings
 )
 
-# Permitir cámara/micrófono sin pedir permiso
+# Allow camera/microphone permissions without interactive prompts.
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--use-fake-ui-for-media-stream"
 
 _services_cfg = load_section("services", {})
@@ -27,7 +33,12 @@ PORTAL_URL = _services_cfg.get("portal_videocall_url", "https://portal.co-bien.e
 BACKEND_URL = _services_cfg.get("portal_call_answered_url", "https://portal.co-bien.eu/videocall/call-answered/")
 
 
-def _default_config_path():
+def _default_config_path() -> str:
+    """Return default runtime config path used by video-call launcher.
+
+    Returns:
+        Absolute path to ``settings/settings.json``.
+    """
     return os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
         "settings",
@@ -35,7 +46,19 @@ def _default_config_path():
     )
 
 
-def load_config(config_path=None):
+def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+    """Load launcher runtime config from JSON file.
+
+    Args:
+        config_path (Optional[str]): Config path override.
+
+    Returns:
+        Dict[str, Any]: Parsed config or fallback defaults.
+
+    Raises:
+        No exception is propagated. Invalid paths and parse errors are handled
+        by returning default values.
+    """
     selected_path = config_path or _default_config_path()
 
     try:
@@ -48,7 +71,18 @@ def load_config(config_path=None):
         return {"device_id": "CoBien1", "videocall_room": "CoBien1"}
 
 
-def resolve_runtime_config(argv=None):
+def resolve_runtime_config(argv: Optional[list] = None) -> Tuple[Dict[str, Any], str, str]:
+    """Resolve runtime config and derive room/device names from CLI args.
+
+    Args:
+        argv: Optional argument list (defaults to ``sys.argv``).
+
+    Returns:
+        Tuple containing:
+        - Parsed config dictionary.
+        - Room name used by the video portal.
+        - Device name reported to backend.
+    """
     argv = argv or sys.argv
     config_path = argv[1] if len(argv) > 1 and argv[1] else None
     config = load_config(config_path)
@@ -56,14 +90,18 @@ def resolve_runtime_config(argv=None):
     device_name = config.get("identity") or config.get("device_id") or room_name
     return config, room_name, device_name
 
-# ========== Fonction pour notifier le backend ==========
-def notify_backend_call_answered(room_name: str, device_name: str):
-    """
-    Envoie une requête HTTP au backend pour signaler que l'appel a été décroché.
-    
+def notify_backend_call_answered(room_name: str, device_name: str) -> None:
+    """Notify backend that the call has been accepted by local device.
+
     Args:
-        room_name: Nom de la room Twilio
-        device_name: Identifiant du meuble
+        room_name (str): Video-call room identifier.
+        device_name (str): Device identity reported to backend.
+
+    Returns:
+        None.
+
+    Raises:
+        No exception is propagated. Network/parse errors are logged.
     """
     import urllib.request
     import urllib.error
@@ -101,14 +139,26 @@ def notify_backend_call_answered(room_name: str, device_name: str):
 
 # ================================================================
 class CustomWebEnginePage(QWebEnginePage):
-    def __init__(self, room_name, device_name, parent=None):
+    """QWebEngine page overriding prompts for room/device auto-fill."""
+
+    def __init__(self, room_name: str, device_name: str, parent: Optional[Any] = None) -> None:
         super().__init__(parent)
         self.prompt_counter = 0
         self.room_name = room_name
         self.device_name = device_name
 
     # Autocompleta los dos prompts secuenciales (room y nombre)
-    def javaScriptPrompt(self, security_origin, msg, default):
+    def javaScriptPrompt(self, security_origin: Any, msg: str, default: str) -> Tuple[bool, str]:
+        """Auto-answer first two JavaScript prompts (room, then identity).
+
+        Args:
+            security_origin: Origin requesting the prompt.
+            msg: Prompt message from JavaScript context.
+            default: Default value proposed by the page.
+
+        Returns:
+            Tuple ``(accepted, value)`` consumed by Qt WebEngine.
+        """
         if self.prompt_counter == 0:
             self.prompt_counter += 1
             return True, self.room_name
@@ -118,7 +168,9 @@ class CustomWebEnginePage(QWebEnginePage):
         return True, (default or "")
 
 class MainWindow(QMainWindow):
-    def __init__(self, room_name, device_name):
+    """Main full-screen window embedding web-based video-call UI."""
+
+    def __init__(self, room_name: str, device_name: str) -> None:
         super().__init__()
         self.room_name = room_name
         self.device_name = device_name
@@ -126,11 +178,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("VIDEOLLAMADA")
         self._call_start_time = datetime.datetime.now()
         
-        # ✅ NOTIFIER LE BACKEND DÈS LE DÉMARRAGE
+        # Notify backend as soon as call window starts.
         print("[VIDEOCALL] 📞 Notification backend: appel accepté")
         notify_backend_call_answered(self.room_name, self.device_name)
         
-        # Perfil/caché persistente
+        # Persistent browser profile and cache.
         cache_path = os.path.expanduser("~/.cobien_qtwebengine_cache")
         os.makedirs(cache_path, exist_ok=True)
         profile = QWebEngineProfile.defaultProfile()
@@ -143,19 +195,19 @@ class MainWindow(QMainWindow):
         s.setAttribute(QWebEngineSettings.JavascriptCanOpenWindows, True)
         s.setAttribute(QWebEngineSettings.FullScreenSupportEnabled, True)
 
-        # Vista + página
+        # Web view and customized page.
         self.web_view = QWebEngineView()
         self.page = CustomWebEnginePage(self.room_name, self.device_name, self.web_view)
         self.web_view.setPage(self.page)
 
-        # Conceder permisos de cámara/mic de forma automática
+        # Grant media permissions automatically.
         self.page.featurePermissionRequested.connect(
             lambda origin, feature: self.page.setFeaturePermission(
                 origin, feature, QWebEnginePage.PermissionGrantedByUser
             )
         )
 
-        # Botón salir
+        # Exit button.
         self.button = QPushButton("SALIR")
         self.button.setMinimumHeight(70)
         self.button.setFont(QFont("Arial", 22, QFont.Bold))
@@ -164,7 +216,7 @@ class MainWindow(QMainWindow):
         )
         self.button.clicked.connect(self._quit_app)
 
-        # Layout
+        # Main layout.
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -175,27 +227,28 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
         self.setCentralWidget(container)
 
-        # Modo pantalla completa tipo kiosk
+        # Kiosk-style window mode.
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         
-        # Mostrar en pantalla completa
+        # Render fullscreen.
         self.showFullScreen()
 
-        # Cargar videollamada
+        # Load portal URL.
         self._load_videocall()
 
-    # Tecla Esc para salir rápidamente si fuese necesario
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: Any) -> None:
+        """Handle keyboard shortcuts (Escape exits the call window)."""
         if event.key() == Qt.Key_Escape:
             self._quit_app()
         else:
             super().keyPressEvent(event)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: Any) -> None:
+        """Handle native close event by performing graceful quit."""
         self._quit_app()
 
-    def _quit_app(self):
-        """Quitter l'application et logger la durée"""
+    def _quit_app(self) -> None:
+        """Close app and persist call-duration log entry."""
         if hasattr(self, "_call_start_time") and self._call_start_time:
             duration = int((datetime.datetime.now() - self._call_start_time).total_seconds())
             print(f"[VIDEOCALL] 📊 Durée appel: {duration}s")
@@ -203,12 +256,14 @@ class MainWindow(QMainWindow):
         
         QApplication.instance().quit()
 
-    def _load_videocall(self):
+    def _load_videocall(self) -> None:
+        """Load portal video-call URL into embedded browser."""
         self.page.prompt_counter = 0
         self.web_view.setUrl(QUrl(PORTAL_URL))
         print(f"[VIDEOCALL] 🌐 Chargement: {PORTAL_URL}")
 
-def main():
+def main() -> None:
+    """Entrypoint for launching full-screen video-call runtime window."""
     config, room_name, device_name = resolve_runtime_config()
     print(f"[VIDEOCALL] ========================================")
     print(f"[VIDEOCALL] Configuration:")

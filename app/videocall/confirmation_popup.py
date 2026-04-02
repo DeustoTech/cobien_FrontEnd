@@ -1,12 +1,10 @@
-# videocall/confirmation_popup.py
-"""
-Popup de confirmation après envoi d'une demande d'appel vidéo.
+"""Confirmation modal shown after sending a video-call request.
 
-Fermeture possible :
-1. Clic sur l'écran (n'importe où)
-2. Bouton OK
-3. Auto-fermeture après 5 secondes
+This module provides a reusable Kivy popup used to acknowledge that a call
+request notification has been sent to a selected contact.
 """
+
+from typing import Any
 
 from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
@@ -19,48 +17,52 @@ from translation import _
 
 
 class CallConfirmationPopup(ModalView):
-    """
-    Popup de confirmation d'envoi de demande d'appel vidéo.
-    
-    Usage:
-        popup = CallConfirmationPopup(contact_name="Mamie")
-        popup.open()
+    """Modal confirmation popup for outgoing call-request actions.
+
+    The popup auto-dismisses after a short timeout and can also be dismissed
+    manually by the user.
     """
     
-    def __init__(self, contact_name="", **kwargs):
-        # Configuration de base du popup
+    def __init__(self, contact_name: str = "", **kwargs: Any) -> None:
+        """Initialize popup content and lifecycle callbacks.
+
+        Args:
+            contact_name: Display name of the contact receiving the call request.
+            **kwargs: Additional keyword arguments accepted by ``ModalView``.
+        """
         super().__init__(
             size_hint=(None, None),
             size=(dp(800), dp(400)),
-            auto_dismiss=True,  # ✅ Ferme si clic à l'extérieur
+            auto_dismiss=True,
             background='',
-            background_color=(0, 0, 0, 0.5),  # Fond semi-transparent
+            background_color=(0, 0, 0, 0.5),
             **kwargs
         )
         
         self.contact_name = contact_name
         
-        # ✅ Timer auto-fermeture après 5 secondes
+        # Auto-close timer handle.
         self.auto_close_timer = None
         
-        # Créer le contenu
         self._build_content()
         
-        # ✅ Démarrer timer quand popup s'ouvre
         self.bind(on_open=self._start_timer)
         self.bind(on_dismiss=self._cancel_timer)
     
-    def _build_content(self):
-        """Construit le contenu du popup"""
+    def _build_content(self) -> None:
+        """Build popup layout and interactive controls.
+
+        Returns:
+            None.
+        """
         
-        # Container principal
         container = BoxLayout(
             orientation='vertical',
             padding=dp(40),
             spacing=dp(30)
         )
         
-        # ✅ Background blanc avec bordure
+        # White container with subtle border.
         with container.canvas.before:
             Color(1, 1, 1, 1)
             self.bg_rect = RoundedRectangle(
@@ -80,10 +82,10 @@ class CallConfirmationPopup(ModalView):
         
         container.bind(pos=self._update_bg, size=self._update_bg)
         
-        # Spacer du haut
+        # Top spacer.
         container.add_widget(BoxLayout(size_hint_y=0.2))
         
-        # ✅ Message principal
+        # Primary message.
         message = Label(
             text=_("Notificación enviada"),
             font_size=sp(40),
@@ -94,7 +96,7 @@ class CallConfirmationPopup(ModalView):
         )
         container.add_widget(message)
         
-        # ✅ Message secondaire avec nom du contact
+        # Secondary message with contact name.
         if self.contact_name:
             submessage = Label(
                 text=f"{self.contact_name} {_('recibirá tu llamada')}",
@@ -105,10 +107,10 @@ class CallConfirmationPopup(ModalView):
             )
             container.add_widget(submessage)
         
-        # Spacer
+        # Middle spacer.
         container.add_widget(BoxLayout(size_hint_y=0.3))
         
-        # ✅ Bouton OK
+        # Confirmation button.
         btn_ok = Button(
             text="OK",
             size_hint=(None, None),
@@ -122,7 +124,7 @@ class CallConfirmationPopup(ModalView):
         )
         btn_ok.bind(on_release=self._close)
         
-        # Wrapper pour centrer le bouton
+        # Wrapper to center button.
         btn_wrapper = BoxLayout(size_hint_y=None, height=dp(70))
         btn_wrapper.add_widget(BoxLayout())
         btn_wrapper.add_widget(btn_ok)
@@ -132,8 +134,13 @@ class CallConfirmationPopup(ModalView):
         
         self.add_widget(container)
     
-    def _update_bg(self, instance, value):
-        """Met à jour le background quand la taille/position change"""
+    def _update_bg(self, instance: Any, value: Any) -> None:
+        """Update background geometry when container position or size changes.
+
+        Args:
+            instance: Widget instance that triggered the callback.
+            value: New Kivy property value.
+        """
         self.bg_rect.pos = instance.pos
         self.bg_rect.size = instance.size
         self.border_line.rounded_rectangle = (
@@ -142,45 +149,56 @@ class CallConfirmationPopup(ModalView):
             dp(24)
         )
     
-    def _start_timer(self, *args):
-        """Démarre le timer d'auto-fermeture (5 secondes)"""
+    def _start_timer(self, *args: Any) -> None:
+        """Start the auto-dismiss timer when the popup is opened.
+
+        Args:
+            *args: Kivy event callback arguments.
+        """
         print("[POPUP] ⏱️ Timer auto-fermeture démarré (5s)")
         self.auto_close_timer = Clock.schedule_once(self._auto_close, 5)
     
-    def _cancel_timer(self, *args):
-        """Annule le timer si popup fermée manuellement"""
+    def _cancel_timer(self, *args: Any) -> None:
+        """Cancel the auto-dismiss timer when the popup is dismissed.
+
+        Args:
+            *args: Kivy event callback arguments.
+        """
         if self.auto_close_timer:
             print("[POPUP] 🛑 Timer annulé")
             self.auto_close_timer.cancel()
             self.auto_close_timer = None
     
-    def _auto_close(self, dt):
-        """Ferme automatiquement après 5 secondes"""
+    def _auto_close(self, dt: float) -> None:
+        """Dismiss popup automatically after timeout.
+
+        Args:
+            dt: Elapsed scheduler time in seconds.
+        """
         print("[POPUP] ⏰ Auto-fermeture (5s écoulées)")
         self.dismiss()
     
-    def _close(self, *args):
-        """Ferme le popup (bouton OK)"""
+    def _close(self, *args: Any) -> None:
+        """Dismiss popup from explicit user action.
+
+        Args:
+            *args: Kivy callback arguments.
+        """
         print("[POPUP] ✅ Fermeture manuelle (bouton OK)")
         self.dismiss()
 
 
-# ==========================================
-# FONCTION HELPER POUR USAGE RAPIDE
-# ==========================================
+def show_call_sent_popup(contact_name: str = "") -> CallConfirmationPopup:
+    """Open and return a sent-call confirmation popup.
 
-def show_call_sent_popup(contact_name=""):
-    """
-    Affiche le popup de confirmation d'envoi d'appel.
-    
     Args:
-        contact_name: Nom du contact appelé
-    
+        contact_name: Called contact display name.
+
     Returns:
-        Instance du popup (pour tests/debug)
-    
-    Example:
-        show_call_sent_popup("Mamie")
+        Opened popup instance.
+
+    Examples:
+        >>> show_call_sent_popup("Mamie")
     """
     popup = CallConfirmationPopup(contact_name=contact_name)
     popup.open()
