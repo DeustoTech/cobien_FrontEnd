@@ -1,11 +1,28 @@
+"""Weather data helpers used by the weather UI screen.
+
+This module centralizes icon mapping and aggregation of data from OpenWeather
+and Open-Meteo APIs, returning a normalized bundle consumed by
+``weatherScreen.py``.
+"""
+
 from datetime import datetime, timedelta
 import os
 
 import requests
 from config_store import load_section
+from typing import Any, Dict, List, Tuple
 
 
 def map_icon_owm(weather_id: int, icon_code: str) -> str:
+    """Map OpenWeather weather identifiers to local icon assets.
+
+    Args:
+        weather_id: OpenWeather numeric weather condition code.
+        icon_code: OpenWeather icon code used to detect day/night variants.
+
+    Returns:
+        Relative icon path under ``data/images``.
+    """
     is_day = str(icon_code).endswith("d")
     if weather_id // 100 == 2:
         return "data/images/tormenta.png"
@@ -27,6 +44,15 @@ def map_icon_owm(weather_id: int, icon_code: str) -> str:
 
 
 def map_icon_openmeteo(code: int, is_day: bool) -> str:
+    """Map Open-Meteo weather codes to local icon assets.
+
+    Args:
+        code: Open-Meteo weather code.
+        is_day: Whether the forecast period is daytime.
+
+    Returns:
+        Relative icon path under ``data/images``.
+    """
     if code == 0:
         return "data/images/sol.png" if is_day else "data/images/noche.png"
     if code in (1, 2):
@@ -45,11 +71,29 @@ def map_icon_openmeteo(code: int, is_day: bool) -> str:
 
 
 def daily_icon_path(code: int, is_day: bool = True) -> str:
+    """Return existing icon path for daily forecast cards.
+
+    Args:
+        code: Open-Meteo weather code.
+        is_day: Whether daytime icon should be preferred.
+
+    Returns:
+        Existing icon path. Falls back to cloudy icon when missing.
+    """
     path = map_icon_openmeteo(code, is_day)
     return path if os.path.exists(path) else "data/images/nubes.png"
 
 
 def _openmeteo_description(code: int, api_lang: str) -> str:
+    """Resolve human-readable weather description from Open-Meteo code.
+
+    Args:
+        code: Open-Meteo weather code.
+        api_lang: Language code (for example ``"es"`` or ``"fr"``).
+
+    Returns:
+        Localized short weather description.
+    """
     desc_es = {
         0: "Despejado",
         1: "Mayormente despejado",
@@ -97,6 +141,31 @@ def _openmeteo_description(code: int, api_lang: str) -> str:
 
 
 def fetch_weather_bundle(city_name, lat, lon, tz_name, api_lang, owm_api_key, forecast_days=7):
+    """Fetch and normalize weather payload for current and forecast views.
+
+    The function combines:
+    - OpenWeather current conditions (when API key is available).
+    - Open-Meteo hourly and daily forecasts.
+
+    Args:
+        city_name: City display name.
+        lat: City latitude.
+        lon: City longitude.
+        tz_name: IANA timezone name.
+        api_lang: Response language code.
+        owm_api_key: OpenWeather API key.
+        forecast_days: Number of days requested from Open-Meteo.
+
+    Returns:
+        Dictionary containing current values, hourly forecast items, and daily
+        aggregates ready for rendering.
+
+    Raises:
+        requests.RequestException: Any request error can propagate when not
+            handled by local fallback logic.
+        KeyError: If mandatory forecast fields are missing from provider
+            responses.
+    """
     services_cfg = load_section("services", {})
     openweather_current_url = services_cfg.get("openweather_current_url", "https://api.openweathermap.org/data/2.5/weather")
     open_meteo_url = services_cfg.get("open_meteo_url", "https://api.open-meteo.com/v1/forecast")

@@ -1,4 +1,9 @@
-# file: weather/weatherScreen.py
+"""Weather screen widgets and rendering logic.
+
+This module defines the Kivy weather screen, including current conditions,
+hourly forecast, daily forecast cards, city switching, and MQTT-triggered city
+list updates.
+"""
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
@@ -350,16 +355,19 @@ Builder.load_string(KV)
 
 
 def _am_pm_label(dt: datetime) -> str:
+    """Format datetime hour as localized AM/PM short label."""
     h = dt.hour
     return f"{(h % 12) or 12} {_('a.m.')}" if h < 12 else f"{(h % 12) or 12} {_('p.m.')}"
 
 
 def _weekday_name(dt: datetime) -> str:
+    """Return localized weekday display name for a given datetime."""
     dias_keys = [_("Lunes"), _("Martes"), _("Miércoles"), _("Jueves"), _("Viernes"), _("Sábado"), _("Domingo")]
     return dias_keys[dt.weekday()]
 
 
 class WeatherScreenWidget(BoxLayout):
+    """Main weather UI container for current and forecast data."""
 
     transition_alpha = NumericProperty(1.0)
     transition_x = NumericProperty(0)
@@ -385,30 +393,36 @@ class WeatherScreenWidget(BoxLayout):
     owm_api_key = (_services_cfg.get("owm_api_key", "") or "").strip()
 
     def __init__(self, sm, **kwargs):
+        """Initialize weather screen state, listeners, and refresh jobs.
+
+        Args:
+            sm: Screen manager instance used for navigation.
+            **kwargs: Additional ``BoxLayout`` keyword arguments.
+        """
         super().__init__(**kwargs)
         self.sm = sm
 
         self.setup_mqtt_listener()
 
-        # Vocal assistant
+        # Local TTS engine used for "read weather" action.
         self.tts_engine = pyttsx3.init()
         self.tts_engine.setProperty("rate", 150)
         self.tts_engine.setProperty("volume", 0.9)
 
-        # List of cities
+        # City list state.
         self.cities = []
         self.city_index = 0
 
-        # City parameters
+        # Active city parameters.
         self.city = ""
         self.lat = 0
         self.lon = 0
         self.tz_name = "UTC"
 
-        # ✅ Language parameter for API - will be updated dynamically
-        self.api_lang = "es"  # Default
+        # API language; synchronized with app language.
+        self.api_lang = "es"
 
-        # Initialiser les textes traduits
+        # Initialize translated labels.
         self.update_labels()
 
         Clock.schedule_once(lambda dt: self._recalc_heights())
@@ -417,8 +431,7 @@ class WeatherScreenWidget(BoxLayout):
 
     
     def update_labels(self):
-        """✅ Met à jour les labels ET la langue de l'API"""
-        # ✅ Mettre à jour la langue de l'API selon la langue de l'interface
+        """Refresh localized labels and API language configuration."""
         app = App.get_running_app()
         lang = app.cfg.data.get("language", "es")
         self.api_lang = lang
@@ -428,16 +441,21 @@ class WeatherScreenWidget(BoxLayout):
         self.today_minmax_left = f"{_('Min')} —°"
         self.today_minmax_right = f"{_('Max')} —°"
         
-        # Mettre à jour le titre si disponible
+        # Refresh title if widget tree is available.
         if hasattr(self, 'ids') and 'lbl_title' in self.ids:
             self._update_title()
 
     def _update_title(self, *args):
-        """Met à jour le titre avec la ville actuelle"""
+        """Refresh weather screen title label."""
         if hasattr(self, 'ids') and 'lbl_title' in self.ids:
             self.ids.lbl_title.text = f"{_('Tiempo')}"
 
     def set_city_list(self, cities):
+        """Set available city cards and trigger initial refresh.
+
+        Args:
+            cities: List of city dictionaries with name/lat/lon/tz.
+        """
         if not cities:
             print("[WEATHER] The list is empty")
             self.show_city_navigation = False
@@ -450,7 +468,7 @@ class WeatherScreenWidget(BoxLayout):
         self._refresh_async()
 
     def _geocode_city(self, name):
-        """Résout automatiquement lat/lon/tz via OpenStreetMap."""
+        """Resolve city coordinates and timezone using Nominatim/Open-Meteo."""
         try:
             services_cfg = load_section("services", {})
             url = services_cfg.get("nominatim_search_url", "https://nominatim.openstreetmap.org/search")
@@ -463,7 +481,7 @@ class WeatherScreenWidget(BoxLayout):
             data = resp.json()
 
             if not data:
-                print(f"[GEO] {_('Aucune correspondance pour la ville')} : {name}")
+                print(f"[GEO] {_('No city match found')}: {name}")
                 return None
 
             lat = float(data[0]["lat"])
@@ -478,11 +496,11 @@ class WeatherScreenWidget(BoxLayout):
             return {"name": name, "lat": lat, "lon": lon, "tz": tz}
 
         except Exception as e:
-            print(f"[GEO] {_('Erreur géocodage')} {name}: {e}")
+            print(f"[GEO] {_('Geocoding error')} {name}: {e}")
             return None
     
     def setup_mqtt_listener(self):
-        """Configure l'écoute MQTT pour les mises à jour"""
+        """Configure MQTT listener used to update weather city lists."""
         try:
             def on_message(client, userdata, msg):
                 if msg.topic == "app/nav":
@@ -506,22 +524,21 @@ class WeatherScreenWidget(BoxLayout):
             print(f"[WEATHER] ⚠️ Erreur setup MQTT: {e}")
 
     def set_city_dynamic(self, name, lat, lon, tz):
-        """Met à jour dynamiquement la ville appelée par une carte RFID."""
+        """Update current city from external runtime trigger (for example RFID)."""
 
-        # On garde exactement le nom reçu (déjà normalisé côté publisher)
+        # Keep received display name as-is.
         target = name.strip()
 
-        # 1) Chercher cette ville dans la liste existante
+        # 1) Try to find city in existing list.
         for i, c in enumerate(self.cities):
             if c["name"].lower() == target.lower():
-                # On met l'index interne AU BON endroit
+                # Keep internal city index aligned.
                 self.city_index = i
-                # Et on applique la ville via la même logique que les flèches
+                # Reuse standard city-selection flow.
                 self._set_city(c)
                 return
 
-        # 2) Si jamais la ville n'est pas dans la liste (ne devrait pas arriver
-        #    si tout vient bien du fichier texte), on loggue juste et on affiche quand même
+        # 2) Fallback if city is missing from configured list.
         print(f"[RFID] ⚠️ Ville '{target}' non trouvée dans self.cities (liste météo)")
         self.city = target
         self.lat = lat
@@ -530,6 +547,7 @@ class WeatherScreenWidget(BoxLayout):
         self._refresh_async()
 
     def _set_city(self, c):
+        """Apply active city coordinates and trigger refresh."""
         self.city = c["name"]
         self.lat = c["lat"]
         self.lon = c["lon"]
@@ -538,6 +556,7 @@ class WeatherScreenWidget(BoxLayout):
         self._refresh_async()
 
     def next_city(self):
+        """Switch to next city with slide animation."""
         if len(self.cities) < 2:
             return
     
@@ -568,6 +587,7 @@ class WeatherScreenWidget(BoxLayout):
         anim_out.start(self)
 
     def prev_city(self):
+        """Switch to previous city with slide animation."""
         if len(self.cities) < 2:
             return
         
@@ -598,18 +618,22 @@ class WeatherScreenWidget(BoxLayout):
         anim_out.start(self)
         
     def go_back(self):
+        """Return to main screen."""
         self.sm.current = "main"
 
     def _refresh_async(self):
+        """Run weather fetch in a background thread."""
         if not self.city:
             return
         threading.Thread(target=self._fetch_all_and_render, daemon=True).start()
 
     def _recalc_heights(self, *args):
+        """Recompute card heights from current widget size."""
         avail = self.height - 2 * self.layout_gap - self.layout_gap
         self.cards_height = max(0, avail / 2.0)
 
     def speak_window_info(self):
+        """Speak concise current-weather summary."""
         texto = (
             f"{self.current_desc}. {_('Temperatura actual')} "
             f"{self.current_temp.replace('°', ' ' + _('grados'))}. "
@@ -623,6 +647,7 @@ class WeatherScreenWidget(BoxLayout):
         #self.tts_engine.runAndWait()s
 
     def _fetch_all_and_render(self):
+        """Fetch weather bundle and schedule UI rendering on main thread."""
         try:
             print(f"[WEATHER] 🌐 Fetching weather with lang={self.api_lang}")
             bundle = fetch_weather_bundle(
@@ -666,6 +691,7 @@ class WeatherScreenWidget(BoxLayout):
             print(f"[WEATHER] Error: {e}")
 
     def _render_hourly(self, items):
+        """Render hourly forecast columns."""
         grid = self.ids.hourly_grid
         grid.clear_widgets()
         for dt, temp, code in items:
@@ -680,6 +706,7 @@ class WeatherScreenWidget(BoxLayout):
             grid.add_widget(col)
 
     def _render_daily(self, days):
+        """Render daily forecast cards."""
         row = self.ids.daily_row
         row.clear_widgets()
         for d in days:
@@ -706,6 +733,7 @@ class WeatherScreenWidget(BoxLayout):
             row.add_widget(card)
 
     def _daily_icon_path(self, code, is_day=True):
+        """Resolve daily icon path for a forecast code."""
         try:
             code_int = int(code)
         except Exception:
@@ -713,9 +741,11 @@ class WeatherScreenWidget(BoxLayout):
         return daily_icon_path(code_int, is_day)
 
     def _map_icon_owm(self, weather_id: int, icon_code: str) -> str:
+        """Proxy OpenWeather icon mapping helper."""
         return map_icon_owm(weather_id, icon_code)
 
     def set_city_by_name(self, name: str):
+        """Set active city by display name lookup."""
         from weather.weatherScreen import cities
         for i, c in enumerate(cities):
             if c["name"].lower() == name.lower():
@@ -725,12 +755,13 @@ class WeatherScreenWidget(BoxLayout):
                 break
 
     def _map_icon_openmeteo(self, code: int, is_day: bool) -> str:
+        """Proxy Open-Meteo icon mapping helper."""
         return map_icon_openmeteo(code, is_day)
 
     def on_pre_enter(self, *args):
-        """✅ Mise à jour des traductions avant d'entrer dans l'écran"""
+        """Refresh translations and data before entering screen."""
         self.update_labels()
         Clock.schedule_once(lambda *_: self._update_title(), 0)
-        # ✅ Rafraîchir les données météo avec la nouvelle langue
+        # Refresh weather data with updated language.
         if self.city:
             self._refresh_async()
