@@ -13,12 +13,8 @@ except Exception:
 
 
 _SERVICES_CFG = load_section("services", {})
-TTS_ENGINE = (_SERVICES_CFG.get("tts_engine", "pyttsx3") or "pyttsx3").strip().lower()
 DEFAULT_RATE = int(_SERVICES_CFG.get("tts_rate", os.getenv("COBIEN_TTS_RATE", "155")))
 DEFAULT_VOLUME = float(_SERVICES_CFG.get("tts_volume", os.getenv("COBIEN_TTS_VOLUME", "0.85")))
-PIPER_BIN = (_SERVICES_CFG.get("tts_piper_bin", "") or "").strip()
-PIPER_MODEL_ES = (_SERVICES_CFG.get("tts_piper_model_es", "") or "").strip()
-PIPER_MODEL_FR = (_SERVICES_CFG.get("tts_piper_model_fr", "") or "").strip()
 
 
 class TTSService:
@@ -36,6 +32,17 @@ class TTSService:
             self._engine.setProperty("rate", DEFAULT_RATE)
             self._engine.setProperty("volume", DEFAULT_VOLUME)
         return self._engine
+
+    def _load_runtime_tts_config(self):
+        """Read current TTS settings from unified config at call time."""
+        services_cfg = load_section("services", {})
+        engine = (services_cfg.get("tts_engine", "pyttsx3") or "pyttsx3").strip().lower()
+        rate = int(services_cfg.get("tts_rate", os.getenv("COBIEN_TTS_RATE", str(DEFAULT_RATE))))
+        volume = float(services_cfg.get("tts_volume", os.getenv("COBIEN_TTS_VOLUME", str(DEFAULT_VOLUME))))
+        piper_bin = (services_cfg.get("tts_piper_bin", "") or "").strip()
+        piper_model_es = (services_cfg.get("tts_piper_model_es", "") or "").strip()
+        piper_model_fr = (services_cfg.get("tts_piper_model_fr", "") or "").strip()
+        return engine, rate, volume, piper_bin, piper_model_es, piper_model_fr
 
     def _voice_matches(self, voice, language):
         targets = ("french", "fr", "fr-fr") if language == "fr" else ("spanish", "es", "es-es")
@@ -69,9 +76,18 @@ class TTSService:
         if not text:
             return False
 
-        if TTS_ENGINE == "piper":
-            if self._speak_with_piper(text, language=language):
+        engine_name, rate, volume, piper_bin, piper_model_es, piper_model_fr = self._load_runtime_tts_config()
+
+        if engine_name == "piper":
+            if self._speak_with_piper(
+                text,
+                language=language,
+                configured_bin=piper_bin,
+                model_es=piper_model_es,
+                model_fr=piper_model_fr,
+            ):
                 return True
+            print("[TTS] Piper selected but unavailable/misconfigured. Falling back to pyttsx3.")
 
         engine = self._ensure_engine()
         if engine is None:
@@ -80,6 +96,8 @@ class TTSService:
 
         with self._lock:
             try:
+                engine.setProperty("rate", rate)
+                engine.setProperty("volume", volume)
                 self._select_voice(engine, language)
                 try:
                     engine.stop()
@@ -93,12 +111,12 @@ class TTSService:
                 print(text)
                 return False
 
-    def _resolve_piper_bin(self):
+    def _resolve_piper_bin(self, configured_bin=""):
         if self._piper_bin_cache:
             return self._piper_bin_cache
         candidates = []
-        if PIPER_BIN:
-            candidates.append(PIPER_BIN)
+        if configured_bin:
+            candidates.append(configured_bin)
         candidates.extend([
             "piper",
             os.path.expanduser("~/.local/bin/piper"),
@@ -116,18 +134,23 @@ class TTSService:
                     return found
         return None
 
-    def _resolve_piper_model(self, language):
-        model = PIPER_MODEL_FR if language == "fr" else PIPER_MODEL_ES
+    def _resolve_piper_model(self, language, model_es="", model_fr=""):
+        model = model_fr if language == "fr" else model_es
         if model and os.path.exists(model):
             return model
         return None
 
-    def _speak_with_piper(self, text, language="es"):
-        piper_bin = self._resolve_piper_bin()
-        model_path = self._resolve_piper_model(language)
+    def _speak_with_piper(self, text, language="es", configured_bin="", model_es="", model_fr=""):
+        piper_bin = self._resolve_piper_bin(configured_bin=configured_bin)
+        model_path = self._resolve_piper_model(language, model_es=model_es, model_fr=model_fr)
         if not piper_bin or not model_path:
+            if not piper_bin:
+                print("[TTS] Piper binary not found.")
+            if not model_path:
+                print(f"[TTS] Piper model missing for language={language}.")
             return False
         if not shutil.which("aplay"):
+            print("[TTS] aplay command not available; cannot play Piper WAV output.")
             return False
 
         try:
