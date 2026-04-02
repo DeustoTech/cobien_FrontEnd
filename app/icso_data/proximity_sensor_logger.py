@@ -1,4 +1,10 @@
-# icso_data/proximity_logger.py
+"""Proximity sensor telemetry logger for CAN-derived events.
+
+This module transforms filtered CAN proximity events into aggregated counters
+and dedicated readable log lines.
+"""
+
+from typing import Dict
 
 from icso_data.log_writer import load_full_state, write_log_json, write_log_txt
 
@@ -6,7 +12,7 @@ EVENT_MOTION_START = 0x5EBA1ADE
 EVENT_APPROACH = 0xD157A4CE
 EVENT_MOTION_END = 0xE5ABA1ED
 
-CAPTEUR_MAP = {
+SENSOR_MAP: Dict[int, str] = {
     0x475: "north",
     0x474: "south",
     0x476: "east",
@@ -21,11 +27,26 @@ LABEL_MAP = {
 }
 
 
-def log_proximity_event(can_id: int, event_code: int):
-    if can_id not in CAPTEUR_MAP:
+def log_proximity_event(can_id: int, event_code: int) -> None:
+    """Log one proximity event and update aggregated counters.
+
+    Args:
+        can_id: CAN arbitration ID of proximity sensor.
+        event_code: Decoded event code extracted from payload.
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: If state or text logs cannot be written.
+
+    Examples:
+        >>> log_proximity_event(0x475, EVENT_MOTION_START)
+    """
+    if can_id not in SENSOR_MAP:
         return
 
-    position = CAPTEUR_MAP[can_id]
+    position = SENSOR_MAP[can_id]
     state = load_full_state()
 
     if "proximity" not in state:

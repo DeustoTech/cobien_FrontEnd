@@ -1,16 +1,29 @@
-# icso_data/log_writer.py
+"""Core ICSO telemetry state and text-log writer utilities.
+
+This module centralizes:
+
+- Persistent aggregate telemetry state (`icso_log.json`).
+- Human-readable activity logs (`icso_log.txt`).
+- Dedicated proximity event log (`icso_proximity_sensors.txt`).
+
+All outputs are stored under ``app/logs``.
+"""
 
 import copy
 import json
 import os
 from datetime import datetime
+from typing import Any, Dict, Optional
 
-DATA_DIR = os.path.dirname(__file__)
-LOG_TXT = os.path.join(DATA_DIR, "icso_log.txt")
-LOG_JSON = os.path.join(DATA_DIR, "icso_log.json")
-LOG_PROXIMITY_TXT = os.path.join(DATA_DIR, "icso_proximity_sensors.txt")
+MODULE_DIR = os.path.dirname(__file__)
+APP_DIR = os.path.dirname(MODULE_DIR)
+LOG_DIR = os.path.join(APP_DIR, "logs")
 
-os.makedirs(DATA_DIR, exist_ok=True)
+LOG_TXT = os.path.join(LOG_DIR, "icso_log.txt")
+LOG_JSON = os.path.join(LOG_DIR, "icso_log.json")
+LOG_PROXIMITY_TXT = os.path.join(LOG_DIR, "icso_proximity_sensors.txt")
+
+os.makedirs(LOG_DIR, exist_ok=True)
 
 DEFAULT_STATE = {
     "page_views": {
@@ -66,8 +79,20 @@ DEFAULT_STATE = {
 }
 
 
-def _deep_merge_defaults(current, defaults):
-    """Recursively fill missing keys in current with values from defaults."""
+def _deep_merge_defaults(current: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively populate missing keys from a default state template.
+
+    Args:
+        current: Current loaded state.
+        defaults: Default state schema and values.
+
+    Returns:
+        Dict[str, Any]: State dictionary containing all required keys.
+
+    Examples:
+        >>> _deep_merge_defaults({"imu": {}}, {"imu": {"state": "idle"}})
+        {'imu': {'state': 'idle'}}
+    """
     if not isinstance(current, dict) or not isinstance(defaults, dict):
         return copy.deepcopy(defaults)
 
@@ -83,7 +108,24 @@ def _deep_merge_defaults(current, defaults):
     return current
 
 
-def load_full_state():
+def load_full_state() -> Dict[str, Any]:
+    """Load telemetry state from disk with schema self-healing.
+
+    If the state file is missing or unreadable, the default state is returned.
+    Missing nested sections are automatically restored from ``DEFAULT_STATE``.
+
+    Returns:
+        Dict[str, Any]: Complete telemetry state.
+
+    Raises:
+        No exception is propagated. Disk and parsing errors are handled
+        internally with fallback to defaults.
+
+    Examples:
+        >>> state = load_full_state()
+        >>> state["imu"]["state"]
+        'idle'
+    """
     if not os.path.exists(LOG_JSON):
         return copy.deepcopy(DEFAULT_STATE)
 
@@ -97,12 +139,49 @@ def load_full_state():
     return _deep_merge_defaults(data, DEFAULT_STATE)
 
 
-def write_log_json(state: dict):
+def write_log_json(state: Dict[str, Any]) -> None:
+    """Persist telemetry state snapshot to JSON.
+
+    Args:
+        state: Telemetry state dictionary to serialize.
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: If output file cannot be written.
+        TypeError: If state contains non-serializable values.
+    """
     with open(LOG_JSON, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=4, ensure_ascii=False)
 
 
-def write_log_txt(source, target=None, recognized: str = None):
+def write_log_txt(
+    source: Any,
+    target: Optional[str] = None,
+    recognized: Optional[str] = None,
+) -> None:
+    """Append one formatted telemetry line to text logs.
+
+    Routing rules:
+    - Proximity events are written to ``icso_proximity_sensors.txt``.
+    - All other events are written to ``icso_log.txt``.
+
+    Args:
+        source: Event source identifier (for example, ``"touchscreen"``).
+        target: Optional target/action descriptor.
+        recognized: Optional ASR recognized phrase (used for vocal assistant logs).
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: If target log file cannot be written.
+
+    Examples:
+        >>> write_log_txt(source="touchscreen", target="events")
+        >>> write_log_txt(source="vocal_assistant", target="weather", recognized="qué tiempo hace")
+    """
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     label_map = {

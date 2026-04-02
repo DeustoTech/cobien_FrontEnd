@@ -1,15 +1,36 @@
-# icso_data/imu_logger.py
+"""IMU telemetry logger.
+
+This module records IMU movement state transitions into the shared ICSO state
+and appends a readable event line through the common log writer.
+"""
+
 from .log_writer import load_full_state, write_log_json, write_log_txt
 
 
-def log_imu_event(event_type: str):
-    """
-    event_type ∈ {"movement_start", "movement_stop"}
+def log_imu_event(event_type: str) -> None:
+    """Record one IMU state transition.
+
+    Supported values:
+    - ``"movement_start"``
+    - ``"movement_stop"``
+
+    Args:
+        event_type: IMU transition event identifier.
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: If underlying state/log files cannot be written.
+
+    Examples:
+        >>> log_imu_event("movement_start")
+        >>> log_imu_event("movement_stop")
     """
 
     state = load_full_state()
 
-    # Assurer que la section IMU existe
+    # Ensure IMU section exists.
     if "imu" not in state:
         state["imu"] = {
             "state": "idle",
