@@ -20,6 +20,7 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.screenmanager import Screen
 
+from config_store import load_services, save_section
 from translation import _
 
 
@@ -298,7 +299,7 @@ class LauncherConfigScreen(Screen):
         if env_from_var:
             return env_from_var
         return os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
+            os.path.join(os.path.dirname(__file__), "..", "..", "deploy", "ubuntu", "cobien-update.env")
         )
 
     def _read_env(self) -> Dict[str, str]:
@@ -374,7 +375,8 @@ class LauncherConfigScreen(Screen):
         """Save current form values to env file and runtime config."""
         ids = self.root_view.ids
         current_env = self._read_env()
-        current_env.update(self._collect_form_values())
+        form_values = self._collect_form_values()
+        current_env.update(form_values)
         self._write_env(current_env)
 
         # sync runtime app config for immediate consistency
@@ -382,6 +384,24 @@ class LauncherConfigScreen(Screen):
         self.cfg.data["videocall_room"] = current_env["COBIEN_VIDEOCALL_ROOM"] or self.cfg.data.get("videocall_room", "CoBien1")
         self.cfg.data["device_location"] = current_env["COBIEN_DEVICE_LOCATION"] or self.cfg.data.get("device_location", "Bilbao")
         self.cfg.save()
+
+        # Sync services section so TTS engine switch applies immediately.
+        try:
+            services = load_services()
+            services["tts_engine"] = form_values.get("COBIEN_TTS_ENGINE", "pyttsx3")
+            # Keep model/bin values from env in unified config too.
+            services["tts_piper_bin"] = current_env.get("COBIEN_TTS_PIPER_BIN", services.get("tts_piper_bin", ""))
+            services["tts_piper_model_es"] = current_env.get("COBIEN_TTS_PIPER_MODEL_ES", services.get("tts_piper_model_es", ""))
+            services["tts_piper_model_fr"] = current_env.get("COBIEN_TTS_PIPER_MODEL_FR", services.get("tts_piper_model_fr", ""))
+            services["tts_piper_model_es_url"] = current_env.get(
+                "COBIEN_TTS_PIPER_MODEL_ES_URL", services.get("tts_piper_model_es_url", "")
+            )
+            services["tts_piper_model_fr_url"] = current_env.get(
+                "COBIEN_TTS_PIPER_MODEL_FR_URL", services.get("tts_piper_model_fr_url", "")
+            )
+            save_section("services", services)
+        except Exception as exc:
+            print(f"[LAUNCHER_SETTINGS] Failed to sync TTS services config: {exc}")
 
         app = App.get_running_app()
         if app and hasattr(app, "main_ref") and app.main_ref:

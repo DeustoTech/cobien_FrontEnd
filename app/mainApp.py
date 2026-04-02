@@ -599,6 +599,7 @@ class MainScreen(Screen):
         self.mqtt_port_backend = int(services_cfg.get("mqtt_backend_port", 1883))
         self.mqtt_client_backend.on_connect = self.on_connect_backend
         self.mqtt_client_backend.on_message = self.on_message_backend
+        self._subscribed_backend = False
 
         self.mqtt_topic_general = "tarjeta"
 
@@ -684,6 +685,7 @@ class MainScreen(Screen):
         self.update_labels()
 
         self._assistant_overlay = AssistantOverlay()
+        self._assistant_init_lock = threading.Lock()
 
        
     def _maybe_refresh_joke(self, force=False):
@@ -827,8 +829,11 @@ class MainScreen(Screen):
     def on_connect_backend(self, client, userdata, flags, rc):
         """Connect to backend broker for notifications."""
         if rc == 0:
+            if self._subscribed_backend:
+                return
             print("[MQTT BACKEND] Subscribed to 'videollamada' and 'tarjeta'")
             client.subscribe(self.mqtt_topic_general)
+            self._subscribed_backend = True
         else:
             print(f"[MQTT BACKEND] Connection failed, code: {rc}")
 
@@ -1685,9 +1690,10 @@ class MainScreen(Screen):
 
         log_navigation("vocal_assistant", "assistant_triggered")
 
-        # ✅ Créer l'assistant UNE seule fois et le stocker sur l'app
-        if not hasattr(app, "assistant") or app.assistant is None:
-            app.assistant = AssistantOrchestrator(self)
+        # Create assistant exactly once, protected against concurrent calls.
+        with self._assistant_init_lock:
+            if not hasattr(app, "assistant") or app.assistant is None:
+                app.assistant = AssistantOrchestrator(self)
 
         # ✅ Garder un alias local si tu en as besoin
         self.assistant = app.assistant
