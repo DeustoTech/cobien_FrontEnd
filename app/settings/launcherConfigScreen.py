@@ -23,6 +23,17 @@ from kivy.uix.screenmanager import Screen
 from config_store import load_services, save_section
 from translation import _
 
+DEFAULT_PIPER_MODEL_ES = "es_ES-davefx-medium"
+DEFAULT_PIPER_MODEL_FR = "fr_FR-mls_1840-low"
+DEFAULT_PIPER_MODEL_ES_URL = (
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/"
+    "es_ES-davefx-medium.onnx"
+)
+DEFAULT_PIPER_MODEL_FR_URL = (
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls_1840/low/"
+    "fr_FR-mls_1840-low.onnx"
+)
+
 
 class IconBadgeLauncher(ButtonBehavior, AnchorLayout):
     """Reusable icon badge button for launcher settings header."""
@@ -358,7 +369,7 @@ class LauncherConfigScreen(Screen):
     def _collect_form_values(self) -> Dict[str, str]:
         """Collect and normalize user inputs from launcher settings form."""
         ids = self.root_view.ids
-        return {
+        values = {
             "COBIEN_WORKSPACE_ROOT": ids.input_workspace.text.strip(),
             "COBIEN_FRONTEND_REPO_NAME": ids.input_frontend.text.strip(),
             "COBIEN_MQTT_REPO_NAME": ids.input_mqtt.text.strip(),
@@ -370,13 +381,28 @@ class LauncherConfigScreen(Screen):
             "COBIEN_UPDATE_INTERVAL_SEC": ids.input_interval.text.strip() or "60",
             "COBIEN_TTS_ENGINE": (ids.input_tts_engine.text or "pyttsx3").strip().lower(),
         }
+        if values["COBIEN_TTS_ENGINE"] == "piper":
+            workspace = values["COBIEN_WORKSPACE_ROOT"] or os.path.join(os.path.expanduser("~"), "cobien")
+            frontend_name = values["COBIEN_FRONTEND_REPO_NAME"] or "cobien_FrontEnd"
+            app_dir = os.path.join(workspace, frontend_name, "app")
+            values.setdefault("COBIEN_TTS_PIPER_BIN", shutil.which("piper") or os.path.expanduser("~/.local/bin/piper"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_ES", os.path.join(app_dir, "models", "piper", f"{DEFAULT_PIPER_MODEL_ES}.onnx"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_FR", os.path.join(app_dir, "models", "piper", f"{DEFAULT_PIPER_MODEL_FR}.onnx"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_ES_URL", DEFAULT_PIPER_MODEL_ES_URL)
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_FR_URL", DEFAULT_PIPER_MODEL_FR_URL)
+            values.setdefault("COBIEN_TTS_PIPER_VOICE_ES", "male")
+            values.setdefault("COBIEN_TTS_PIPER_VOICE_FR", "male")
+        return values
 
     def save_changes(self) -> None:
         """Save current form values to env file and runtime config."""
         ids = self.root_view.ids
         current_env = self._read_env()
         form_values = self._collect_form_values()
-        current_env.update(form_values)
+        for key, value in form_values.items():
+            if key.startswith("COBIEN_TTS_PIPER_") and current_env.get(key):
+                continue
+            current_env[key] = value
         self._write_env(current_env)
 
         # sync runtime app config for immediate consistency
