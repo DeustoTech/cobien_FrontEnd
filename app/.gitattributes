@@ -1,3 +1,2 @@
 *.safetensors filter=lfs diff=lfs merge=lfs -text
-face_authentication/arcface.onnx filter=lfs diff=lfs merge=lfs -text
 *.onnx filter=lfs diff=lfs merge=lfs -text

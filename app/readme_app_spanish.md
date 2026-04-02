@@ -1,6 +1,6 @@
 # CoBien Smart Furniture App
 
-Software del mueble inteligente del proyecto europeo CoBien, orientado a la inclusión digital de personas mayores. La app corre en un PC embebido y ofrece: desbloqueo facial, asistente de voz, calendario con MongoDB, tiempo, radio, recordatorios, chistes/curiosidades, videollamada y mensajería MQTT.
+Software del mueble inteligente del proyecto europeo CoBien, orientado a la inclusión digital de personas mayores. La app corre en un PC embebido y ofrece: asistente de voz, calendario con MongoDB, tiempo, radio, recordatorios, chistes/curiosidades, videollamada y mensajería MQTT.
 
 ## Tecnologias
 
@@ -8,7 +8,6 @@ Software del mueble inteligente del proyecto europeo CoBien, orientado a la incl
 - Kivy (UI)
 - Vosk (ASR offline) + pyttsx3 (TTS offline)
 - Transformers (RoBERTa) + scikit-learn (NLP intenciones)
-- ArcFace ONNX (reconocimiento facial)
 - MongoDB Atlas + PyMongo (eventos)
 - OpenWeather + Open-Meteo (tiempo)
 - python-vlc (radio)
@@ -20,7 +19,6 @@ Software del mueble inteligente del proyecto europeo CoBien, orientado a la incl
 app/
 │
 ├── mainApp.py                 # Ventana principal (Kivy) y orquestación UI
-├── startApp.py                # Arranque con control de acceso facial
 ├── mqtt_publisher.py          # Tester MQTT (CLI)
 │
 ├── events/
@@ -29,7 +27,6 @@ app/
 ├── reminders/
 ├── jokes/
 ├── videocall/
-├── face_authentication/
 ├── virtual_assistant/
 ├── board/                      # Pendiente de desarrollo
 │
@@ -149,32 +146,14 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 #### Datos
 - intent_dataset.json (frases de ejemplo).
 
-### 4) face_authentication/ — control de acceso facial (ArcFace)
-
-#### face_unlock.py
-- Modelo arcface.onnx con onnxruntime.
-- Registro: 5 capturas con Haar Cascade → embedding L2.
-- Guardado: face_data.json.
-- Verificación: calcula similitud coseno y umbral 0.5.
-- Logs: logs/face_unlock_results.txt.
-- Helpers: is_user_registered(), get_registered_name(), save_face().
-
-#### authentication.py
-- Flujo principal: si no hay usuario, registra; si hay, reconoce.
-- Logs en logs/unlock_log.txt.
-
-#### authentication_guest.py
-- Variante invitado: si no reconoce, entra como Invitado.
-- Logs iguales.
-
-### 5) radio/
+### 4) radio/
 
 #### radioScreen.py
 - UI vertical con botón Volver y lista de emisoras.
 - Reproduce con vlc.MediaPlayer.
 - play_radio(url) detiene si ya hay algo y lanza reproducción.
 
-### 6) jokes/
+### 5) jokes/
 
 #### jokesScreen.py
 - Carga dataset mrm8488/CHISTES_spanish_jokes.
@@ -182,7 +161,7 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 - Muestra un chiste aleatorio.
 - Evita repetir el último.
 
-### 7) reminders/
+### 6) reminders/
 
 #### reminders.py
 - RecordatorioManager con persistencia en reminders/recordatorios.json.
@@ -190,12 +169,12 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 - Reprograma pendientes al iniciar.
 - Muestra recordatorios con app.speak_text y los elimina tras ejecutarse.
 
-### 8) videocall/
+### 7) videocall/
 - Ventana PyQt5/QWebEngine que carga la web del proyecto.
 - Sala y usuario por defecto: Maria.
 - Pantalla completa; botón salir vuelve a la app.
 
-### 9) mqtt_publisher.py
+### 8) mqtt_publisher.py
 - CLI de pruebas MQTT.
 - Broker: broker.hivemq.com (port 1883).
 - Topics: tarjeta y videollamada.
@@ -207,8 +186,6 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 |---|---|
 | events/eventos_local.json | Caché local de eventos |
 | reminders/recordatorios.json | Recordatorios pendientes |
-| logs/unlock_log.txt | Registro de accesos/registro facial |
-| logs/face_unlock_results.txt | Similaridades/resultado ArcFace |
 | weather/weather_today.json | Min/Max observados del día |
 
 ## Instalación
@@ -234,6 +211,5 @@ NEWS_API_KEY
 SPOONACULAR_API_KEY
 
 4) Ejecución
-python startApp.py  # con control de acceso
 python mainApp.py   # solo interfaz (sin cámara)
 python mqtt_publisher.py  # prueba MQTT

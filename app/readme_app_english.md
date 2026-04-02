@@ -1,6 +1,6 @@
 # CoBien Smart Furniture App
 
-Software for the CoBien smart furniture project, aimed at digital inclusion for elderly users. The app runs on an embedded PC and provides: facial recognition login, voice assistant, calendar with MongoDB, weather, radio, reminders, jokes, video calls, and MQTT messaging.
+Software for the CoBien smart furniture project, aimed at digital inclusion for elderly users. The app runs on an embedded PC and provides: voice assistant, calendar with MongoDB, weather, radio, reminders, jokes, video calls, and MQTT messaging.
 
 ## Stack
 
@@ -8,7 +8,6 @@ Software for the CoBien smart furniture project, aimed at digital inclusion for 
 - Kivy (UI)
 - Vosk (offline ASR) + pyttsx3 (offline TTS)
 - Transformers (RoBERTa) + scikit-learn (NLP intent classification)
-- ArcFace ONNX (facial recognition)
 - MongoDB Atlas + PyMongo (events)
 - OpenWeather + Open-Meteo (weather)
 - python-vlc (radio)
@@ -20,7 +19,6 @@ Software for the CoBien smart furniture project, aimed at digital inclusion for 
 app/
 │
 ├── mainApp.py                 # Main window (Kivy) and UI orchestration
-├── startApp.py                # Launch with facial access control
 ├── mqtt_publisher.py          # MQTT CLI tester
 │
 ├── events/
@@ -29,7 +27,6 @@ app/
 ├── reminders/
 ├── jokes/
 ├── videocall/
-├── face_authentication/
 ├── virtual_assistant/
 ├── board/                      # Pending development
 │
@@ -149,32 +146,14 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 #### Data
 - intent_dataset.json (sample phrases).
 
-### 4) face_authentication/ — Facial Access Control (ArcFace)
-
-#### face_unlock.py
-- Loads arcface.onnx with onnxruntime.
-- Registration: 5 captures with Haar Cascade → embedding with L2 normalization.
-- Saves to face_data.json.
-- Verification: cosine similarity threshold 0.5.
-- Logs: logs/face_unlock_results.txt.
-- Helpers: is_user_registered(), get_registered_name(), save_face().
-
-#### authentication.py
-- Main flow: if no user, registers; if user exists, authenticates.
-- Logs in logs/unlock_log.txt.
-
-#### authentication_guest.py
-- Guest mode: if unrecognized, enters as Guest.
-- Same logging.
-
-### 5) radio/
+### 4) radio/
 
 #### radioScreen.py
 - Vertical layout with Back button and radio list.
 - Plays using vlc.MediaPlayer.
 - play_radio(url) stops current playback and starts new one.
 
-### 6) jokes/
+### 5) jokes/
 
 #### jokesScreen.py
 - Loads dataset mrm8488/CHISTES_spanish_jokes.
@@ -182,7 +161,7 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 - Displays one random joke.
 - Avoids repeating the previous one.
 
-### 7) reminders/
+### 6) reminders/
 
 #### reminders.py
 - RecordatorioManager with persistent storage in reminders/recordatorios.json.
@@ -190,12 +169,12 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 - Reschedules pending reminders at startup.
 - Announces reminders via app.speak_text and removes them after execution.
 
-### 8) videocall/
+### 7) videocall/
 - PyQt5/QWebEngine window loading project website.
 - Default room and user: Maria.
 - Fullscreen; exit button returns to main app.
 
-### 9) mqtt_publisher.py
+### 8) mqtt_publisher.py
 - MQTT CLI testing tool.
 - Broker: broker.hivemq.com (port 1883).
 - Topics: tarjeta and videollamada.
@@ -207,8 +186,6 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 |---|---|
 | events/eventos_local.json | Local event cache |
 | reminders/recordatorios.json | Pending reminders |
-| logs/unlock_log.txt | Facial access/registration logs |
-| logs/face_unlock_results.txt | ArcFace similarity results |
 | weather/weather_today.json | Observed min/max of the day |
 
 ## Installation
@@ -234,6 +211,5 @@ NEWS_API_KEY
 SPOONACULAR_API_KEY
 
 4) Execution
-python startApp.py  # with facial access control
 python mainApp.py   # only UI (no camera)
 python mqtt_publisher.py  # MQTT test

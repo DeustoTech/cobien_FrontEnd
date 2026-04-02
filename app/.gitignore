@@ -2,7 +2,6 @@
 __pycache__/
 board/board_cache/
 events/eventos_local.json
-face_authentication/face_data.json
 icso_data/*.json
 icso_data/*.txt
 logs/
