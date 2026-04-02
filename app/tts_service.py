@@ -140,14 +140,25 @@ class TTSService:
             return model
         return None
 
+    def _resolve_piper_model_config(self, model_path):
+        if not model_path:
+            return None
+        config_path = f"{model_path}.json"
+        if os.path.exists(config_path):
+            return config_path
+        return None
+
     def _speak_with_piper(self, text, language="es", configured_bin="", model_es="", model_fr=""):
         piper_bin = self._resolve_piper_bin(configured_bin=configured_bin)
         model_path = self._resolve_piper_model(language, model_es=model_es, model_fr=model_fr)
-        if not piper_bin or not model_path:
+        model_config_path = self._resolve_piper_model_config(model_path)
+        if not piper_bin or not model_path or not model_config_path:
             if not piper_bin:
                 print("[TTS] Piper binary not found.")
             if not model_path:
                 print(f"[TTS] Piper model missing for language={language}.")
+            if model_path and not model_config_path:
+                print(f"[TTS] Piper model config missing: {model_path}.json")
             return False
         if not shutil.which("aplay"):
             print("[TTS] aplay command not available; cannot play Piper WAV output.")
@@ -157,8 +168,13 @@ class TTSService:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                 wav_path = tmp_file.name
             cmd = [piper_bin, "--model", model_path, "--output_file", wav_path]
-            proc = subprocess.run(cmd, input=text.encode("utf-8"), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            proc = subprocess.run(cmd, input=text.encode("utf-8"), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
             if proc.returncode != 0:
+                err = (proc.stderr or b"").decode("utf-8", errors="ignore").strip()
+                if err:
+                    print(f"[TTS] Piper failed: {err}")
+                else:
+                    print("[TTS] Piper failed with a non-zero exit code.")
                 return False
             play = subprocess.run(["aplay", "-q", wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
             return play.returncode == 0

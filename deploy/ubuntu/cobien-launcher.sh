@@ -756,31 +756,41 @@ configure_tts_runtime() {
     local lang="$1"
     local model_path="$2"
     local model_url="$3"
-    local model_dir model_tmp
+    local model_dir model_tmp config_path config_url config_tmp
     model_dir="$(dirname "$model_path")"
+    config_path="${model_path}.json"
+    config_url="${model_url}.json"
     mkdir -p "$model_dir"
 
-    if [[ -f "$model_path" ]]; then
-      log "Piper $lang model already present: $model_path"
-      return 0
-    fi
-
     if [[ -z "$model_url" ]]; then
-      log "Piper $lang model URL is empty and model file is missing: $model_path"
+      log "Piper $lang model URL is empty and model assets are incomplete: $model_path"
       return 1
     fi
 
-    log "Downloading Piper $lang model from: $model_url"
-    model_tmp="${model_path}.tmp"
-    if ! download_file "$model_url" "$model_tmp"; then
-      rm -f "$model_tmp" || true
-      log "Failed to download Piper $lang model."
-      return 1
+    if [[ ! -f "$model_path" ]]; then
+      log "Downloading Piper $lang model from: $model_url"
+      model_tmp="${model_path}.tmp"
+      if ! download_file "$model_url" "$model_tmp"; then
+        rm -f "$model_tmp" || true
+        log "Failed to download Piper $lang model."
+        return 1
+      fi
+      mv -f "$model_tmp" "$model_path"
+    else
+      log "Piper $lang model already present: $model_path"
     fi
-    mv -f "$model_tmp" "$model_path"
 
-    if [[ ! -f "${model_path}.json" ]]; then
-      download_file "${model_url}.json" "${model_path}.json" >/dev/null 2>&1 || true
+    if [[ ! -f "$config_path" ]]; then
+      log "Downloading Piper $lang model config from: $config_url"
+      config_tmp="${config_path}.tmp"
+      if ! download_file "$config_url" "$config_tmp"; then
+        rm -f "$config_tmp" || true
+        log "Failed to download Piper $lang model config."
+        return 1
+      fi
+      mv -f "$config_tmp" "$config_path"
+    else
+      log "Piper $lang model config already present: $config_path"
     fi
 
     log "Piper $lang model installed at: $model_path"
