@@ -1,6 +1,6 @@
 # CoBien Smart Furniture App
 
-Software for the CoBien smart furniture project, aimed at digital inclusion for elderly users. The app runs on an embedded PC and provides: facial recognition login, voice assistant, calendar with MongoDB, weather, radio, reminders, jokes/curiosities, video calls, and MQTT messaging.
+Software for the CoBien smart furniture project, aimed at digital inclusion for elderly users. The app runs on an embedded PC and provides: facial recognition login, voice assistant, calendar with MongoDB, weather, radio, reminders, jokes, video calls, and MQTT messaging.
 
 ## Stack
 
@@ -32,7 +32,6 @@ app/
 ├── face_authentication/
 ├── virtual_assistant/
 ├── board/                      # Pending development
-├── curiosities/                # Pending development
 │
 ├── images/
 └── logs/

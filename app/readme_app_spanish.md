@@ -32,7 +32,6 @@ app/
 ├── face_authentication/
 ├── virtual_assistant/
 ├── board/                      # Pendiente de desarrollo
-├── curiosities/                # Pendiente de desarrollo
 │
 ├── images/
 └── logs/
