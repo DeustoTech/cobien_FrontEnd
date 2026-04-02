@@ -1,7 +1,14 @@
-# videocall/contactScreen.py
+"""Contact screen for video-call initiation.
+
+This module renders contact cards used to request video calls, loading contact
+metadata from ``app/contacts/list_contacts.txt`` and matching local contact
+images when available.
+"""
+
 import os
 import unicodedata
 import re
+from typing import Any, Dict, List
 from translation import _
 from datetime import datetime
 from kivy.uix.screenmanager import Screen
@@ -18,10 +25,9 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.app import App
 from videocall.request_call import send_pizarra_notification
 
-# ✅ NOUVEAU : Importer le popup
 from videocall.confirmation_popup import show_call_sent_popup
 
-# Logs ICSO
+# ICSO logs
 from icso_data.navigation_logger import log_navigation
 from icso_data.videocall_logger import log_call_request
 
@@ -31,37 +37,86 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR = os.path.join(os.path.dirname(BASE_DIR), "images")
 CONTACT_DIR = os.path.join(os.path.dirname(BASE_DIR), "contacts")
 
-def img_path(name):
+def img_path(name: str) -> str:
+    """Resolve an image file from the shared `images` directory.
+
+    Args:
+        name: Image file name (for example, ``"back.png"``).
+
+    Returns:
+        Absolute path if the file exists, otherwise an empty string.
+
+    Examples:
+        >>> icon = img_path("voice.png")
+    """
     p = os.path.join(IMG_DIR, name)
     return p if os.path.exists(p) else ""
 
-def img_contact_path(name):
+def img_contact_path(name: str) -> str:
+    """Resolve a contact image file from the `contacts` directory.
+
+    Args:
+        name: Contact image file name.
+
+    Returns:
+        Absolute path if the file exists, otherwise an empty string.
+    """
     p = os.path.join(CONTACT_DIR, name)
     return p if os.path.exists(p) else ""
 
 list_contact_path = os.path.join(CONTACT_DIR, "list_contacts.txt")
 
 # ------------------- Tools -------------------
-def normalize_name(name):
+def normalize_name(name: str) -> str:
+    """Normalize display names for deterministic image file lookup.
+
+    The normalization removes diacritics, lowercases the value and strips any
+    non alphanumeric character.
+
+    Args:
+        name: Raw display name.
+
+    Returns:
+        Normalized slug-like string.
+
+    Examples:
+        >>> normalize_name("María José")
+        'mariajose'
+    """
     name = ''.join(
         c for c in unicodedata.normalize('NFD', name)
         if unicodedata.category(c) != 'Mn'
     )
     return re.sub(r'[^a-z0-9]', '', name.lower())
 
-def load_contacts_from_file(file_path, default_image):
+def load_contacts_from_file(file_path: str, default_image: str) -> List[Dict[str, str]]:
+    """Load contacts from a key-value text file.
+
+    Expected line format:
+    ``DisplayName=username``
+
+    Image resolution strategy:
+    1. Normalize ``DisplayName``.
+    2. Search for a matching file in supported extensions.
+    3. Use ``default_image`` if no image is found.
+
+    Args:
+        file_path: Path to the contacts mapping file.
+        default_image: Fallback image path used when no specific photo is found.
+
+    Returns:
+        A list of dictionaries with keys:
+        ``display_name``, ``user_name``, ``image``.
+
+    Raises:
+        No exception is propagated. Missing files return an empty list.
+
+    Examples:
+        >>> contacts = load_contacts_from_file("list_contacts.txt", "default_user.png")
     """
-    Format attendu :
-    Mamie=iris
-    Papa=alexandre
-    Jules=jules
-    
-    ✅ Supporte PNG, JPG, JPEG, BMP, GIF, WebP
-    ✅ Cherche d'abord .png, puis .jpg, puis .jpeg, etc.
-    """
-    contacts = []
+    contacts: List[Dict[str, str]] = []
     if not os.path.exists(file_path):
-        print("Aucun fichier list_contacts.txt")
+        print("[CONTACTS] list_contacts.txt not found")
         return contacts
     
     with open(file_path, "r", encoding="utf-8") as f:
@@ -72,24 +127,24 @@ def load_contacts_from_file(file_path, default_image):
             display_name = display_name.strip()
             user_name = user_name.strip()
             
-            # Chercher l'image avec plusieurs extensions possibles
+            # Search image with multiple supported extensions
             img_base_name = normalize_name(display_name)
             img_path_final = None
             
-            # Liste des extensions supportées (par ordre de priorité)
+            # Supported extensions in lookup priority order
             extensions = ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG', '.bmp', '.gif', '.webp']
             
             for ext in extensions:
                 test_path = img_contact_path(img_base_name + ext)
                 if test_path and os.path.exists(test_path):
                     img_path_final = test_path
-                    print(f"[CONTACTS] ✅ Image trouvée: {img_base_name}{ext}")
+                    print(f"[CONTACTS] ✅ Image found: {img_base_name}{ext}")
                     break
             
-            # Si aucune image trouvée, utiliser l'image par défaut
+            # Fallback to default image
             if not img_path_final:
                 img_path_final = default_image
-                print(f"[CONTACTS] ⚠️ Pas d'image pour '{display_name}', utilisation image par défaut")
+                print(f"[CONTACTS] ⚠️ Missing image for '{display_name}', using default image")
             
             contacts.append({
                 "display_name": display_name,
@@ -208,10 +263,22 @@ Builder.load_string(CONTACT_KV)
 
 # ------------------- Widgets -------------------
 class ContactRoot(FloatLayout):
+    """Root layout for the contacts screen KV tree."""
+
     pass
 
 class ContactCard(ButtonBehavior, BoxLayout):
-    def __init__(self, display_name, user_name, image_source, **kwargs):
+    """Clickable card representing one contact target."""
+
+    def __init__(self, display_name: str, user_name: str, image_source: str, **kwargs: Any) -> None:
+        """Initialize a contact card widget.
+
+        Args:
+            display_name: Name shown to the user.
+            user_name: Backend username used for notification target.
+            image_source: Local image path for the contact card.
+            **kwargs: Additional Kivy widget keyword arguments.
+        """
         super().__init__(orientation="vertical",
                          size_hint=(None, None),
                          size=(dp(570), dp(830)),
@@ -246,63 +313,71 @@ class ContactCard(ButtonBehavior, BoxLayout):
             text_size=(None, None),
         ))
     
-    def _update_bg(self, *args):
+    def _update_bg(self, *args: Any) -> None:
+        """Keep the rounded background rectangle aligned with widget geometry."""
         self.bg.pos = self.pos
         self.bg.size = self.size
     
-    def on_release(self):
-        """
-        ✅ MODIFIÉ : Affiche popup après envoi de la notification
-        """
-        # 1. Envoyer la notification
-        send_pizarra_notification(self.user_name)
-        
-        # 2. Afficher le popup de confirmation
-        show_call_sent_popup(contact_name=self.display_name)
+    def on_release(self) -> None:
+        """Handle contact click by requesting a call and showing confirmation.
 
-        # 3. Logger la demande d'appel
+        Returns:
+            None.
+
+        Raises:
+            Any exception raised by downstream notification services can propagate
+            if those services do not handle errors internally.
+        """
+        send_pizarra_notification(self.user_name)
+        show_call_sent_popup(contact_name=self.display_name)
         log_navigation("touchscreen", "videocall request")
         log_call_request()
         
-        print(f"[CONTACT] 📞 Notification envoyée à {self.user_name} ({self.display_name})")
+        print(f"[CONTACT] 📞 Notification sent to {self.user_name} ({self.display_name})")
 
-# ------------------- Screen -------------------
 class ContactScreen(Screen):
-    def __init__(self, sm, contacts_file=list_contact_path, **kwargs):
+    """Contacts browser used to trigger video-call notifications."""
+
+    def __init__(self, sm: Any, contacts_file: str = list_contact_path, **kwargs: Any) -> None:
+        """Initialize contacts screen and schedule UI refresh routines.
+
+        Args:
+            sm: Parent Kivy `ScreenManager`.
+            contacts_file: Contacts source file path.
+            **kwargs: Standard Kivy `Screen` keyword arguments.
+        """
         super().__init__(**kwargs)
         self.sm = sm
         self.root_view = Factory.ContactRoot()
         self.add_widget(self.root_view)
         
-        # ✅ FIX : Sauvegarder le chemin du fichier pour rechargement
+        # Keep contacts file path for future reloads.
         self.contacts_file = contacts_file
         
         self.default_image = img_contact_path("default_user.png")
         self.contacts = load_contacts_from_file(contacts_file, self.default_image)
-        print(f"[ContactScreen] {len(self.contacts)} contacts chargés.")
+        print(f"[ContactScreen] Loaded contacts: {len(self.contacts)}")
         
         Clock.schedule_once(self._populate_contacts, 0.2)
         Clock.schedule_interval(self._refresh_header, 1)
         
-        # ✅ Mettre à jour labels après création UI
+        # Update translated labels after UI creation.
         Clock.schedule_once(lambda *_: self.update_labels(), 0.3)
     
-    def update_labels(self):
-        """✅ Met à jour tous les labels traduits"""
-        # Mettre à jour le titre "Contacts"
+    def update_labels(self) -> None:
+        """Refresh all translatable labels on the contacts screen."""
         if hasattr(self.root_view, 'ids'):
             ids = self.root_view.ids
             if 'lbl_contacts' in ids:
                 ids.lbl_contacts.text = _("Contactos")
         
-        # Mettre à jour date/heure avec traduction
         self._refresh_header()
     
-    def _refresh_header(self, *args):
-        """Met à jour date et heure avec traductions"""
+    def _refresh_header(self, *args: Any) -> None:
+        """Refresh translated date/time values shown in the contacts header."""
         now = datetime.now()
         
-        # ✅ Mois et jours traduits (comme dans mainApp.py)
+        # Translated month and day labels.
         months = [
             _("enero"), _("febrero"), _("marzo"), _("abril"), _("mayo"), _("junio"),
             _("julio"), _("agosto"), _("septiembre"), _("octubre"), _("noviembre"), _("diciembre")
@@ -317,15 +392,14 @@ class ContactScreen(Screen):
             
         ids = self.root_view.ids
         
-        # ✅ Format identique à mainApp.py
         if 'lbl_today' in ids and ids.lbl_today:
             ids.lbl_today.text = f"{days[now.weekday()].capitalize()}, {now.day} {_('de')} {months[now.month-1]}, {now.year}"
     
         if 'lbl_time' in ids and ids.lbl_time:
             ids.lbl_time.text = now.strftime("%H:%M")
     
-    def _populate_contacts(self, *args):
-        """Remplit la liste des contacts"""
+    def _populate_contacts(self, *args: Any) -> None:
+        """Populate the horizontal contact card list from loaded contacts."""
         if not hasattr(self.root_view, 'ids') or 'contacts_row' not in self.root_view.ids:
             return
             
@@ -339,24 +413,25 @@ class ContactScreen(Screen):
             )
             row.add_widget(card)
 
-    def reload_contacts_from_disk(self):
-        """Reload contacts file and refresh cards."""
+    def reload_contacts_from_disk(self) -> None:
+        """Reload contacts file and refresh visible cards."""
         self.contacts = load_contacts_from_file(self.contacts_file, self.default_image)
         print(f"[CONTACTS] ✅ Reloaded contacts from disk: {len(self.contacts)}")
         self._populate_contacts()
     
-    def on_pre_enter(self, *args):
-        """✅ Appelé avant d'afficher l'écran - RECHARGE LES CONTACTS"""
-        print("[CONTACTS] 🔄 on_pre_enter: rechargement contacts...")
+    def on_pre_enter(self, *args: Any) -> None:
+        """Kivy hook executed before entering the screen.
+
+        This method refreshes contacts from disk to ensure runtime edits in
+        ``list_contacts.txt`` are reflected without restarting the app.
+        """
+        print("[CONTACTS] 🔄 on_pre_enter: reloading contacts...")
         print("=" * 80)
-        print("🔥 ON_PRE_ENTER APPELÉ !!!!")
-        print(f"🔍 Contacts actuels: {len(self.contacts)}")
-        print(f"🔍 Fichier: {self.contacts_file}")
-        print(f"🔍 Fichier existe? {os.path.exists(self.contacts_file)}")
+        print("🔥 ON_PRE_ENTER CALLED")
+        print(f"🔍 Current contacts: {len(self.contacts)}")
+        print(f"🔍 File: {self.contacts_file}")
+        print(f"🔍 File exists? {os.path.exists(self.contacts_file)}")
         print("=" * 80)
         
-        # Recharger contacts depuis le fichier
         self.reload_contacts_from_disk()
-
-        # Mettre à jour labels traduits
         self.update_labels()
