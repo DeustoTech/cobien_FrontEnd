@@ -1,14 +1,30 @@
-# virtual_assistant/commands.py
-import os
+"""Keyword-based command matcher for the voice assistant.
 
-def load_contact_names():
-    """
-    Charge les prénoms depuis contacts/list_contacts.txt
-    Format attendu : Prenom=identifiant
+This module loads contact names dynamically and maps recognized utterances to
+navigation targets used by the Kivy application.
+"""
+
+import os
+from typing import Dict, List, Optional
+
+def load_contact_names() -> List[str]:
+    """Load contact first names from the contacts mapping file.
+
+    Expected format per line:
+    ``DisplayName=identifier``
+
+    Returns:
+        Lower-cased contact display names. Returns an empty list when the file
+        is missing.
+
+    Examples:
+        >>> names = load_contact_names()
+        >>> isinstance(names, list)
+        True
     """
     names = []
 
-    base_dir = os.path.dirname(__file__)  # virtual_assistant/
+    base_dir = os.path.dirname(__file__)
     contacts_file = os.path.join(base_dir, "..", "contacts", "list_contacts.txt")
 
     try:
@@ -22,13 +38,13 @@ def load_contact_names():
                     names.append(prenom)
 
     except FileNotFoundError:
-        print(f"[WARN] Fichier contacts introuvable: {contacts_file}")
+        print(f"[WARN] Contacts file not found: {contacts_file}")
 
     return names
 
 CONTACT_NAMES = load_contact_names()
 
-COMMANDS = {
+COMMANDS: Dict[str, Dict[str, List[str] | str]] = {
     "weather": {
         "keywords": [
             # French
@@ -73,7 +89,11 @@ COMMANDS = {
 
 
 def refresh_contact_keywords():
-    """Reload contact names from disk and refresh contact command keywords."""
+    """Reload contact names and rebuild contact-related keywords list.
+
+    Returns:
+        None.
+    """
     global CONTACT_NAMES
     CONTACT_NAMES = load_contact_names()
     base_keywords = [
@@ -82,7 +102,19 @@ def refresh_contact_keywords():
     ]
     COMMANDS["contacts"]["keywords"] = base_keywords + CONTACT_NAMES
 
-def match_command(text: str):
+def match_command(text: str) -> Optional[str]:
+    """Match an utterance against known keyword groups.
+
+    Args:
+        text: Recognized user utterance.
+
+    Returns:
+        Navigation target key when a keyword match is found, otherwise ``None``.
+
+    Examples:
+        >>> match_command("quiero ver el tiempo") in {"tiempo", None}
+        True
+    """
     text = text.lower()
 
     for command in COMMANDS.values():

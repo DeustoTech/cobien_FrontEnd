@@ -1,4 +1,9 @@
-# app/virtual_assistant/actions.py
+"""Intent action handlers executed by the voice assistant.
+
+This module maps normalized assistant intents to side effects such as
+navigation, weather/news lookups, reminder scheduling, and conversational
+responses.
+"""
 
 from kivy.clock import Clock
 from datetime import datetime
@@ -9,6 +14,7 @@ from bs4 import BeautifulSoup
 import re
 from googletrans import Translator
 from config_store import load_section
+from typing import Any, Callable, Dict, Optional, Tuple
 
 _SERVICES_CFG = load_section("services", {})
 HTTP_TIMEOUT = float(_SERVICES_CFG.get("http_timeout_sec", os.getenv("COBIEN_HTTP_TIMEOUT", "8")))
@@ -26,11 +32,27 @@ SPOON_INFO_URL_TEMPLATE = _SERVICES_CFG.get(
 
 
 class ActionExecutor:
-    def __init__(self, app_reference):
-        self.app = app_reference  # Reference to the main Kivy app
+    """Execute domain actions corresponding to assistant intents."""
+
+    def __init__(self, app_reference: Any) -> None:
+        """Initialize executor with a reference to the running app.
+
+        Args:
+            app_reference: Main Kivy application instance.
+        """
+        self.app = app_reference
         self.recordatorio_manager = RecordatorioManager(app_reference)
 
-    def ejecutar(self, intencion, *args):
+    def ejecutar(self, intencion: str, *args: Any) -> str:
+        """Execute the action associated with an intent key.
+
+        Args:
+            intencion: Intent identifier resolved by NLP layer.
+            *args: Optional action parameters.
+
+        Returns:
+            Spoken/returned response text for the executed action.
+        """
         acciones = {
             "ver_eventos": self.ver_eventos,
             "consultar_clima": self.consultar_clima,
@@ -67,34 +89,36 @@ class ActionExecutor:
 
         return texto_a_decir
 
-    # ------------------------------------------------------------
-    # ACCIONES PRINCIPALES
-    # ------------------------------------------------------------
-    def ver_eventos(self):
+    def ver_eventos(self) -> str:
+        """Navigate to the events screen."""
         texto = "Mostrando eventos..."
         print(texto)
         Clock.schedule_once(lambda dt: self.app.cambiar_a_pantalla("events"))
         return texto
 
-    def iniciar_llamada(self):
+    def iniciar_llamada(self) -> str:
+        """Navigate to the video-call screen."""
         texto = "Iniciando videollamada..."
         print(texto)
         Clock.schedule_once(lambda dt: self.app.cambiar_a_pantalla("videocall"))
         return texto
 
-    def consultar_fecha(self):
+    def consultar_fecha(self) -> str:
+        """Return current local date."""
         hoy = datetime.now().strftime("%d/%m/%Y")
         texto = f"Hoy es {hoy}."
         print(texto)
         return texto
 
-    def consultar_hora(self):
+    def consultar_hora(self) -> str:
+        """Return current local time."""
         hora_actual = datetime.now().strftime("%H:%M")
         texto = f"La hora actual es {hora_actual}."
         print(texto)
         return texto
 
-    def consultar_clima(self):
+    def consultar_clima(self) -> str:
+        """Fetch and summarize current weather for the configured default city."""
         texto = "Consultando el clima..."
         print(texto)
 
@@ -119,7 +143,8 @@ class ActionExecutor:
         print(texto)
         return texto
 
-    def consultar_pronostico(self):
+    def consultar_pronostico(self) -> str:
+        """Fetch and summarize weather forecast for the default city."""
         texto = "Consultando el pronóstico del tiempo..."
         print(texto)
 
@@ -149,7 +174,16 @@ class ActionExecutor:
         print(texto)
         return texto
 
-    def configurar_recordatorio(self, tiempo_en_segundos, mensaje):
+    def configurar_recordatorio(self, tiempo_en_segundos: int, mensaje: str) -> str:
+        """Schedule an in-process reminder callback.
+
+        Args:
+            tiempo_en_segundos: Reminder delay in seconds.
+            mensaje: Reminder text to be spoken/displayed.
+
+        Returns:
+            Confirmation message.
+        """
         texto = f"Recordatorio configurado para dentro de {tiempo_en_segundos} segundos."
         print(texto)
 
@@ -161,12 +195,14 @@ class ActionExecutor:
         Clock.schedule_once(mostrar_recordatorio, tiempo_en_segundos)
         return texto
 
-    def establecer_recordatorio(self, tiempo_en_segundos, mensaje):
+    def establecer_recordatorio(self, tiempo_en_segundos: int, mensaje: str) -> str:
+        """Delegate reminder persistence to ``RecordatorioManager``."""
         texto = self.recordatorio_manager.configurar_recordatorio(tiempo_en_segundos, mensaje)
         print(texto)
         return texto
 
-    def extraer_recordatorio(self, texto):
+    def extraer_recordatorio(self, texto: str) -> Tuple[int, str]:
+        """Extract reminder delay and message from raw utterance text."""
         texto = texto.lower()
         match = re.search(r"(\d+)\s*(segundos?|minutos?)", texto)
         if match:
@@ -180,7 +216,8 @@ class ActionExecutor:
             mensaje = "Tienes un recordatorio pendiente"
         return segundos, mensaje
 
-    def consultar_noticias(self):
+    def consultar_noticias(self) -> str:
+        """Fetch and summarize latest headlines."""
         texto = "Consultando las últimas noticias..."
         print(texto)
 
@@ -203,7 +240,8 @@ class ActionExecutor:
         print(texto)
         return texto
 
-    def extraer_consulta_general(self, texto):
+    def extraer_consulta_general(self, texto: str) -> str:
+        """Normalize generic query utterances by removing prompt prefixes."""
         texto = texto.lower()
         expresiones = [
             r"quiero saber sobre", r"cu[aá]ntame sobre", r"d[ií]me sobre",
@@ -214,7 +252,8 @@ class ActionExecutor:
             texto = re.sub(patron, "", texto).strip()
         return texto
 
-    def consultar_receta(self, receta):
+    def consultar_receta(self, receta: str) -> str:
+        """Fetch and translate one recipe from Spoonacular."""
         texto = f"Buscando receta para {receta}..."
         print(texto)
 
@@ -250,44 +289,51 @@ class ActionExecutor:
         print(texto)
         return texto
 
-    def extraer_receta(self, texto):
+    def extraer_receta(self, texto: str) -> str:
+        """Extract recipe target text from a natural-language request."""
         palabras_clave = ["una", "receta", "de", "para", "quiero", "hazme", "prepara", "pero", "busca", "quieres"]
         for palabra in palabras_clave:
             texto = texto.replace(palabra, "")
         return texto.strip()
 
-    def contar_chiste(self):
+    def contar_chiste(self) -> str:
+        """Return a static joke response."""
         texto = "¿Por qué los pájaros no usan Facebook? ¡Porque ya tienen Twitter!"
         print(texto)
         return texto
 
-    def saludar(self):
+    def saludar(self) -> str:
+        """Return a greeting response."""
         texto = "¡Hola! ¿En qué puedo ayudarte hoy?"
         print(texto)
         return texto
 
-    def despedirse(self):
+    def despedirse(self) -> str:
+        """Return a farewell response."""
         texto = "¡Hasta luego! Cuídate."
         print(texto)
         return texto
 
-    def intencion_no_reconocida(self):
+    def intencion_no_reconocida(self) -> str:
+        """Return fallback response for unknown intent."""
         texto = "Lo siento, no entendí la solicitud."
         print(texto)
         return texto
 
-    def hablar(self, texto):
+    def hablar(self, texto: str) -> None:
+        """Speak text via app-level TTS method when available."""
         if hasattr(self.app, "speak_text"):
             self.app.speak_text(texto)
 
-    def _respuesta_sin_intencion(self, texto_usuario):
+    def _respuesta_sin_intencion(self, texto_usuario: str) -> str:
+        """Generate fallback response when no actionable intent exists."""
         if len(texto_usuario.strip()) < 5 or not any(c.isalpha() for c in texto_usuario):
             return "Lo siento, no entendí lo que dijiste. ¿Puedes repetirlo más claro?"
         else:
             return "Lo siento, todavía no sé cómo responder a eso. Estoy aprendiendo cada día."
 
-    def volver_inicio(self):
-        """Retourne au menu principal"""
+    def volver_inicio(self) -> str:
+        """Navigate back to the main screen."""
         texto = "Volviendo al menú principal..."
         print(texto)
         Clock.schedule_once(lambda dt: self.app.cambiar_a_pantalla("main"))

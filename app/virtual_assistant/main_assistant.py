@@ -1,4 +1,8 @@
-# app/virtual_assistant/main_assistant.py
+"""Assistant orchestration layer.
+
+This module coordinates ASR capture, command matching, TTS feedback, and
+navigation/action dispatch against the running Kivy app.
+"""
 
 from virtual_assistant.recognizer import SpeechRecognizer
 from virtual_assistant.actions import ActionExecutor
@@ -10,10 +14,18 @@ import threading
 from translation import _
 import time
 from tts_service import tts_service
+from typing import Any, Optional
 
 
 class AssistantOrchestrator:
-    def __init__(self, app_reference):
+    """Coordinate assistant runtime flow (listen -> interpret -> respond)."""
+
+    def __init__(self, app_reference: Any) -> None:
+        """Initialize orchestrator and preload speech model in background.
+
+        Args:
+            app_reference: Main app object exposing navigation and UI callbacks.
+        """
         # Assistant components
         self.recognizer = None
         self.app = app_reference
@@ -32,16 +44,15 @@ class AssistantOrchestrator:
         self._running = False
         self._listening = False
 
-    # -------------------------
-    # Utilidades internas
-    # -------------------------
-    def _get_model_path(self):
+    def _get_model_path(self) -> str:
+        """Resolve Vosk model path from currently configured language."""
         language = self.app.cfg.data.get("language", "es")
         if language == "es":
             return "virtual_assistant/vosk_models/vosk-model-small-es-0.42"
         return "virtual_assistant/vosk_models/vosk-model-small-fr-0.22"
 
-    def _ensure_recognizer(self):
+    def _ensure_recognizer(self) -> None:
+        """Create or refresh recognizer when language/model/device changes."""
         language = self.app.cfg.data.get("language", "es")
         desired_path = self._get_model_path()
         if (
@@ -61,7 +72,8 @@ class AssistantOrchestrator:
             ):
                 self.app.cfg.set_microphone_device(self.recognizer.input_device_name)
 
-    def _preload_model(self):
+    def _preload_model(self) -> None:
+        """Preload ASR resources asynchronously to reduce first-use latency."""
         print("[ASR] Preloading Vosk model...")
         self._ensure_recognizer()
         print("[ASR] Model ready")
@@ -136,10 +148,19 @@ class AssistantOrchestrator:
             print(f"[TTS fallback] {text} ({e})")
     ##################
     """
-    def speak(self, text):
+    def speak(self, text: str) -> None:
+        """Public wrapper around internal TTS logic."""
         self._speak(text)
 
     def listen(self, prompt: str) -> str | None:
+        """Speak prompt and capture one utterance.
+
+        Args:
+            prompt: Prompt text spoken before listening.
+
+        Returns:
+            Recognized utterance or ``None`` if cancelled/ignored.
+        """
         # empêche double écoute
         if self._listening or self._running:
             print("[ASR] Listening already in progress -> ignored")
@@ -180,7 +201,8 @@ class AssistantOrchestrator:
         return self.recognizer.listen_and_transcribe()
     """
 
-    def _speak(self, text: str):
+    def _speak(self, text: str) -> None:
+        """Speak a text response using app TTS, with service fallback."""
         if not text:
             return
 
@@ -196,8 +218,8 @@ class AssistantOrchestrator:
         tts_service.speak_sync(text, language=lang)
 
 
-    def _actualizar_label(self, texto: str):
-        """Actualiza la etiqueta result_label si existe."""
+    def _actualizar_label(self, texto: str) -> None:
+        """Update assistant status label/overlay if available."""
         try:
             Clock.schedule_once(lambda dt, t=texto: self.app.set_assistant_overlay(True, t), 0)
         except Exception:
@@ -209,16 +231,15 @@ class AssistantOrchestrator:
             except Exception as e:
                 print(f"[WARN] No se pudo actualizar result_label: {e}")
 
-    def _on_audio_level(self, level: float):
+    def _on_audio_level(self, level: float) -> None:
+        """Forward normalized microphone level to UI overlay."""
         try:
             Clock.schedule_once(lambda dt, v=level: self.app.update_assistant_audio_level(v), 0)
         except Exception:
             pass
 
-    # -------------------------
-    # Flujo principal
-    # -------------------------
-    def start(self):
+    def start(self) -> None:
+        """Start asynchronous assistant interaction flow."""
         if getattr(self, "_running", False):
             return
         self._ensure_recognizer()
@@ -230,13 +251,22 @@ class AssistantOrchestrator:
             daemon=True
         ).start()
 
-    def cancel(self):
+    def cancel(self) -> None:
+        """Cancel current assistant session and reset internal state."""
         print("[ASR] Cancel requested")
         self._stop_event.set()
         self._running = False
         self._listening = False
 
-    def _run_assistant(self):
+    def _run_assistant(self) -> None:
+        """Run the main assistant workflow in a background thread.
+
+        Flow:
+        1. Show listening overlay.
+        2. Prompt and capture one utterance.
+        3. Match command keywords.
+        4. Trigger app navigation or fallback response.
+        """
         try:
             Clock.schedule_once(lambda dt: self.app.set_assistant_overlay(True, _("Escuchando…")), 0)
 

@@ -1,3 +1,9 @@
+"""Speech recognition utilities backed by Vosk and sounddevice.
+
+The module resolves the best available input device and provides a thin
+abstraction to capture audio frames and transcribe them into text.
+"""
+
 import os
 import queue
 import sounddevice as sd
@@ -5,10 +11,25 @@ import json
 import audioop
 from vosk import Model, KaldiRecognizer
 import time
+from typing import Any, Callable, Optional, Tuple
 
 
-def select_input_device(preferred_device=None):
-    """Resolve a valid input device, preferring persisted names when possible."""
+def select_input_device(preferred_device: Optional[Any] = None) -> Tuple[Optional[int], str]:
+    """Resolve a valid microphone input device.
+
+    Selection order:
+    1. Explicit preferred device index.
+    2. Explicit preferred device name fragment.
+    3. System default input.
+    4. Heuristic keyword match.
+    5. First available input device.
+
+    Args:
+        preferred_device: Stored input device index or device-name string.
+
+    Returns:
+        Tuple with selected device index (or ``None``) and selected device name.
+    """
     try:
         devices = sd.query_devices()
     except Exception as exc:
@@ -63,7 +84,24 @@ def select_input_device(preferred_device=None):
     return None, ""
 
 class SpeechRecognizer:
-    def __init__(self, model_path=str, sample_rate=16000, input_device=None):
+    """Vosk-based speech recognizer used by the assistant orchestrator."""
+
+    def __init__(
+        self,
+        model_path: str,
+        sample_rate: int = 16000,
+        input_device: Optional[Any] = None,
+    ) -> None:
+        """Initialize recognizer model and capture queue.
+
+        Args:
+            model_path: Filesystem path to the extracted Vosk model.
+            sample_rate: Audio sampling rate expected by Vosk.
+            input_device: Optional preferred input device (index or name).
+
+        Raises:
+            FileNotFoundError: If ``model_path`` does not exist.
+        """
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"No se encontró el modelo Vosk en {model_path}")
         
@@ -82,14 +120,40 @@ class SpeechRecognizer:
             except queue.Empty:
                 break
 
-    def _callback(self, indata, frames, time, status):
+    def _callback(self, indata: bytes, frames: int, time_info: Any, status: Any) -> None:
+        """Audio callback used by ``sounddevice.RawInputStream``.
+
+        Args:
+            indata: Raw PCM audio chunk.
+            frames: Number of frames in this chunk.
+            time_info: Stream timing information from sounddevice.
+            status: Sounddevice status object for over/underflow diagnostics.
+        """
         if status:
             print("Status:", status)
         self.q.put(bytes(indata))
 
 
-    # Version non blocking of liste_and_transcribe
-    def listen_and_transcribe(self, timeout=15, stop_event=None, level_callback=None):
+    def listen_and_transcribe(
+        self,
+        timeout: float = 15,
+        stop_event: Optional[Any] = None,
+        level_callback: Optional[Callable[[float], None]] = None,
+    ) -> Optional[str]:
+        """Capture microphone audio and return recognized text.
+
+        Args:
+            timeout: Maximum listening window in seconds.
+            stop_event: Optional stop flag set by caller to cancel recognition.
+            level_callback: Optional callback receiving normalized audio level
+                values in the ``[0.0, 1.0]`` range.
+
+        Returns:
+            Recognized utterance text, or ``None`` when cancelled/empty/timeout.
+
+        Raises:
+            No exception is propagated intentionally in normal flow.
+        """
         print("[ASR] Speak now...")
         self.recognizer.Reset()
 
