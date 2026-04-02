@@ -1,5 +1,11 @@
-# board/boardScreen.py
+"""Board screen UI and interaction logic.
+
+This module provides the Kivy screen responsible for rendering board messages
+for the current device, navigating between entries, deleting entries through
+the backend, and reacting to MQTT-triggered refresh commands.
+"""
 from datetime import datetime
+from typing import Any, Dict, List
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.clock import Clock
@@ -24,14 +30,20 @@ from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 import json
 import paho.mqtt.client as mqtt
 
-# ---------- Widgets reutilizados ----------
+# ---------- Reusable widgets ----------
 class LegendDot(Widget):
+    """Simple reusable color-dot widget used by board-related UI components."""
+
     rgba = ListProperty([0.15, 0.55, 0.95, 1.0])
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Clickable icon container with rounded visual style."""
+
     icon_source = StringProperty("")
 
 class ImageButton(ButtonBehavior, AnchorLayout):
+    """Clickable image button used for board navigation controls."""
+
     src = StringProperty("")
 
 
@@ -109,7 +121,7 @@ KV = r"""
         padding: [0, GAP_Y, 0, GAP_Y]
         spacing: GAP_Y
 
-        # ---------- CABECERA ----------
+        # ---------- HEADER ----------
         BoxLayout:
             size_hint_y: None
             height: H_HEADER
@@ -181,7 +193,7 @@ KV = r"""
                     icon_source: app.mic_icon if hasattr(app, 'mic_icon') else ""
                     on_release: app.start_assistant()
 
-        # ---------- TARJETA CONTENIDO ----------
+        # ---------- CONTENT CARD ----------
         AnchorLayout:
             size_hint: 1, 1
             canvas.before:
@@ -198,7 +210,7 @@ KV = r"""
                 spacing: dp(12)
                 padding: [dp(12), dp(12), dp(12), dp(12)]
 
-                # Flecha izquierda
+                # Left arrow
                 AnchorLayout:
                     size_hint: None, 1
                     width: dp(90)
@@ -211,7 +223,7 @@ KV = r"""
                         disabled: False
                         on_release: root.parent_widget.goto_prev()
 
-                # Card interior
+                # Inner card
                 AnchorLayout:
                     size_hint_x: 1
                     anchor_x: "center"
@@ -230,7 +242,7 @@ KV = r"""
                                 pos: self.pos
                                 radius: [dp(16),]
 
-                        # Texto
+                        # Text
                         BoxLayout:
                             orientation: "vertical"
                             size_hint_x: 0.45
@@ -264,7 +276,7 @@ KV = r"""
                                 valign: "top"
                                 text_size: self.size
 
-                        # Imagen
+                        # Image
                         AnchorLayout:
                             size_hint_x: 0.55
                             anchor_x: "center"
@@ -276,7 +288,7 @@ KV = r"""
                                 keep_ratio: True
                                 size_hint: 1, 1
 
-                # Flecha derecha
+                # Right arrow
                 AnchorLayout:
                     size_hint: None, 1
                     width: dp(90)
@@ -292,10 +304,27 @@ KV = r"""
 
 
 class BoardScreen(Screen):
-    """Visor de mensajes (texto + imagen) con flechas; datos desde Mongo (GridFS)."""
+    """Board message viewer with navigation, delete, and MQTT refresh support.
+
+    The screen displays the latest message first, supports left/right cycling,
+    and can refresh data periodically or when commanded over MQTT.
+    """
     RECIPIENT_KEY = "CoBien1"
 
-    def __init__(self, sm, **kwargs):
+    def __init__(self, sm: Any, **kwargs: Any) -> None:
+        """Initialize the board screen and schedule periodic updates.
+
+        Args:
+            sm: Kivy `ScreenManager` instance that owns this screen.
+            **kwargs: Standard Kivy `Screen` keyword arguments.
+
+        Raises:
+            No exception is intentionally raised. Runtime setup errors are logged
+            by the underlying methods.
+
+        Examples:
+            >>> # screen = BoardScreen(screen_manager, name="board")
+        """
         super().__init__(**kwargs)
         self.sm = sm
         Builder.load_string(KV)
@@ -305,16 +334,16 @@ class BoardScreen(Screen):
         
         print(f"[BOARD] Recipient: {self.RECIPIENT_KEY}")
 
-        # root visible
+        # Root view
         self.root_view = Factory.BoardRoot()
-        # reference so internal buttons can call this object
+        # Reference used by internal widget callbacks
         self.root_view.parent_widget = self
         self.add_widget(self.root_view)
 
         self.items = []
         self.idx = 0
 
-        # ========== SETUP MQTT LISTENER ==========
+        # ========== MQTT listener setup ==========
         self.setup_mqtt_listener()
 
         Clock.schedule_once(lambda *_: self._refresh_header(), 0)
@@ -323,34 +352,57 @@ class BoardScreen(Screen):
         Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
         Clock.schedule_interval(lambda *_: self.refresh_from_mongo(), 60 * 5)
         
-        # Update labels
+        # Initial translated labels refresh
         Clock.schedule_once(lambda *_: self.update_labels(), 0.1)
 
-    def update_labels(self):
-        """✅ Met à jour les labels traduits"""
-        print("[BOARD] 🔄 Mise à jour labels...")
+    def update_labels(self) -> None:
+        """Refresh all visible translatable labels in the current screen.
+
+        Returns:
+            None.
+        """
+        print("[BOARD] 🔄 Refreshing translated labels...")
         
-        # Mettre à jour le titre
+        # Refresh title and dynamic labels
         self._update_title()
         
-        # Mettre à jour les labels de l'interface
         self._refresh_header()
         self._render_current()
         
-        print("[BOARD] ✅ Labels mis à jour")
+        print("[BOARD] ✅ Labels refreshed")
 
-    def _update_title(self, *args):
-        """Met à jour le titre"""
+    def _update_title(self, *args: Any) -> None:
+        """Update the board screen title in the active language.
+
+        Args:
+            *args: Optional Kivy callback arguments.
+
+        Returns:
+            None.
+        """
         if not self._have_ids("lbl_title"):
             return
         self.root_view.ids.lbl_title.text = _("Pizarra")
 
     # ------- Helpers -------
-    def _have_ids(self, *names):
+    def _have_ids(self, *names: str) -> bool:
+        """Check whether required KV `ids` are available.
+
+        Args:
+            *names: Widget id names expected in `self.root_view.ids`.
+
+        Returns:
+            `True` when all ids are present, otherwise `False`.
+        """
         ids = getattr(self.root_view, "ids", None)
         return bool(ids) and all(name in ids for name in names)
 
-    def _refresh_header(self):
+    def _refresh_header(self) -> None:
+        """Refresh date/time labels displayed in the board header.
+
+        Returns:
+            None.
+        """
         if not self._have_ids("lbl_today", "lbl_time"):
             return
         now = datetime.now()
@@ -366,7 +418,12 @@ class BoardScreen(Screen):
         ids.lbl_today.text = f"{dias[now.weekday()].capitalize()}, {now.day} {_('de')} {meses[now.month-1]}, {now.year}"
         ids.lbl_time.text = now.strftime("%H:%M")
 
-    def _render_current(self):
+    def _render_current(self) -> None:
+        """Render current board item or empty-state UI.
+
+        Returns:
+            None.
+        """
         if not self._have_ids("lbl_from", "lbl_body", "img_photo", "btn_delete", "btn_prev", "btn_next"):
             return
         if not self.items:
@@ -396,31 +453,45 @@ class BoardScreen(Screen):
         ids.btn_next.disabled = False
         ids.btn_next.opacity = 1
 
-    def delete_current(self):
+    def delete_current(self) -> None:
+        """Delete the currently selected message and refresh local view state.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Errors are logged and the screen remains
+            in a consistent state.
+        """
         if not self.items:
             return
 
         item = self.items[self.idx]
         post_id = item.get("id", "")
         if not post_id:
-            print("[BOARD] Mensaje actual sin id, no se puede borrar")
+            print("[BOARD] Current message has no id; cannot delete")
             return
 
         try:
             ok = delete_board_item(post_id)
             if not ok:
-                print(f"[BOARD] No se pudo borrar mensaje {post_id}")
+                print(f"[BOARD] Could not delete message {post_id}")
                 return
-            print(f"[BOARD] ✅ Mensaje borrado: {post_id}")
+            print(f"[BOARD] ✅ Message deleted: {post_id}")
             del self.items[self.idx]
             if self.idx >= len(self.items):
                 self.idx = max(0, len(self.items) - 1)
             self._render_current()
             Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
         except Exception as e:
-            print(f"[BOARD] Error borrando mensaje {post_id}: {e}")
+            print(f"[BOARD] Error deleting message {post_id}: {e}")
 
-    def confirm_delete_current(self):
+    def confirm_delete_current(self) -> None:
+        """Open a confirmation popup before deleting the current message.
+
+        Returns:
+            None.
+        """
         if not self.items:
             return
 
@@ -455,57 +526,80 @@ class BoardScreen(Screen):
         btn_confirm.bind(on_release=lambda *_: (popup.dismiss(), self.delete_current()))
         popup.open()
 
-    # ------- Navegación flechas -------
-    def goto_prev(self):
+    # ------- Arrow navigation -------
+    def goto_prev(self) -> None:
+        """Move selection to the previous board item (circular navigation).
+
+        Returns:
+            None.
+        """
         if not self.items:
             return
         self.idx = (self.idx - 1) % len(self.items)
         self._render_current()
 
-    def goto_next(self):
+    def goto_next(self) -> None:
+        """Move selection to the next board item (circular navigation).
+
+        Returns:
+            None.
+        """
         if not self.items:
             return
         self.idx = (self.idx + 1) % len(self.items)
         self._render_current()
 
-    # ------- Carga desde Mongo -------
-    def refresh_from_mongo(self):
+    # ------- Data loading -------
+    def refresh_from_mongo(self) -> None:
+        """Reload board items and display the latest message first.
+
+        Despite the method name, retrieval is delegated to the resilient loader
+        (`API -> MongoDB -> local cache`).
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Errors are logged.
+        """
         try:
             new_items = fetch_board_items_from_mongo(recipient_key=self.RECIPIENT_KEY, limit=50)
-            print(f"[BOARD] Cargados {len(new_items)} items para '{self.RECIPIENT_KEY}'")
+            print(f"[BOARD] Loaded {len(new_items)} items for '{self.RECIPIENT_KEY}'")
             self.items = new_items or []
             
-            # ✅ TOUJOURS afficher le dernier message (index 0)
+            # Always display latest message first (index 0)
             self.idx = 0
-            print(f"[BOARD] ✅ Index reset to 0 (dernier message)")
+            print("[BOARD] ✅ Index reset to 0 (latest message)")
             
             self._render_current()
         except Exception as e:
             print(f"[BOARD] refresh_from_mongo error: {e}")
     
-    def refresh_and_show_last(self):
-        """
-        Recharge les messages depuis MongoDB ET affiche le dernier message (le plus récent).
-        Utilisé quand on clique "Ver" sur une notification.
+    def refresh_and_show_last(self) -> None:
+        """Reload board messages and force selection of index 0.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Detailed traceback is logged on failure.
         """
         try:
             print("[BOARD] ========================================")
-            print("[BOARD] 🔄 refresh_and_show_last() appelé")
+            print("[BOARD] 🔄 refresh_and_show_last() called")
             
-            # ✅ Recharger les messages
             new_items = fetch_board_items_from_mongo(recipient_key=self.RECIPIENT_KEY, limit=50)
-            print(f"[BOARD] 📥 {len(new_items)} messages chargés")
+            print(f"[BOARD] 📥 {len(new_items)} messages loaded")
             
             self.items = new_items or []
             
-            # ✅ TOUJOURS aller au dernier message (index 0)
             self.idx = 0
-            print(f"[BOARD] ✅ Index = 0 (dernier message)")
+            print("[BOARD] ✅ Index = 0 (latest message)")
             
             if self.items:
-                print(f"[BOARD] ✅ Message affiché:")
-                print(f"[BOARD]    De: {self.items[0].get('author', '?')}")
-                print(f"[BOARD]    Texte: {self.items[0].get('text', '?')[:50]}...")
+                print("[BOARD] ✅ Displayed message:")
+                print(f"[BOARD]    From: {self.items[0].get('author', '?')}")
+                print(f"[BOARD]    Text: {self.items[0].get('text', '?')[:50]}...")
             
             print(f"[BOARD] ========================================")
             
@@ -516,32 +610,60 @@ class BoardScreen(Screen):
             import traceback
             traceback.print_exc()
 
-    def set_items(self, items):
+    def set_items(self, items: List[Dict[str, Any]]) -> None:
+        """Replace current in-memory item list and rerender the screen.
+
+        Args:
+            items: List of normalized board items.
+
+        Returns:
+            None.
+        """
         self.items = items or []
         self.idx = 0
         self._render_current()
 
-    def on_pre_enter(self, *args):
-        """✅ Mise à jour des traductions avant d'entrer dans l'écran"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Kivy lifecycle hook executed before the screen becomes visible.
+
+        Args:
+            *args: Optional Kivy lifecycle arguments.
+
+        Returns:
+            None.
+        """
         print("[BOARD] ========================================")
-        print("[BOARD] 🔄 on_pre_enter appelé")
+        print("[BOARD] 🔄 on_pre_enter called")
         
-        # ✅ TOUJOURS remettre à 0 au début
+        # Always reset to latest message
         self.idx = 0
-        print(f"[BOARD]    Index reset to 0 (dernier message)")
+        print("[BOARD]    Index reset to 0 (latest message)")
         
         Clock.schedule_once(lambda *_: self._refresh_header(), 0)
         self.update_labels()
         
-        # ✅ TOUJOURS recharger (simplifié)
+        # Always reload when entering the screen
         Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
         print("[BOARD] ✅ Scheduled refresh")
         
         print("[BOARD] ========================================")
 
-    def setup_mqtt_listener(self):
-        """
-        Configure MQTT listener to receive reload requests
+    def setup_mqtt_listener(self) -> None:
+        """Configure MQTT subscriptions for board refresh commands.
+
+        Subscribed topics:
+        - `app/nav` for `reload` / `reload_last` board targets.
+        - `board/reload` for legacy reload command compatibility.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Setup failures are logged.
+
+        Examples:
+            >>> # Called automatically in __init__.
+            >>> # screen.setup_mqtt_listener()
         """
         try:
             def on_message(client, userdata, msg):
@@ -554,12 +676,12 @@ class BoardScreen(Screen):
                     try:
                         payload = json.loads(msg.payload.decode("utf-8"))
                         
-                        # SUPPORT reload_last
+                        # Support reload_last
                         if payload.get("target") == "board" and payload.get("type") == "reload_last":
                             print(f"[BOARD] 📥 Reload LAST request received via MQTT")
                             Clock.schedule_once(lambda dt: self.refresh_and_show_last(), 0)
                         
-                        # Support ancien reload
+                        # Legacy reload support
                         elif payload.get("target") == "board" and payload.get("type") == "reload":
                             print(f"[BOARD] 📥 Reload request received via MQTT")
                             Clock.schedule_once(lambda dt: self.refresh_from_mongo(), 0)

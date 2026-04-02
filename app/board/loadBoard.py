@@ -1,7 +1,18 @@
-# board/loadBoard.py
+"""Board data access and cache management utilities.
+
+This module implements the board retrieval pipeline used by the UI:
+
+1. Fetch messages from the backend REST API.
+2. If API retrieval fails, fallback to MongoDB + GridFS.
+3. If MongoDB retrieval fails, fallback to the local on-disk cache.
+
+It also normalizes payload fields, caches images locally, and applies EXIF-based
+orientation correction for downloaded images.
+"""
+
 import os
 import json
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from bson import ObjectId
 import gridfs
@@ -15,7 +26,7 @@ from config_store import load_section
 
 # === Configuration ===
 DB_NAME = "LabasAppDB"
-BUCKET = "pizarra_fs"  # colecciones pizarra_fs.files / pizarra_fs.chunks
+BUCKET = "pizarra_fs"  # GridFS collections: pizarra_fs.files / pizarra_fs.chunks
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "board_cache")
 CACHE_INDEX_FILE = os.path.join(CACHE_DIR, "board_items.json")
 
@@ -26,11 +37,23 @@ except Exception as e:
     import tempfile
     CACHE_DIR = os.path.join(tempfile.gettempdir(), "board_cache")
     os.makedirs(CACHE_DIR, exist_ok=True)
-    print(f"[BOARD] CACHE_DIR no escribible, usando temporal: {CACHE_DIR}")
+    print(f"[BOARD] CACHE_DIR not writable, using temp directory: {CACHE_DIR}")
 
 
 def _cache_path(file_id: ObjectId, filename: Optional[str]) -> str:
-    """Construye la ruta local donde cachear una imagen."""
+    """Build the local cache path for a board image.
+
+    Args:
+        file_id: GridFS file identifier.
+        filename: Original file name, used only to infer extension.
+
+    Returns:
+        Absolute path to the local cached image/binary file.
+
+    Examples:
+        >>> # _cache_path(ObjectId("..."), "photo.jpg")
+        >>> # '/.../board_cache/<object_id>.jpg'
+    """
     ext = ""
     if filename and "." in filename:
         ext = "." + filename.split(".")[-1].lower()
@@ -40,11 +63,18 @@ def _cache_path(file_id: ObjectId, filename: Optional[str]) -> str:
 
 def _fix_image_orientation(image_path: str) -> None:
     """
-    Corrige l'orientation d'une image selon ses métadonnées EXIF.
-    Modifie le fichier directement.
-    
+    Correct an image orientation using EXIF metadata.
+
+    The input file is modified in place.
+
     Args:
-        image_path: Chemin vers l'image à corriger
+        image_path: Path to the image file.
+
+    Raises:
+        No exception is propagated. Any processing error is logged and ignored.
+
+    Examples:
+        >>> _fix_image_orientation("/tmp/board_cache/abc123.jpg")
     """
     try:
         img = Image.open(image_path)
@@ -86,13 +116,28 @@ def _fix_image_orientation(image_path: str) -> None:
             # Save by overwriting the original
             img.save(image_path, quality=95, optimize=True)
             
-            print(f"[BOARD] ✅ Image corrigée: {image_path}")
+            print(f"[BOARD] ✅ Image orientation corrected: {image_path}")
     
     except Exception as e:
-        print(f"[BOARD] ⚠️ Erreur correction orientation: {e}")
+        print(f"[BOARD] ⚠️ Failed to correct image orientation: {e}")
 
-def _fetch_image_to_cache(db, file_id: ObjectId) -> Optional[str]:
-    """Descarga una imagen desde GridFS y la guarda en cache."""
+def _fetch_image_to_cache(db: Any, file_id: ObjectId) -> Optional[str]:
+    """Download an image from GridFS and persist it in the local cache.
+
+    Args:
+        db: Active MongoDB database handle.
+        file_id: GridFS object identifier.
+
+    Returns:
+        Local absolute file path if successful, otherwise ``None``.
+
+    Raises:
+        No exception is propagated. Any retrieval error is logged and ignored.
+
+    Examples:
+        >>> # path = _fetch_image_to_cache(db, ObjectId("..."))
+        >>> # if path: print(path)
+    """
     try:
         fs = gridfs.GridFS(db, collection=BUCKET)
         f = fs.get(file_id)
@@ -107,11 +152,22 @@ def _fetch_image_to_cache(db, file_id: ObjectId) -> Optional[str]:
         return target
     
     except Exception as e:
-        print(f"[BOARD][GridFS] No se pudo leer {file_id}: {e}")
+        print(f"[BOARD][GridFS] Could not read {file_id}: {e}")
         return None
 
 
 def _serialize_board_items(items: List[Dict]) -> List[Dict]:
+    """Serialize board items into JSON-friendly dictionaries.
+
+    Args:
+        items: Raw board items where ``created_at`` may be ``datetime``.
+
+    Returns:
+        A list of dictionaries with ISO-8601 strings for ``created_at``.
+
+    Examples:
+        >>> _serialize_board_items([{"id": "1", "created_at": datetime.utcnow()}])
+    """
     serialized = []
     for item in items:
         created_at = item.get("created_at")
@@ -128,6 +184,19 @@ def _serialize_board_items(items: List[Dict]) -> List[Dict]:
 
 
 def _save_board_cache(items: List[Dict]) -> None:
+    """Persist normalized board items to the local cache index file.
+
+    The write is performed atomically through a temporary file and ``os.replace``.
+
+    Args:
+        items: Board items to store.
+
+    Raises:
+        No exception is propagated. Any write error is logged and ignored.
+
+    Examples:
+        >>> _save_board_cache([{"id": "a1", "author": "Alice", "text": "Hi"}])
+    """
     try:
         payload = {
             "items": _serialize_board_items(items),
@@ -137,12 +206,24 @@ def _save_board_cache(items: List[Dict]) -> None:
         with open(tmp_path, "w", encoding="utf-8") as cache_file:
             json.dump(payload, cache_file, ensure_ascii=False, indent=2)
         os.replace(tmp_path, CACHE_INDEX_FILE)
-        print(f"[BOARD] 💾 Cache guardada en {CACHE_INDEX_FILE}")
+        print(f"[BOARD] 💾 Cache saved at {CACHE_INDEX_FILE}")
     except Exception as e:
-        print(f"[BOARD] ⚠️ No se pudo guardar caché local: {e}")
+        print(f"[BOARD] ⚠️ Could not save local cache: {e}")
 
 
 def _load_board_cache() -> List[Dict]:
+    """Load board items from the local cache index file.
+
+    Returns:
+        A list of normalized board item dictionaries. Returns an empty list when
+        no cache exists or when cache parsing fails.
+
+    Raises:
+        No exception is propagated. Any read/parse error is logged and ignored.
+
+    Examples:
+        >>> cached_items = _load_board_cache()
+    """
     if not os.path.exists(CACHE_INDEX_FILE):
         return []
 
@@ -175,14 +256,29 @@ def _load_board_cache() -> List[Dict]:
                 }
             )
 
-        print(f"[BOARD] 📦 {len(items)} mensajes cargados desde caché local")
+        print(f"[BOARD] 📦 {len(items)} messages loaded from local cache")
         return items
     except Exception as e:
-        print(f"[BOARD] ⚠️ No se pudo leer caché local: {e}")
+        print(f"[BOARD] ⚠️ Could not read local cache: {e}")
         return []
 
 
 def _fetch_image_from_url(image_url: str, item_id: str) -> Optional[str]:
+    """Download and cache an image from a remote URL.
+
+    Args:
+        image_url: Remote image URL.
+        item_id: Stable message identifier used in cache filename.
+
+    Returns:
+        Local cached image path, or ``None`` when download/cache fails.
+
+    Raises:
+        No exception is propagated. Any network or file error is logged.
+
+    Examples:
+        >>> path = _fetch_image_from_url("https://example.com/a.jpg", "msg-1")
+    """
     if not image_url:
         return None
     try:
@@ -198,11 +294,23 @@ def _fetch_image_from_url(image_url: str, item_id: str) -> Optional[str]:
             _fix_image_orientation(target)
         return target
     except Exception as e:
-        print(f"[BOARD][API] No se pudo cachear imagen {image_url}: {e}")
+        print(f"[BOARD][API] Could not cache image {image_url}: {e}")
         return None
 
 
 def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
+    """Normalize API message payloads to the board item schema.
+
+    Args:
+        messages: Raw API payload entries.
+
+    Returns:
+        A list of normalized board dictionaries with keys:
+        ``id``, ``author``, ``text``, ``image``, ``created_at``.
+
+    Examples:
+        >>> items = _normalize_api_items([{"id": "1", "author": "Ana"}])
+    """
     items = []
     for raw in messages:
         created = raw.get("created_at")
@@ -229,6 +337,23 @@ def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
 
 
 def fetch_board_items_from_api(recipient_key: str, limit: int = 50) -> List[Dict]:
+    """Fetch board messages from the backend REST API.
+
+    Args:
+        recipient_key: Device identifier used as message recipient filter.
+        limit: Maximum number of messages to return.
+
+    Returns:
+        A list of normalized board items.
+
+    Raises:
+        requests.RequestException: If the HTTP request fails or returns an error
+            status code.
+        ValueError: If the backend returns an invalid JSON payload.
+
+    Examples:
+        >>> items = fetch_board_items_from_api("CoBien1", limit=20)
+    """
     services_cfg = load_section("services", {})
     url = services_cfg.get("pizarra_messages_url", f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/")
     headers = {}
@@ -247,24 +372,35 @@ def fetch_board_items_from_api(recipient_key: str, limit: int = 50) -> List[Dict
     items = _normalize_api_items(payload.get("messages", [])[:limit])
     if items:
         _save_board_cache(items)
-    print(f"[BOARD][API] Mensajes descargados: {len(items)}")
+    print(f"[BOARD][API] Downloaded messages: {len(items)}")
     return items
 
 
 def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50) -> List[Dict]:
-    """
-    Devuelve una lista de mensajes en formato:
-    {
-        'author': str,
-        'text': str,
-        'image': str (ruta local o ''),
-        'created_at': datetime
-    }
+    """Fetch board messages with resilient source fallback.
+
+    This method first attempts API retrieval, then falls back to MongoDB/GridFS,
+    and finally to local cache if MongoDB is unavailable.
+
+    Args:
+        recipient_key: Device identifier used as recipient filter.
+        limit: Maximum number of messages to return.
+
+    Returns:
+        A list of normalized board items with the keys:
+        ``id``, ``author``, ``text``, ``image``, ``created_at``.
+
+    Raises:
+        No exception is propagated to callers. Internal failures are logged and
+        degraded to the next fallback source.
+
+    Examples:
+        >>> items = fetch_board_items_from_mongo("CoBien2", limit=50)
     """
     try:
         return fetch_board_items_from_api(recipient_key=recipient_key, limit=limit)
     except Exception as e:
-        print(f"[BOARD][API] Fallback a Mongo/caché: {e}")
+        print(f"[BOARD][API] Falling back to Mongo/cache: {e}")
 
     items: List[Dict] = []
     try:
@@ -304,7 +440,7 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
                     if cached:
                         img_path = cached
                 except Exception as e:
-                    print(f"[BOARD] image_file_id inválido {file_id}: {e}")
+                    print(f"[BOARD] Invalid image_file_id {file_id}: {e}")
 
             items.append(
                 {
@@ -316,18 +452,35 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
                 }
             )
 
-        print(f"[BOARD] Mensajes descargados: {count}")
+        print(f"[BOARD] Downloaded messages: {count}")
         _save_board_cache(items)
         cl.close()
 
     except Exception as e:
-        print(f"[BOARD] Error al consultar Mongo: {e}")
+        print(f"[BOARD] Mongo query error: {e}")
         return _load_board_cache()
 
     return items
 
 
 def delete_board_item(post_id: str) -> bool:
+    """Delete a board message through the backend API.
+
+    Args:
+        post_id: Unique backend message identifier.
+
+    Returns:
+        ``True`` if the backend confirms deletion, otherwise ``False``.
+
+    Raises:
+        requests.RequestException: If the delete request fails at HTTP level.
+        ValueError: If the backend response is not valid JSON.
+
+    Examples:
+        >>> ok = delete_board_item("67f1a30e...")
+        >>> if ok:
+        ...     print("Deleted")
+    """
     if not post_id:
         return False
 
