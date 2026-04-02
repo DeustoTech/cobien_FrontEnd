@@ -1308,6 +1308,7 @@ restart_software() {
     exec /bin/bash "$SELF_SCRIPT" \
       --non-interactive \
       --yes \
+      --force-restart \
       --relaunch-after-update \
       --mode launch \
       --workspace "$WORKSPACE_ROOT" \
