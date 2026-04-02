@@ -108,7 +108,7 @@ KV = """
                 spacing: dp(6)
                 padding: [0, 0, dp(10), 0]
                 IconBadge:
-                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "data/images/back.png"
                     on_release: root.parent_screen.go_back() if root.parent_screen else None
 
         # ---------- CONTENIDO PRINCIPAL ----------

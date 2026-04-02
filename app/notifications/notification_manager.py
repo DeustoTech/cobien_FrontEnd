@@ -268,7 +268,7 @@ class NotificationPopup(ModalView):
         caller = self.data.get('caller', _('Desconocido'))
         
         # Icon at top
-        icon_path = "images/videollamada.png"
+        icon_path = "data/images/videollamada.png"
         if os.path.exists(icon_path):
             icon = Image(
                 source=icon_path,
@@ -349,7 +349,7 @@ class NotificationPopup(ModalView):
         date_str = self.data.get('date', '')
         
         # Icon
-        icon_path = "images/eventos.png"
+        icon_path = "data/images/eventos.png"
         if os.path.exists(icon_path):
             icon = Image(
                 source=icon_path,
@@ -438,7 +438,7 @@ class NotificationPopup(ModalView):
         has_text = self.data.get('has_text', False)
         
         # Icon
-        icon_path = "images/pizarra.png"
+        icon_path = "data/images/pizarra.png"
         if os.path.exists(icon_path):
             icon = Image(
                 source=icon_path,

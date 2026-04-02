@@ -162,7 +162,7 @@ KV = """
                 spacing: dp(6)
                 padding: [0, 0, dp(10), 0]
                 IconBadge:
-                    icon_source: "images/back.png"
+                    icon_source: "data/images/back.png"
                     on_release: app.root.current = "main"
 
         # ---------- MAIN CONTENT ----------
@@ -190,19 +190,19 @@ KV = """
 
                     SettingsNavButton:
                         id: btn_language
-                        icon_source: "images/language.png"
+                        icon_source: "data/images/language.png"
                         text: ""
                         on_release: app.root.current = "settings_language"
 
                     SettingsNavButton:
                         id: btn_cities
-                        icon_source: "images/weather.png"
+                        icon_source: "data/images/weather.png"
                         text: ""
                         on_release: app.root.current = "weather_choice"
 
                     SettingsNavButton:
                         id: btn_colors
-                        icon_source: "images/color.png"
+                        icon_source: "data/images/color.png"
                         text: ""
                         on_release: app.root.current = "button_colors"
 
@@ -214,19 +214,19 @@ KV = """
 
                     SettingsNavButton:
                         id: btn_notifications
-                        icon_source: "images/notif.png"
+                        icon_source: "data/images/notif.png"
                         text: ""
                         on_release: app.root.current = "settings_notifications"
 
                     SettingsNavButton:
                         id: btn_rfid
-                        icon_source: "images/card.png"
+                        icon_source: "data/images/card.png"
                         text: ""
                         on_release: app.root.current = "settings_rfid"
 
                     SettingsNavButton:
                         id: btn_jokes
-                        icon_source: "images/joke.png"
+                        icon_source: "data/images/joke.png"
                         text: ""
                         on_release: app.root.current = "joke_category"
 
@@ -238,13 +238,13 @@ KV = """
 
                     SettingsNavButton:
                         id: btn_logs
-                        icon_source: "images/logs.png"
+                        icon_source: "data/images/logs.png"
                         text: ""
                         on_release: app.root.current = "settings_logs_menu"
 
                     SettingsNavButton:
                         id: btn_launcher
-                        icon_source: "images/settings.png"
+                        icon_source: "data/images/settings.png"
                         text: ""
                         on_release: app.root.current = "settings_launcher"
 """

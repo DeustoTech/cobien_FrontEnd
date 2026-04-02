@@ -30,7 +30,7 @@ app/
 ├── virtual_assistant/
 ├── board/                      # Pendiente de desarrollo
 │
-├── images/
+├── data/images/
 └── logs/
 
 ## Módulos y archivos (detallado)

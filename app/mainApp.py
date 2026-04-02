@@ -1238,7 +1238,7 @@ class MainScreen(Screen):
                     self.condicion_texto = cache.get("description", "")
                     
                     app = App.get_running_app()
-                    icon = cache.get("icon", "images/nubes.png")
+                    icon = cache.get("icon", "data/images/nubes.png")
                     if os.path.exists(icon):
                         app.weather_icon = icon
                     
@@ -1272,22 +1272,22 @@ class MainScreen(Screen):
     def _map_weather_icon(self, weather_id: int, icon_code: str) -> str:
         is_day = icon_code.endswith("d")
         if weather_id // 100 == 2:
-            return "images/tormenta.png"
+            return "data/images/tormenta.png"
         elif weather_id // 100 == 3:
-            return "images/lluvia.png"
+            return "data/images/lluvia.png"
         elif weather_id // 100 == 5:
-            return "images/lluvia.png"
+            return "data/images/lluvia.png"
         elif weather_id // 100 == 6:
-            return "images/nieve.png"
+            return "data/images/nieve.png"
         elif weather_id // 100 == 7:
-            return "images/neblina.png"
+            return "data/images/neblina.png"
         elif weather_id == 800:
-            return "images/sol.png" if is_day else "images/noche.png"
+            return "data/images/sol.png" if is_day else "data/images/noche.png"
         elif 801 <= weather_id <= 802:
-            return "images/parcial.png"
+            return "data/images/parcial.png"
         elif 803 <= weather_id <= 804:
-            return "images/nubes.png"
-        return "images/nubes.png"
+            return "data/images/nubes.png"
+        return "data/images/nubes.png"
 
     # ---------------- MQTT / navegación ----------------
     def process_mqtt_message(self, message, topic):
@@ -1880,16 +1880,16 @@ class AssistantOverlay(ModalView):
 class MyApp(App):
     header_bg = StringProperty("assets/gradient_header.png")
     has_header_bg = BooleanProperty(False)
-    bg_image = StringProperty("images/Cobien_ImagenFondoInterfaz.png")
+    bg_image = StringProperty("data/images/Cobien_ImagenFondoInterfaz.png")
     has_bg_image = BooleanProperty(False)
     placeholder_icon = StringProperty("")
-    icon_weather = StringProperty("images/parcial.png")
-    icon_calendar = StringProperty("images/eventos.png")
-    icon_board = StringProperty("images/pizarra.png")
-    icon_videocall = StringProperty("images/videollamada.png")
-    weather_icon = StringProperty("images/sol.png")
-    mic_icon = StringProperty("images/voice.png")
-    settings_icon = StringProperty("images/settings.png")
+    icon_weather = StringProperty("data/images/parcial.png")
+    icon_calendar = StringProperty("data/images/eventos.png")
+    icon_board = StringProperty("data/images/pizarra.png")
+    icon_videocall = StringProperty("data/images/videollamada.png")
+    weather_icon = StringProperty("data/images/sol.png")
+    mic_icon = StringProperty("data/images/voice.png")
+    settings_icon = StringProperty("data/images/settings.png")
 
     def _start_orchestrator(self):
         script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")

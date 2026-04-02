@@ -216,7 +216,7 @@ KV = """
                 padding: [0, 0, dp(10), 0]
                 
                 IconBadge:
-                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "data/images/back.png"
                     on_release: app.root.current = "settings"
         
         # ---------- MAIN CONTENT ----------
@@ -472,8 +472,8 @@ class StripCard(BoxLayout):
     ringtone = StringProperty("")
     available_ringtones = ListProperty([])
     mode_values = ListProperty([])
-    play_icon = StringProperty("images/play.png")
-    stop_icon = StringProperty("images/stop.png")
+    play_icon = StringProperty("data/images/play.png")
+    stop_icon = StringProperty("data/images/stop.png")
     
     parent_screen = None
     initialized = False

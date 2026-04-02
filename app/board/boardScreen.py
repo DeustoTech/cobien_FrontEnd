@@ -187,7 +187,7 @@ KV = r"""
                 spacing: dp(12)
                 padding: [0, 0, dp(22), 0]
                 IconBadge:
-                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "data/images/back.png"
                     on_release: app.root.current = "main"
                 IconBadge:
                     icon_source: app.mic_icon if hasattr(app, 'mic_icon') else ""
@@ -218,7 +218,7 @@ KV = r"""
                     anchor_y: "center"
                     ImageButton:
                         id: btn_prev
-                        src: "images/arrowback.png"
+                        src: "data/images/arrowback.png"
                         opacity: 1
                         disabled: False
                         on_release: root.parent_widget.goto_prev()
@@ -263,7 +263,7 @@ KV = r"""
                                 IconBadge:
                                     id: btn_delete
                                     size: dp(58), dp(58)
-                                    icon_source: "images/trash.png"
+                                    icon_source: "data/images/trash.png"
                                     opacity: 0.4
                                     disabled: True
                                     on_release: root.parent_widget.confirm_delete_current()
@@ -296,7 +296,7 @@ KV = r"""
                     anchor_y: "center"
                     ImageButton:
                         id: btn_next
-                        src: "images/arrowforward.png"
+                        src: "data/images/arrowforward.png"
                         opacity: 1
                         disabled: False
                         on_release: root.parent_widget.goto_next()

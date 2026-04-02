@@ -214,7 +214,7 @@ class PinCodeScreen(Screen):
         self.title_label.bind(size=self.title_label.setter('text_size'))
         
         back_btn = PinBackButton(
-            icon_source="images/back.png",
+            icon_source="data/images/back.png",
             size_hint_x=0.2,
             size_hint_y=1
         )

@@ -96,7 +96,7 @@ KV = """
             Widget:
 
             IconBadge:
-                icon_source: "images/back.png"
+                icon_source: "data/images/back.png"
                 on_release: app.root.current = "settings"
 
         BoxLayout:
@@ -187,7 +187,7 @@ KV = """
                 text_size: self.size
 
             IconBadge:
-                icon_source: "images/back.png"
+                icon_source: "data/images/back.png"
                 on_release: app.root.current = "settings_logs_menu"
 
         ScrollView:

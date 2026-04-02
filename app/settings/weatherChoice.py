@@ -320,7 +320,7 @@ class WeatherChoice(FloatLayout):
         btn_back_box.add_widget(self.btn_add_city)
         
         btn_back = IconBadge()
-        btn_back.icon_source = app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+        btn_back.icon_source = app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "data/images/back.png"
         btn_back.bind(on_release=lambda x: self.go_back())
         btn_back_box.add_widget(btn_back)
         

@@ -89,7 +89,7 @@ KV = """
                 text_size: self.size
             Widget:
             IconBadgeLauncher:
-                icon_source: "images/back.png"
+                icon_source: "data/images/back.png"
                 on_release: root.parent_screen.go_back() if root.parent_screen else None
 
         BoxLayout:

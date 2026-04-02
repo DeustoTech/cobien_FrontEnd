@@ -112,7 +112,7 @@ KV = """
                         width: 2
                         rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
                 Image:
-                    source: "images/back.png"
+                    source: "data/images/back.png"
                     allow_stretch: True
                     keep_ratio: True
 

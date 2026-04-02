@@ -218,7 +218,7 @@ KV_DAY = r"""
             id: trash_btn
             size_hint: None, None
             size: dp(72), dp(72)
-            icon_source: "images/trash.png"
+            icon_source: "data/images/trash.png"
             opacity: 1 if root.show_trash else 0
             disabled: not root.show_trash
             on_release: root.dispatch('on_trash')
@@ -382,7 +382,7 @@ KV_DAY = r"""
                 spacing: dp(12)
                 padding: [0, 0, dp(22), 0]
                 IconBadge:
-                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "data/images/back.png"
                     on_release: app.root.current = "events"
                 IconBadge:
                     icon_source: app.mic_icon if hasattr(app, 'mic_icon') else ""
@@ -413,7 +413,7 @@ KV_DAY = r"""
                     size_hint: None, 1
                     width: dp(84)
                     ImageButton:
-                        src: "images/arrowback.png"
+                        src: "data/images/arrowback.png"
                         size_hint: None, None
                         size: dp(72), dp(72)
                         on_release: app.root.get_screen('day_events').children[0].switch_day(-1)
@@ -463,7 +463,7 @@ KV_DAY = r"""
                                         anchor_x: "center"
                                         anchor_y: "center"
                                         Image:
-                                            source: "images/plus.png"
+                                            source: "data/images/plus.png"
                                             size_hint: None, None
                                             size: dp(46), dp(46)
                                     Label:
@@ -494,7 +494,7 @@ KV_DAY = r"""
                     size_hint: None, 1
                     width: dp(84)
                     ImageButton:
-                        src: "images/arrowforward.png"
+                        src: "data/images/arrowforward.png"
                         size_hint: None, None
                         size: dp(72), dp(72)
                         on_release: app.root.get_screen('day_events').children[0].switch_day(1)

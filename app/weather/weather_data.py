@@ -8,45 +8,45 @@ from config_store import load_section
 def map_icon_owm(weather_id: int, icon_code: str) -> str:
     is_day = str(icon_code).endswith("d")
     if weather_id // 100 == 2:
-        return "images/tormenta.png"
+        return "data/images/tormenta.png"
     if weather_id // 100 == 3:
-        return "images/lluvia.png"
+        return "data/images/lluvia.png"
     if weather_id // 100 == 5:
-        return "images/lluvia.png"
+        return "data/images/lluvia.png"
     if weather_id // 100 == 6:
-        return "images/nieve.png"
+        return "data/images/nieve.png"
     if weather_id // 100 == 7:
-        return "images/neblina.png"
+        return "data/images/neblina.png"
     if weather_id == 800:
-        return "images/sol.png" if is_day else "images/noche.png"
+        return "data/images/sol.png" if is_day else "data/images/noche.png"
     if 801 <= weather_id <= 802:
-        return "images/parcial.png"
+        return "data/images/parcial.png"
     if 803 <= weather_id <= 804:
-        return "images/nubes.png"
-    return "images/nubes.png"
+        return "data/images/nubes.png"
+    return "data/images/nubes.png"
 
 
 def map_icon_openmeteo(code: int, is_day: bool) -> str:
     if code == 0:
-        return "images/sol.png" if is_day else "images/noche.png"
+        return "data/images/sol.png" if is_day else "data/images/noche.png"
     if code in (1, 2):
-        return "images/parcial.png"
+        return "data/images/parcial.png"
     if code == 3:
-        return "images/nubes.png"
+        return "data/images/nubes.png"
     if code in (45, 48):
-        return "images/neblina.png"
+        return "data/images/neblina.png"
     if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82):
-        return "images/lluvia.png"
+        return "data/images/lluvia.png"
     if code in (71, 73, 75, 77, 85, 86):
-        return "images/nieve.png"
+        return "data/images/nieve.png"
     if code in (95, 96, 99):
-        return "images/tormenta.png"
-    return "images/nubes.png"
+        return "data/images/tormenta.png"
+    return "data/images/nubes.png"
 
 
 def daily_icon_path(code: int, is_day: bool = True) -> str:
     path = map_icon_openmeteo(code, is_day)
-    return path if os.path.exists(path) else "images/nubes.png"
+    return path if os.path.exists(path) else "data/images/nubes.png"
 
 
 def _openmeteo_description(code: int, api_lang: str) -> str:
@@ -169,7 +169,7 @@ def fetch_weather_bundle(city_name, lat, lon, tz_name, api_lang, owm_api_key, fo
         try:
             icon_path = map_icon_openmeteo(int(codes[0]), True)
         except Exception:
-            icon_path = "images/nubes.png"
+            icon_path = "data/images/nubes.png"
 
     hourly_items = []
     now_local = datetime.utcnow() + timedelta(seconds=tz_offset)

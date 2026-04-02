@@ -430,7 +430,7 @@ KV = r"""
                 spacing: dp(12)
                 padding: [0, 0, dp(22), 0]
                 IconBadge:
-                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "images/back.png"
+                    icon_source: app.back_icon if hasattr(app, 'back_icon') and app.back_icon else "data/images/back.png"
                     on_release: app.root.current = "main"
                 IconBadge:
                     icon_source: app.mic_icon if hasattr(app, 'mic_icon') else ""
@@ -459,7 +459,7 @@ KV = r"""
                     size_hint: None, 1
                     width: dp(84)
                     ImageButton:
-                        src: "images/arrowback.png"
+                        src: "data/images/arrowback.png"
                         size_hint: None, None
                         size: dp(72), dp(72)
                         on_release: app.root.get_screen('events').goto_prev()
@@ -514,7 +514,7 @@ KV = r"""
                     size_hint: None, 1
                     width: dp(84)
                     ImageButton:
-                        src: "images/arrowforward.png"
+                        src: "data/images/arrowforward.png"
                         size_hint: None, None
                         size: dp(72), dp(72)
                         on_release: app.root.get_screen('events').goto_next()

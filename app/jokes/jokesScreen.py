@@ -10,6 +10,8 @@ from kivy.metrics import dp, sp
 from translation import _, get_current_language
 from app_config import AppConfig
 
+JOKES_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "jokes")
+
 class JokesScreen(Screen):
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
@@ -105,7 +107,7 @@ class JokesScreen(Screen):
             
             # Déterminer le fichier
             jokes_file = f"jokes_{'fr' if lang == 'fr' else 'es'}.json"
-            jokes_path = os.path.join(os.path.dirname(__file__), jokes_file)
+            jokes_path = os.path.join(JOKES_DATA_DIR, jokes_file)
             
             print(f"[JOKES] 📖 Loading: {jokes_file} (lang={lang}, cat={category})")
             
