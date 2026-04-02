@@ -68,3 +68,10 @@ Also uses:
 - Image orientation is corrected using EXIF metadata when available.
 - The board screen intentionally prioritizes reliability over strict source purity:
   API -> Mongo -> cache.
+
+## Known Technical Debt / Bad Practices
+
+- Large inline KV definitions in `boardScreen.py` make UI maintenance and review difficult.
+- Logging is implemented with `print()` statements instead of structured `logging`.
+- Broad `except Exception` blocks reduce observability and hide concrete failure causes.
+- `loadBoard.py` combines transport, storage, transformation, and cache concerns in one module.

@@ -54,3 +54,11 @@ Typical keys per event:
 3. Results are normalized and cached to `eventos_local.json`.
 4. On backend errors, cached local events are used.
 5. Mutations trigger `event_bus.notify_events_changed()` to refresh screens.
+
+## Known Technical Debt / Bad Practices
+
+- Very large inline KV blocks in screen modules reduce readability and testability.
+- Frequent broad `except Exception` usage hides root causes and weakens diagnostics.
+- Data layer (`loadEvents.py`) mixes persistence, normalization, fallback, and event signaling concerns.
+- Local JSON cache writes are not guarded against concurrent access.
+- Mixed language (Spanish/French/English) remains in runtime logs and user-facing debug traces.

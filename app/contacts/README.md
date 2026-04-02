@@ -69,3 +69,10 @@ Supported extension order:
 - This folder intentionally contains no Python logic.
 - Runtime contact refresh is triggered by the contact screen lifecycle (`on_pre_enter`).
 - Keep image file names aligned with normalized display names to avoid fallback usage.
+
+## Known Technical Debt / Bad Practices
+
+- Contacts source-of-truth is a plain text file (`list_contacts.txt`) without schema validation.
+- Empty usernames are accepted and can produce non-routable call requests at runtime.
+- Contact logic lives in `app/videocall/contactScreen.py`, while assets live here, which increases cross-module coupling.
+- Loader diagnostics rely on `print()` instead of structured logging and severity levels.
