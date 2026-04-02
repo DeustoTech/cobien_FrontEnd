@@ -1,8 +1,20 @@
+"""Event data loading, persistence, and synchronization helpers.
+
+This module centralizes event retrieval and mutation using a resilient strategy:
+
+1. Primary source: MongoDB.
+2. Fallback source: local JSON cache (`eventos_local.json`).
+
+It applies device/location filtering, normalizes event payloads for UI
+consumption, and broadcasts change notifications via `event_bus`.
+"""
+
 import os
 import json
 import math
 import time
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from events.event_bus import event_bus
 
@@ -12,9 +24,7 @@ from bson import ObjectId
 from app_config import AppConfig
 from config_store import load_section
 
-# ------------------------
-# CONFIGURATION
-# ------------------------
+# ------------------------ CONFIGURATION ------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 LOCAL_FILE = os.path.join(BASE_DIR, "events", "eventos_local.json")
 _cfg = AppConfig()
@@ -27,38 +37,75 @@ AUDIENCE_COLORS = {
     "device": "#FF3B30"   # Rojo (personales)
 }
 
-# ------------------------
-# CONEXIÓN A MONGODB
-# ------------------------
-def get_mongo_client():
+def get_mongo_client() -> MongoClient:
+    """Build a MongoDB client using unified service configuration.
+
+    Returns:
+        MongoClient: Configured client instance with short connection timeout.
+
+    Raises:
+        RuntimeError: If `mongo_uri`/`MONGO_URI` is not configured.
+
+    Examples:
+        >>> client = get_mongo_client()
+        >>> client.server_info()
+    """
     services_cfg = load_section("services", {})
     uri = (services_cfg.get("mongo_uri", "") or os.getenv("MONGO_URI") or "").strip()
     if not uri:
         raise RuntimeError("MONGO_URI no configurado")
     return MongoClient(uri, serverSelectionTimeoutMS=3000)  # corta si no conecta en 3s
 
-# ------------------------
-# UTILIDADES
-# ------------------------
-def _normalize_audience(value):
-    """Normaliza el campo 'audience'."""
+def _normalize_audience(value: Any) -> str:
+    """Normalize event audience value.
+
+    Args:
+        value: Raw audience value from Mongo/local data.
+
+    Returns:
+        str: `"device"` or `"all"` (default).
+    """
     if not value:
         return "all"
     v = str(value).strip().lower()
     return "device" if v == "device" else "all"
 
-def _audience_color(audience):
+def _audience_color(audience: str) -> str:
+    """Resolve UI color for an audience category.
+
+    Args:
+        audience: Normalized audience string.
+
+    Returns:
+        str: Hex color code used by the UI.
+    """
     return AUDIENCE_COLORS.get(audience, AUDIENCE_COLORS["all"])
 
-def _safe_str(value, fallback):
+def _safe_str(value: Any, fallback: str) -> str:
+    """Convert value to string while protecting against null-like values.
+
+    Args:
+        value: Raw value to normalize.
+        fallback: Fallback value for `None`/`NaN`.
+
+    Returns:
+        str: Safe normalized string.
+    """
     if value is None:
         return fallback
     if isinstance(value, float) and math.isnan(value):
         return fallback
     return str(value)
 
-def _formatea_fecha(fecha_raw):
-    """Convierte datetime o str en formato dd-mm-YYYY."""
+def _formatea_fecha(fecha_raw: Any) -> str:
+    """Format raw date values to `dd-mm-YYYY` text.
+
+    Args:
+        fecha_raw: `datetime` or preformatted string date.
+
+    Returns:
+        str: Formatted date string or empty string when unsupported.
+    """
     try:
         if isinstance(fecha_raw, datetime):
             return fecha_raw.strftime("%d-%m-%Y")
@@ -68,9 +115,18 @@ def _formatea_fecha(fecha_raw):
         pass
     return ""
 
-def limpiar_evento(evento):
-    """Limpia valores NaN o None de un evento."""
-    evento_limpio = {}
+def limpiar_evento(evento: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize event dictionary values.
+
+    Replaces `None` and float `NaN` values with a descriptive placeholder.
+
+    Args:
+        evento: Raw event dictionary.
+
+    Returns:
+        Dict[str, Any]: Sanitized event dictionary.
+    """
+    evento_limpio: Dict[str, Any] = {}
     for key, value in evento.items():
         if isinstance(value, float) and math.isnan(value):
             evento_limpio[key] = "Sin descripción disponible"
@@ -80,23 +136,43 @@ def limpiar_evento(evento):
             evento_limpio[key] = value
     return evento_limpio
 
-def _match_location(loc: str) -> bool:
-    """Compara location con LOCATION_NAME (match exacto, ignorando espacios)."""
+def _match_location(loc: Optional[str]) -> bool:
+    """Check whether event location matches current configured location.
+
+    Args:
+        loc: Event location string.
+
+    Returns:
+        bool: `True` when location matches `LOCATION_NAME` after trimming.
+    """
     if loc is None:
         return False
     return loc.strip() == LOCATION_NAME
 
-# ------------------------
-# ARCHIVO LOCAL
-# ------------------------
-def guardar_eventos_localmente(eventos):
+def guardar_eventos_localmente(eventos: List[Dict[str, Any]]) -> None:
+    """Persist sanitized event list in local JSON cache.
+
+    Args:
+        eventos: Event dictionaries to persist.
+
+    Returns:
+        None.
+    """
     eventos_limpios = [limpiar_evento(e) for e in eventos]
     os.makedirs(os.path.dirname(LOCAL_FILE), exist_ok=True)
     with open(LOCAL_FILE, "w", encoding="utf-8") as f:
         json.dump(eventos_limpios, f, ensure_ascii=False, indent=2)
 
-def cargar_eventos_locales():
-    """Carga los eventos desde el archivo local y aplica el filtro por location."""
+def cargar_eventos_locales() -> List[Dict[str, Any]]:
+    """Load events from local cache and apply location filter.
+
+    Returns:
+        List[Dict[str, Any]]: Cached events for current location.
+
+    Raises:
+        json.JSONDecodeError: If local file exists but contains invalid JSON.
+        OSError: If cache file cannot be read.
+    """
     if not os.path.exists(LOCAL_FILE):
         print("No hay archivo local de eventos.")
         return []
@@ -111,8 +187,25 @@ def cargar_eventos_locales():
     return eventos
 
 
-def _append_personal_event_local(day_date, title, description, location=None, device_name=None):
-    """Guarda un evento personal en cache local como fallback cuando Mongo no está disponible."""
+def _append_personal_event_local(
+    day_date: Any,
+    title: str,
+    description: str,
+    location: Optional[str] = None,
+    device_name: Optional[str] = None,
+) -> str:
+    """Append a personal event directly to local cache as Mongo fallback.
+
+    Args:
+        day_date: Date-like object with `strftime`.
+        title: Event title.
+        description: Event description.
+        location: Optional event location override.
+        device_name: Optional target device override.
+
+    Returns:
+        str: Generated local event id (`local-...`).
+    """
     target_location = location or LOCATION_NAME
     target_device = device_name or DEVICE_NAME
     fecha_str = day_date.strftime("%d-%m-%Y")
@@ -134,15 +227,24 @@ def _append_personal_event_local(day_date, title, description, location=None, de
     event_bus.notify_events_changed()
     return local_id
 
-# ------------------------
-# MONGO: FETCH
-# ------------------------
-def fetch_events_from_mongo(device_name=DEVICE_NAME):
-    """
-    Carga SOLO eventos con location == LOCATION_NAME:
-      - Públicos (audience='all', location=LOCATION_NAME)
-      - Personales del dispositivo indicado (audience='device', target_device=device_name, location=LOCATION_NAME)
-    Los marca con colores (azul=publico, rojo=personal) e incluye 'id' para borrar.
+def fetch_events_from_mongo(device_name: str = DEVICE_NAME) -> List[Dict[str, Any]]:
+    """Fetch events from MongoDB with location and device filtering.
+
+    Included event subsets:
+    - Public events (`audience='all'`) for current location.
+    - Personal events (`audience='device'`) for current location and device.
+
+    Args:
+        device_name: Target device identifier for personal events.
+
+    Returns:
+        List[Dict[str, Any]]: Normalized events for UI consumption.
+
+    Raises:
+        No exception is propagated. On failure, local cache is returned.
+
+    Examples:
+        >>> events = fetch_events_from_mongo(device_name="CoBien1")
     """
     try:
         client = get_mongo_client()
@@ -197,9 +299,16 @@ def fetch_events_from_mongo(device_name=DEVICE_NAME):
 # MONGO: DELETE
 # ------------------------
 def delete_event_mongo(event_id: str) -> bool:
-    """
-    Elimina un documento por _id en Mongo. Devuelve True si se ha borrado.
-    Si borra con éxito, refresca la caché local con un fetch.
+    """Delete an event from MongoDB or local fallback cache.
+
+    Args:
+        event_id: Event identifier (`ObjectId` string or `local-*` id).
+
+    Returns:
+        bool: `True` when deletion succeeds, otherwise `False`.
+
+    Raises:
+        No exception is propagated. Errors are logged and `False` is returned.
     """
     if not event_id:
         return False
@@ -236,10 +345,27 @@ def delete_event_mongo(event_id: str) -> bool:
 # ------------------------
 # MONGO: AÑADIR
 # ------------------------
-def add_personal_event_mongo(day_date, title, description, location=None, device_name=None):
-    """
-    Inserta un evento personal (audience='device') para 'device_name' en 'location' y fecha 'day_date' (datetime.date).
-    Devuelve el string del _id insertado o None si falla.
+def add_personal_event_mongo(
+    day_date: Any,
+    title: str,
+    description: str,
+    location: Optional[str] = None,
+    device_name: Optional[str] = None,
+) -> Optional[str]:
+    """Insert a personal event in MongoDB with local fallback on failure.
+
+    Args:
+        day_date: Date-like object with `strftime`.
+        title: Event title.
+        description: Event description.
+        location: Optional location override.
+        device_name: Optional target device override.
+
+    Returns:
+        Optional[str]: Inserted Mongo id string, fallback local id, or `None`.
+
+    Raises:
+        No exception is propagated. Failures are logged and fallback is attempted.
     """
     try:
         client = get_mongo_client()
@@ -288,8 +414,18 @@ def add_personal_event_mongo(day_date, title, description, location=None, device
 # ------------------------
 # API PARA LA APP
 # ------------------------
-def get_events(device_name=DEVICE_NAME):
-    """Punto de entrada único para la app."""
+def get_events(device_name: str = DEVICE_NAME) -> List[Dict[str, Any]]:
+    """Single entrypoint for app-level event retrieval.
+
+    Args:
+        device_name: Device identifier used for personal events filtering.
+
+    Returns:
+        List[Dict[str, Any]]: Retrieved event list.
+
+    Examples:
+        >>> current_events = get_events()
+    """
     return fetch_events_from_mongo(device_name=device_name)
 
 # ------------------------

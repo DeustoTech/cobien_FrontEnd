@@ -1,7 +1,13 @@
-# events/dayEventsScreen.py
+"""Daily events screen with voice-assisted personal event creation.
+
+This module renders events for a specific day/location, supports deletion of
+personal events, and integrates voice input to create personal events.
+"""
+
 from datetime import datetime, timedelta, date
 import os, json
 import threading
+from typing import Any, Optional
 
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
@@ -35,35 +41,46 @@ from events.loadEvents import delete_event_mongo, add_personal_event_mongo
 
 # ---------- Widgets reutilizables ----------
 class LegendDot(Widget):
+    """Colored dot used in row legend and audience markers."""
+
     rgba = ListProperty([0.15, 0.55, 0.95, 1.0])
 
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable rounded icon button widget."""
+
     icon_source = StringProperty("")
 
 
 class ImageButton(ButtonBehavior, AnchorLayout):
+    """Reusable image button widget for screen navigation."""
+
     src = StringProperty("")
 
 
 class AddButton(ButtonBehavior, BoxLayout):
-    """Botón visual para el bloque de 'Añadir evento personal'."""
+    """Clickable widget for the 'add personal event' action."""
     pass
 
 
 class EventRow(BoxLayout):
-    """Fila de evento. Expone un evento 'on_trash' para que la pantalla maneje el borrado."""
+    """Visual row for one event with optional delete action.
+
+    Exposes an `on_trash` event so screen logic can handle deletion flow.
+    """
     title = StringProperty("")
     description = StringProperty("")
     audience_color = ListProperty([0.15, 0.55, 0.95, 1])
     show_trash = BooleanProperty(False)
     event_id = StringProperty("")
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize event row and register custom Kivy event."""
         self.register_event_type('on_trash')
         super().__init__(**kwargs)
 
-    def on_trash(self, *args):
+    def on_trash(self, *args: Any) -> None:
+        """Default callback for trash action event."""
         pass
 
 
@@ -486,6 +503,13 @@ KV_DAY = r"""
 
 # ---------- Pantalla ----------
 class DayEventsScreen(Screen):
+    """Daily event detail screen with CRUD and voice-assistant hooks.
+
+    Examples:
+        >>> # day_screen.show_day(date.today(), "Bilbao")
+        >>> # day_screen.voice_add()
+    """
+
     store = ObjectProperty(allownone=True)
     current_location = StringProperty("")
     current_day = ObjectProperty(allownone=True)
@@ -494,7 +518,12 @@ class DayEventsScreen(Screen):
         os.path.join(os.path.dirname(__file__), "..", "virtual_assistant/vosk_models/vosk-model-small-es-0.42"),
     ]
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize day-events screen, labels, and periodic header refresh.
+
+        Args:
+            **kwargs: Standard Kivy `Screen` keyword arguments.
+        """
         super().__init__(**kwargs)
         self.cfg = AppConfig()
         self.current_location = self.cfg.get_device_location()
@@ -526,8 +555,8 @@ class DayEventsScreen(Screen):
         self._refresh_header_clock()
         self._refresh_day_title()
 
-    def update_labels(self):
-        """Met à jour les labels traduits"""
+    def update_labels(self) -> None:
+        """Refresh all translatable labels rendered by this screen."""
         # Mettre à jour le titre si disponible
         if hasattr(self, 'root_view') and hasattr(self.root_view, 'ids'):
             ids = self.root_view.ids
@@ -555,17 +584,33 @@ class DayEventsScreen(Screen):
         print("[DAY_EVENTS] Labels mis à jour")
 
     # ---------- API ----------
-    def set_store(self, store):
+    def set_store(self, store: Any) -> None:
+        """Inject shared event store instance.
+
+        Args:
+            store: Store-like object exposing `events_on` and optional `reload`.
+        """
         self.store = store
 
-    def show_day(self, day: date, location="Bilbao"):
+    def show_day(self, day: date, location: str = "Bilbao") -> None:
+        """Display one day/location context and rebuild list.
+
+        Args:
+            day: Target day.
+            location: Location used for event filtering.
+        """
         self.current_day = day
         self.current_location = location
         self._refresh_header_clock()
         self._refresh_day_title()
         self._build_list()
 
-    def switch_day(self, delta: int):
+    def switch_day(self, delta: int) -> None:
+        """Move current day by delta and refresh list.
+
+        Args:
+            delta: Number of days to move (e.g. `-1`, `+1`).
+        """
         if not self.current_day:
             return
         self.current_day += timedelta(days=delta)
@@ -573,44 +618,28 @@ class DayEventsScreen(Screen):
         self._refresh_day_title()
         self._build_list()
 
-    # ---------- Añadir evento por voz ----------
-    """
-    def voice_add(self):
-        if not self.current_day:
-            return
-        title = self.listen(_("Di el título del evento personal"))
-        if not title:
-            self.speak(_("No he entendido el título."))
-            return
-        desc = self.listen(_("Di la descripción del evento")) or _("Sin descripción")
-        ok = add_personal_event_mongo(
-            day_date=self.current_day,
-            title=title,
-            description=desc,
-            location=self.current_location,
-            device_name=self.cfg.get_device_id()
-        )
-        if ok:
-            self.speak(_("Evento añadido."))
-            if hasattr(self.store, "reload"):
-                self.store.reload()
-            self._build_list()
-            self._notify_refresh()
-        else:
-            self.speak(_("Ha ocurrido un error al añadir el evento."))
-    """
-    def voice_add(self):
+    # ---------- Voice-based add flow ----------
+    def voice_add(self) -> None:
+        """Start asynchronous voice-driven personal event creation flow.
+
+        Returns:
+            None.
+        """
         if not self.current_day:
             return
 
-        import threading
         threading.Thread(
             target=self._voice_add_worker,
             daemon=True
         ).start()
 
 
-    def _voice_add_worker(self):
+    def _voice_add_worker(self) -> None:
+        """Run voice flow in background thread and schedule UI updates on main loop.
+
+        Returns:
+            None.
+        """
         Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Preparando asistente de voz…")))
 
         title_prompt = _("Di el título del evento personal")
@@ -649,7 +678,13 @@ class DayEventsScreen(Screen):
 
         Clock.schedule_once(lambda dt: self._set_voice_flow_popup(False, ""), 1.0)
 
-    def _set_voice_flow_popup(self, active: bool, message: str):
+    def _set_voice_flow_popup(self, active: bool, message: str) -> None:
+        """Show/hide/update voice flow status popup.
+
+        Args:
+            active: Whether popup should be visible.
+            message: Status message displayed in popup body.
+        """
         if active:
             if not hasattr(self, "_voice_flow_popup") or self._voice_flow_popup is None:
                 card = BoxLayout(
@@ -709,12 +744,14 @@ class DayEventsScreen(Screen):
         if hasattr(self, "_voice_flow_popup") and self._voice_flow_popup and self._voice_flow_popup.parent:
             self._voice_flow_popup.dismiss()
 
-    def _sync_voice_flow_card_bg(self, widget, *_args):
+    def _sync_voice_flow_card_bg(self, widget: Any, *_args: Any) -> None:
+        """Synchronize popup card background geometry with widget geometry."""
         if hasattr(self, "_voice_flow_card_bg") and self._voice_flow_card_bg is not None:
             self._voice_flow_card_bg.pos = widget.pos
             self._voice_flow_card_bg.size = widget.size
     
-    def _after_event_added(self):
+    def _after_event_added(self) -> None:
+        """Finalize successful event creation: speak, reload, rebuild, notify."""
         self.speak(_("Evento añadido."))
 
         if hasattr(self.store, "reload"):
@@ -726,7 +763,12 @@ class DayEventsScreen(Screen):
 
 
     # ---------- Eliminar ----------
-    def _confirm_delete_event(self, event_id: str):
+    def _confirm_delete_event(self, event_id: str) -> None:
+        """Open delete confirmation popup for a personal event.
+
+        Args:
+            event_id: Event identifier to delete if confirmed.
+        """
         if not event_id:
             return
 
@@ -816,7 +858,15 @@ class DayEventsScreen(Screen):
         btn_confirm.bind(on_release=lambda *_: (popup.dismiss(), self._delete_event(event_id)))
         popup.open()
 
-    def _delete_event(self, event_id: str):
+    def _delete_event(self, event_id: str) -> None:
+        """Delete event, refresh lists, and emit synchronization hooks.
+
+        Args:
+            event_id: Event identifier.
+
+        Returns:
+            None.
+        """
         if not event_id:
             return
         ok = delete_event_mongo(event_id)
@@ -830,7 +880,8 @@ class DayEventsScreen(Screen):
             self.speak(_("No he podido eliminar el evento."))
 
     # ---------- Sincronización ----------
-    def _notify_refresh(self):
+    def _notify_refresh(self) -> None:
+        """Notify related screens (`events`, `main`) to refresh event summaries."""
         try:
             sm = self.manager
             if not sm:
@@ -847,7 +898,8 @@ class DayEventsScreen(Screen):
             print(f"[SYNC] {_('Error al refrescar pantallas')}: {e}")
 
     # ---------- UI ----------
-    def _refresh_header_clock(self):
+    def _refresh_header_clock(self) -> None:
+        """Refresh top header date/time labels using translated month/day names."""
         now = datetime.now()
         
         # ✅ FIX : Définir correctement les listes de mois et jours
@@ -870,7 +922,8 @@ class DayEventsScreen(Screen):
         if 'lbl_time' in ids:
             ids.lbl_time.text = now.strftime("%H:%M")
 
-    def _refresh_day_title(self):
+    def _refresh_day_title(self) -> None:
+        """Refresh selected day title label."""
         d = self.current_day
         if not d:
             if hasattr(self.root_view, 'ids') and 'lbl_day_title' in self.root_view.ids:
@@ -891,7 +944,8 @@ class DayEventsScreen(Screen):
         if hasattr(self.root_view, 'ids') and 'lbl_day_title' in self.root_view.ids:
             self.root_view.ids.lbl_day_title.text = f"{dias[d.weekday()].capitalize()}, {d.day} {_('de')} {meses[d.month-1]} {_('de')} {d.year}"
 
-    def _build_list(self):
+    def _build_list(self) -> None:
+        """Build day event rows in UI with audience ordering and color coding."""
         if not hasattr(self.root_view, 'ids') or 'list_box' not in self.root_view.ids:
             return
             
@@ -937,12 +991,29 @@ class DayEventsScreen(Screen):
 
     # Call to speak of the mainApp which is a relais to the speak of the vocal assistant
 
-    def speak(self, text: str):
+    def speak(self, text: str) -> None:
+        """Delegate text-to-speech output to running application.
+
+        Args:
+            text: Sentence to pronounce.
+        """
         app = App.get_running_app()
         if app:
             app.speak(text)
 
-    def listen(self, prompt: str) -> str | None:
+    def listen(self, prompt: str) -> Optional[str]:
+        """Delegate speech recognition prompt to assistant orchestrator.
+
+        Args:
+            prompt: Prompt spoken/displayed before recognition.
+
+        Returns:
+            Optional[str]: Recognized text or `None`.
+
+        Raises:
+            No exception is propagated. Assistant initialization errors are
+            logged and `None` is returned.
+        """
         app = App.get_running_app()
         if not app:
             return None
@@ -1006,7 +1077,7 @@ class DayEventsScreen(Screen):
             print(f"[ASR] {_('Error escucha')}: {e}")
             return None
     """
-    def on_pre_enter(self, *args):
-        """✅ ÉTAPE 4 : Mise à jour avant affichage"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Kivy lifecycle hook executed before displaying daily events screen."""
         self.current_location = self.cfg.get_device_location()
         self.update_labels()

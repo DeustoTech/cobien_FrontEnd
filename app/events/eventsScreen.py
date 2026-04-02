@@ -1,7 +1,13 @@
-# events/eventsScreen.py
+"""Monthly calendar screen for device events.
+
+This module renders the monthly events view, builds day cells with audience
+markers, and routes day selection to `DayEventsScreen`.
+"""
+
 from datetime import datetime, date, timedelta
 import calendar
 from collections import defaultdict
+from typing import Any, Dict, List
 
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
@@ -28,25 +34,49 @@ import json
 
 # ---------- Widgets ----------
 class LegendDot(Widget):
+    """Colored dot used in legend and day cells."""
+
     rgba = ListProperty([0.15, 0.55, 0.95, 1.0])
 
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable rounded icon button widget."""
+
     icon_source = StringProperty("")
 
 
 class ImageButton(ButtonBehavior, AnchorLayout):
+    """Reusable image button widget for left/right navigation."""
+
     src = StringProperty("")
 
 
 # ---------- Datos ----------
 class EventStore:
-    """Índice por (fecha, localización). El loader ya filtra por Bilbao/maria en fetch."""
-    def __init__(self):
+    """In-memory normalized event store optimized for calendar access.
+
+    Events are indexed by `(date, normalized_location)` to support fast daily
+    queries for the currently selected location.
+
+    Examples:
+        >>> store = EventStore()
+        >>> today_items = store.events_on(date.today(), "Bilbao")
+    """
+
+    def __init__(self) -> None:
+        """Initialize the store and load initial data."""
         self.reload()
 
-    def reload(self):
-        """Recarga desde Mongo (o cache local) y reconstruye el índice."""
+    def reload(self) -> None:
+        """Reload events from primary/fallback sources and rebuild the index.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Data source failures fall back to local
+            cache via loader functions.
+        """
         try:
             raw = fetch_events_from_mongo() or []
             if not raw:
@@ -57,7 +87,15 @@ class EventStore:
         self.index = self._build_index(self.events)
 
     @staticmethod
-    def _normalize(raw):
+    def _normalize(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize raw events to store schema.
+
+        Args:
+            raw: Raw event dictionaries from loader.
+
+        Returns:
+            List[Dict[str, Any]]: Filtered and normalized events.
+        """
         out = []
         for e in raw:
             d_str = (e.get("date") or "").strip()
@@ -71,16 +109,41 @@ class EventStore:
         return out
 
     @staticmethod
-    def _build_index(events):
+    def _build_index(events: List[Dict[str, Any]]) -> Dict[Any, List[Dict[str, Any]]]:
+        """Build index by `(date, normalized_location)` key.
+
+        Args:
+            events: Normalized events list.
+
+        Returns:
+            Dict[Any, List[Dict[str, Any]]]: Indexed mapping for fast lookup.
+        """
         idx = defaultdict(list)
         for e in events:
             idx[(e["date"], e["_loc_key"])].append(e)
         return idx
 
-    def events_on(self, day: date, location_text: str):
+    def events_on(self, day: date, location_text: str) -> List[Dict[str, Any]]:
+        """Return events for one day and location.
+
+        Args:
+            day: Target date.
+            location_text: User/location label.
+
+        Returns:
+            List[Dict[str, Any]]: Matching events.
+        """
         return self.index.get((day, location_text.strip().casefold()), [])
 
-    def get_upcoming(self, n=2):
+    def get_upcoming(self, n: int = 2) -> List[Dict[str, Any]]:
+        """Return the next `n` upcoming events from today.
+
+        Args:
+            n: Maximum number of upcoming events to return.
+
+        Returns:
+            List[Dict[str, Any]]: Minimal upcoming event payloads for summary use.
+        """
         today = date.today()
         upcoming = [e for e in self.events if e["date"] >= today]
         upcoming.sort(key=lambda x: x["date"])
@@ -460,7 +523,24 @@ KV = r"""
 
 # ---------- Pantalla ----------
 class EventsScreen(Screen):
-    def __init__(self, sm, **kwargs):
+    """Monthly calendar screen with MQTT/event-bus-driven refresh support.
+
+    Examples:
+        >>> # screen = EventsScreen(sm, name="events")
+        >>> # screen.refresh_calendar()
+    """
+
+    def __init__(self, sm: Any, **kwargs: Any) -> None:
+        """Initialize calendar screen and subscribe to refresh signals.
+
+        Args:
+            sm: Parent Kivy `ScreenManager`.
+            **kwargs: Standard Kivy `Screen` keyword arguments.
+
+        Raises:
+            No exception is intentionally raised. Runtime integration failures
+            are logged by setup methods.
+        """
         super().__init__(**kwargs)
         self.sm = sm
         Builder.load_string(KV)
@@ -482,12 +562,17 @@ class EventsScreen(Screen):
 
         self.setup_mqtt_listener()
 
-    def update_labels(self):
-        """✅ Met à jour UNIQUEMENT les labels traduits"""
+    def update_labels(self) -> None:
+        """Refresh translated labels without reloading data."""
         self._refresh_header()
         self._update_weekday_header()
 
-    def _get_day_events_widget(self):
+    def _get_day_events_widget(self) -> Any:
+        """Locate day-events screen implementation instance.
+
+        Returns:
+            Any: Widget implementing `set_store` and `show_day`, or `None`.
+        """
         try:
             cont = self.sm.get_screen('day_events')
         except Exception:
@@ -502,7 +587,8 @@ class EventsScreen(Screen):
             stack.extend(getattr(w, 'children', []))
         return None
 
-    def _have_ids(self, *names):
+    def _have_ids(self, *names: str) -> bool:
+        """Check whether required KV ids are present in the root view."""
         ids = getattr(self.root_view, "ids", None)
         if not ids:
             return False
@@ -511,7 +597,8 @@ class EventsScreen(Screen):
         except Exception:
             return False
 
-    def _refresh_header(self):
+    def _refresh_header(self) -> None:
+        """Refresh date/time, title, legend, and month labels."""
         if not self._have_ids("lbl_today", "lbl_time", "lbl_month", "lbl_calendar_title", "lbl_public", "lbl_personal"):
             return
         
@@ -542,8 +629,8 @@ class EventsScreen(Screen):
         ids.lbl_public.text = _("Público")
         ids.lbl_personal.text = _("Personal")
 
-    def _update_weekday_header(self):
-        """✅ Met à jour les en-têtes des jours de la semaine"""
+    def _update_weekday_header(self) -> None:
+        """Refresh translated weekday header row."""
         if not self._have_ids("weekday_header"):
             return
         
@@ -564,7 +651,8 @@ class EventsScreen(Screen):
                 color=(0, 0, 0, 1)
             ))
 
-    def goto_prev(self):
+    def goto_prev(self) -> None:
+        """Navigate to previous month and rebuild calendar."""
         y, m = self.current.year, self.current.month
         m -= 1
         if m < 1:
@@ -573,7 +661,8 @@ class EventsScreen(Screen):
         self.current = date(y, m, 1)
         self._build_calendar()
 
-    def goto_next(self):
+    def goto_next(self) -> None:
+        """Navigate to next month and rebuild calendar."""
         y, m = self.current.year, self.current.month
         m += 1
         if m > 12:
@@ -582,7 +671,8 @@ class EventsScreen(Screen):
         self.current = date(y, m, 1)
         self._build_calendar()
 
-    def _build_calendar(self):
+    def _build_calendar(self) -> None:
+        """Build the current month calendar grid and event markers."""
         if not self._have_ids("grid", "lbl_month"):
             return
         
@@ -656,11 +746,19 @@ class EventsScreen(Screen):
 
         self._refresh_header()
 
-    def get_upcoming_events(self, n=2):
+    def get_upcoming_events(self, n: int = 2) -> List[Dict[str, Any]]:
+        """Expose upcoming events summary for other screens.
+
+        Args:
+            n: Maximum number of events to return.
+
+        Returns:
+            List[Dict[str, Any]]: Upcoming event summary list.
+        """
         return self.store.get_upcoming(n=n)
 
-    def on_enter(self, *args):
-        """✅ APPELÉ À CHAQUE OUVERTURE - Revient toujours au mois actuel"""
+    def on_enter(self, *args: Any) -> None:
+        """Kivy lifecycle hook executed on every screen entry."""
         print("[EVENTS] 🔄 on_enter: retour au mois actuel")
         
         # ✅ FIX : Toujours revenir au mois actuel
@@ -679,8 +777,8 @@ class EventsScreen(Screen):
         self._build_calendar()
         print("[EVENTS] ✅ on_enter terminé")
 
-    def on_pre_enter(self, *args):
-        """✅ Rechargement complet avant affichage"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Kivy lifecycle hook executed before screen becomes visible."""
         print("[EVENTS] 🔄 on_pre_enter: rechargement données et affichage")
         
         try:
@@ -693,8 +791,8 @@ class EventsScreen(Screen):
         self._build_calendar()
         print("[EVENTS] ✅ on_pre_enter terminé")
 
-    def refresh_calendar(self):
-        """✅ Appelé par le signal MQTT"""
+    def refresh_calendar(self) -> None:
+        """Reload store and schedule full calendar rebuild."""
         print("[EVENTS] ========================================")
         print("[EVENTS] 🔄 refresh_calendar() APPELÉ")
         
@@ -718,9 +816,14 @@ class EventsScreen(Screen):
         print("[EVENTS] ✅ Calendrier planifié")
         print("[EVENTS] ========================================")
     
-    def setup_mqtt_listener(self):
-        """
-        Configure MQTT listener to receive reload requests
+    def setup_mqtt_listener(self) -> None:
+        """Configure MQTT listener for remote calendar refresh commands.
+
+        Subscribed topic:
+            - `app/nav` with payload target `events` and type `reload`.
+
+        Raises:
+            No exception is propagated. Setup failures are logged.
         """
         try:
             def on_message(client, userdata, msg):
