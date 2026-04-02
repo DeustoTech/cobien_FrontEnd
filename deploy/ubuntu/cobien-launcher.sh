@@ -819,11 +819,8 @@ configure_tts_runtime() {
       fi
 
       if ! command -v piper >/dev/null 2>&1 && [[ ! -x "$HOME/.local/bin/piper" ]]; then
-        log "WARN: Piper still unavailable. Trying Python user install (pip --user) as last fallback..."
-        if command -v python3 >/dev/null 2>&1; then
-          python3 -m pip install --user --upgrade pip >/dev/null 2>&1 || true
-          python3 -m pip install --user piper-tts >/dev/null 2>&1 || true
-        fi
+        log "WARN: Piper still unavailable after apt/uv attempts."
+        log "WARN: Skipping pip fallback to keep runtime dependency management UV-only."
       fi
 
       if command -v piper >/dev/null 2>&1; then

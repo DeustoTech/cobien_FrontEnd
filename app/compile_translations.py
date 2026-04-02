@@ -33,7 +33,7 @@ def compile_po_file(po_file, mo_file):
             return True
         except ImportError:
             print(f"❌ {po_file}: msgfmt et polib non disponibles")
-            print("   Installez avec: pip install polib")
+            print("   Install with UV: uv add polib")
             return False
 
 def main():

@@ -188,11 +188,11 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 - Tkinter (for popups)
 - Working webcam
 
-2) Dependencies (requierements.txt)
-pip install kivy paho-mqtt pyttsx3 requests onnxruntime opencv-python
-pip install torch transformers scikit-learn joblib sounddevice vosk
-pip install pymongo googletrans==4.0.0-rc1 beautifulsoup4
-pip install pyqt5 pyqtwebengine
+2) Dependencies (UV)
+- Use the project lock/dependency source:
+  - `uv sync --project .`
+- Optional explicit Python version:
+  - `uv sync --project . --python 3.11`
 
 3) Keys and Connection
 Configure environment variables or .env file with:
@@ -202,5 +202,5 @@ NEWS_API_KEY
 SPOONACULAR_API_KEY
 
 4) Execution
-python mainApp.py   # only UI (no camera)
-python mqtt_publisher.py  # MQTT test
+- `uv run --project . mainApp.py`   # only UI (no camera)
+- `uv run --project . mqtt_publisher.py`  # MQTT test

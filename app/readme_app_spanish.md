@@ -188,11 +188,11 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 - Tkinter (para los popups)
 - Cámara web funcional
 
-2) Dependencias (requierements.txt)
-pip install kivy paho-mqtt pyttsx3 requests onnxruntime opencv-python
-pip install torch transformers scikit-learn joblib sounddevice vosk
-pip install pymongo googletrans==4.0.0-rc1 beautifulsoup4
-pip install pyqt5 pyqtwebengine
+2) Dependencias (UV)
+- Usar la fuente de dependencias del proyecto:
+  - `uv sync --project .`
+- Con versión explícita de Python (opcional):
+  - `uv sync --project . --python 3.11`
 
 3) Claves y conexión
 Configurar variables de entorno o .env con:
@@ -202,5 +202,5 @@ NEWS_API_KEY
 SPOONACULAR_API_KEY
 
 4) Ejecución
-python mainApp.py   # solo interfaz (sin cámara)
-python mqtt_publisher.py  # prueba MQTT
+- `uv run --project . mainApp.py`   # solo interfaz (sin cámara)
+- `uv run --project . mqtt_publisher.py`  # prueba MQTT
