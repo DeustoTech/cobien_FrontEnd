@@ -1,3 +1,11 @@
+"""Button LED color/mode configuration screen.
+
+This module exposes an administration UI to tune hardware button rendering
+parameters and publish updates through MQTT.
+"""
+
+from typing import Any, Tuple
+
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.factory import Factory
@@ -52,17 +60,23 @@ MODES = {
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable icon badge button."""
+
     icon_source = StringProperty("")
 
 class ColorPreview(ButtonBehavior, Widget):
+    """Small color swatch preview widget."""
+
     hex_color = StringProperty("#ffffff")
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize color preview and bind visual updates."""
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect, hex_color=self.update_color)
         self._build()
 
-    def _build(self):
+    def _build(self) -> None:
+        """Build preview canvas primitives."""
         try:
             color = get_color_from_hex(self.hex_color)
             if len(color) == 4:
@@ -76,12 +90,14 @@ class ColorPreview(ButtonBehavior, Widget):
             self._col = Color(r, g, b, a)
             self._rect = Rectangle(pos=self.pos, size=self.size)
 
-    def update_rect(self, *args):
+    def update_rect(self, *args: Any) -> None:
+        """Sync preview rectangle geometry."""
         if hasattr(self, "_rect"):
             self._rect.pos = self.pos
             self._rect.size = self.size
 
-    def update_color(self, *args):
+    def update_color(self, *args: Any) -> None:
+        """Refresh preview fill color from current hex value."""
         if not hasattr(self, "_col"):
             return
         
@@ -604,10 +620,13 @@ Builder.load_string(KV)
 # ----------------- SCREEN PRINCIPALE -----------------
 
 class ButtonColorsScreen(Screen):
+    """Settings screen for physical button LED style parameters."""
+
     color_popup = ObjectProperty(None, allownone=True)
     current_editing = StringProperty("")
 
-    def __init__(self, sm, cfg, **kwargs):
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize button-colors settings screen."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -622,8 +641,8 @@ class ButtonColorsScreen(Screen):
         # Mettre à jour les labels
         self.update_labels()
 
-    def load_saved_colors(self):
-        """Charge les paramètres sauvegardés depuis la configuration"""
+    def load_saved_colors(self) -> None:
+        """Load persisted button-color settings from app configuration."""
         button_colors = self.cfg.data.get("button_colors", {})
         
         # PIC1
@@ -662,8 +681,8 @@ class ButtonColorsScreen(Screen):
             self.root_view.pic2_mode = "on"
             self.root_view.pic2_intensity = 255
 
-    def update_labels(self):
-        """Met à jour les labels avec les traductions"""
+    def update_labels(self) -> None:
+        """Refresh translated labels rendered by this screen."""
         
         if not hasattr(self.root_view, 'ids'):
             return
@@ -681,8 +700,8 @@ class ButtonColorsScreen(Screen):
         self.root_view.ids.btn_update_pic2.text = _("Actualizar PIC2")
         self.root_view.ids.btn_update.text = _("Actualizar Todo")
 
-    def on_color_change(self, button_id, hex_color):
-        """Met à jour la couleur quand l'utilisateur tape dans le champ texte"""
+    def on_color_change(self, button_id: str, hex_color: str) -> None:
+        """Handle manual color field edits and validate hex format."""
         hex_str = hex_color.strip()
         if not hex_str.startswith('#'):
             hex_str = '#' + hex_str
@@ -697,8 +716,8 @@ class ButtonColorsScreen(Screen):
             except ValueError:
                 pass
 
-    def open_color_picker(self, button_id):
-        """Ouvre un sélecteur de couleur dans une popup"""
+    def open_color_picker(self, button_id: str) -> None:
+        """Open color-picker popup for one button identifier."""
         self.current_editing = button_id
         
         content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
@@ -743,24 +762,30 @@ class ButtonColorsScreen(Screen):
         close_btn.bind(on_release=self.color_popup.dismiss)
         self.color_popup.open()
 
-    def on_shape_change(self, button_id, shape):
-        """Met à jour la forme quand l'utilisateur change dans le Spinner"""
+    def on_shape_change(self, button_id: str, shape: str) -> None:
+        """Handle shape spinner change for one button profile."""
         if button_id == "PIC1":
             self.root_view.pic1_shape = shape
         elif button_id == "PIC2":
             self.root_view.pic2_shape = shape
 
-    def on_mode_change(self, button_id, mode):
-        """Met à jour le mode quand l'utilisateur change dans le Spinner"""
+    def on_mode_change(self, button_id: str, mode: str) -> None:
+        """Handle mode spinner change for one button profile."""
         if button_id == "PIC1":
             self.root_view.pic1_mode = mode
         elif button_id == "PIC2":
             self.root_view.pic2_mode = mode
 
-    def encode_shape_mode(self, shape, mode):
+    def encode_shape_mode(self, shape: str, mode: str) -> int:
         """
-        ✅ ENCODAGE CORRECT (8 bits):
-        data[1] = (shape << 4) | mode
+        Encode shape/mode pair into one byte.
+
+        Args:
+            shape (str): Shape key from :data:`SHAPES`.
+            mode (str): Mode key from :data:`MODES`.
+
+        Returns:
+            int: Encoded byte value ``(shape << 4) | mode``.
         """
         shape_code = SHAPES.get(shape, 0)
         mode_code = MODES.get(mode, 0)
@@ -770,13 +795,13 @@ class ButtonColorsScreen(Screen):
         
         return encoded
 
-    def hex_to_rgb(self, hex_color):
-        """Convertit #RRGGBB en (R, G, B)"""
+    def hex_to_rgb(self, hex_color: str) -> Tuple[int, int, int]:
+        """Convert ``#RRGGBB`` string into RGB tuple."""
         hex_color = hex_color.lstrip('#')
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-    def on_update_single(self, button_id):
-        """✅ Actualise la configuration d'un seul bouton (PIC1 ou PIC2)"""
+    def on_update_single(self, button_id: str) -> None:
+        """Publish and persist one button profile (`PIC1` or `PIC2`)."""
         if button_id == "PIC1":
             pic_bitmask = 0x01  # PIC1
             color = self.root_view.pic1_color
@@ -827,8 +852,8 @@ class ButtonColorsScreen(Screen):
         print(f"[MQTT]   intensity = {intensity}")
         print(f"[MQTT] ========================================")
 
-    def on_update(self):
-        """✅ Sauvegarde les paramètres et les publie via MQTT"""
+    def on_update(self) -> None:
+        """Persist and publish both button profiles via MQTT."""
         # Sauvegarder dans la configuration
         if "button_colors" not in self.cfg.data:
             self.cfg.data["button_colors"] = {}
@@ -887,8 +912,8 @@ class ButtonColorsScreen(Screen):
         print(f"[MQTT] PIC2: {payload_pic2}")
         print(f"[MQTT] ========================================")
 
-    def on_pre_enter(self, *args):
-        """✅ Appelé avant d'afficher l'écran"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Reload values and labels before entering screen."""
         self.load_saved_colors()
         self.update_labels()
 

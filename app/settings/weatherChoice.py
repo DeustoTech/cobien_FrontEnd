@@ -1,3 +1,15 @@
+"""Weather-city configuration screen and city card widgets.
+
+This module provides UI and persistence logic to:
+
+- Manage available weather cities.
+- Toggle active cities shown in weather rotation.
+- Set one prioritized city for the main weather card.
+- Validate user-entered city names against external weather API.
+"""
+
+from typing import Any, Dict, List, Optional
+
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -25,10 +37,34 @@ from config_store import load_section
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable icon-only badge button."""
+
     icon_source = StringProperty("")
 
 class CityCard(BoxLayout):
-    def __init__(self, city_name, is_active, is_primary, callback, delete_callback, priority_callback, **kwargs):
+    """One city row card with activation, deletion, and priority actions."""
+
+    def __init__(
+        self,
+        city_name: str,
+        is_active: bool,
+        is_primary: bool,
+        callback: Any,
+        delete_callback: Any,
+        priority_callback: Any,
+        **kwargs: Any,
+    ) -> None:
+        """Build one city card widget.
+
+        Args:
+            city_name (str): City label rendered on the card.
+            is_active (bool): Whether city is currently active.
+            is_primary (bool): Whether city is the prioritized city.
+            callback (Any): Callback for activate/deactivate action.
+            delete_callback (Any): Callback for city deletion.
+            priority_callback (Any): Callback for priority toggle.
+            **kwargs (Any): Extra widget arguments.
+        """
         super().__init__(**kwargs)
         self.orientation = "horizontal"
         self.spacing = dp(20)
@@ -131,34 +167,47 @@ class CityCard(BoxLayout):
         btn_box.add_widget(self.btn_priority)
         self.add_widget(btn_box)
     
-    def update_text(self):
-        """✅ Met à jour le texte du bouton selon la langue"""
+    def update_text(self) -> None:
+        """Refresh action button text according to active language."""
         self.btn.text = _("Activa") if self.is_active else _("Activar")
         self.btn_priority.text = _("Prioritaria") if self.is_primary else _("Priorizar")
     
-    def update_graphics(self, *args):
+    def update_graphics(self, *args: Any) -> None:
+        """Sync card background and border geometry."""
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
         self.border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(16))
     
-    def update_btn_bg(self, btn, *args):
+    def update_btn_bg(self, btn: Button, *args: Any) -> None:
+        """Update activation button background geometry."""
         if self.btn_bg_rect:
             self.btn_bg_rect.pos = btn.pos
             self.btn_bg_rect.size = btn.size
 
-    def update_btn_delete_bg(self, btn, *args):
+    def update_btn_delete_bg(self, btn: Button, *args: Any) -> None:
+        """Update delete button background geometry."""
         if self.btn_delete_bg_rect:
             self.btn_delete_bg_rect.pos = btn.pos
             self.btn_delete_bg_rect.size = btn.size
 
-    def update_btn_priority_bg(self, btn, *args):
+    def update_btn_priority_bg(self, btn: Button, *args: Any) -> None:
+        """Update priority button background geometry."""
         if self.btn_priority_bg_rect:
             self.btn_priority_bg_rect.pos = btn.pos
             self.btn_priority_bg_rect.size = btn.size
 
 
 class WeatherChoice(FloatLayout):
-    def __init__(self, sm, cfg, **kwargs):
+    """Main weather-city settings container."""
+
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize weather-choice screen state and UI.
+
+        Args:
+            sm (Any): Root screen manager.
+            cfg (Any): Shared configuration object.
+            **kwargs (Any): Extra widget arguments.
+        """
         super().__init__(**kwargs)
         self.cfg = cfg
         self.sm = sm
@@ -182,8 +231,8 @@ class WeatherChoice(FloatLayout):
         print(f"[WEATHER CHOICE] Cities loaded: {self.available_cities}")
 
     
-    def update_labels(self):
-        """✅ Update all translated labels"""
+    def update_labels(self) -> None:
+        """Update all translated labels in the screen."""
         print("[WEATHER CHOICE] 🔄 Updating labels...")
         
         if hasattr(self, 'lbl_title'):
@@ -205,8 +254,15 @@ class WeatherChoice(FloatLayout):
         
         print("[WEATHER CHOICE] ✅ Labels mis à jour")
     
-    def publish_reload_event(self):
-        """Publish an MQTT event to request reload"""
+    def publish_reload_event(self) -> None:
+        """Publish MQTT weather-reload event.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Publish errors are logged.
+        """
         try:
             payload = {
                 "action": "reload",
@@ -225,12 +281,12 @@ class WeatherChoice(FloatLayout):
         except Exception as e:
             print(f"[TOGGLE] ⚠️ MQTT publish error: {e}")
 
-    def go_back(self):
-        """Return to settings screen"""
+    def go_back(self) -> None:
+        """Return to settings screen."""
         self.sm.current = "settings"
     
-    def build_ui(self):
-        """Build the user interface manually"""
+    def build_ui(self) -> None:
+        """Build the user interface tree for weather city configuration."""
         from kivy.graphics import Color as ColorGraphics, Rectangle, RoundedRectangle, Line
         from kivy.uix.widget import Widget
         
@@ -417,7 +473,8 @@ class WeatherChoice(FloatLayout):
         # Load cities after a short delay
         Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
 
-    def _build_letter_filter_buttons(self):
+    def _build_letter_filter_buttons(self) -> None:
+        """Rebuild A-Z letter filter buttons from available city list."""
         if not hasattr(self, "letters_row"):
             return
         self.letters_row.clear_widgets()
@@ -467,12 +524,14 @@ class WeatherChoice(FloatLayout):
 
         self._refresh_letter_filter_ui()
 
-    def _set_letter_filter(self, letter):
+    def _set_letter_filter(self, letter: Optional[str]) -> None:
+        """Set active initial-letter filter and refresh city cards."""
         self.selected_letter = letter
         self._refresh_letter_filter_ui()
         self.refresh_cities()
 
-    def _refresh_letter_filter_ui(self):
+    def _refresh_letter_filter_ui(self) -> None:
+        """Refresh visual style for letter filter buttons."""
         if hasattr(self, "btn_all_letters"):
             self.btn_all_letters.background_color = (1, 1, 1, 1)
             self.btn_all_letters.color = (0, 0, 0, 1)
@@ -481,7 +540,8 @@ class WeatherChoice(FloatLayout):
             btn.background_color = (1, 1, 1, 1)
             btn.color = (0, 0, 0, 1)
 
-    def _city_matches_selected_letter(self, city):
+    def _city_matches_selected_letter(self, city: str) -> bool:
+        """Check whether city matches currently selected first-letter filter."""
         if not self.selected_letter:
             return True
         city = (city or "").strip()
@@ -489,13 +549,13 @@ class WeatherChoice(FloatLayout):
             return False
         return city[0].upper() == self.selected_letter
     
-    def _update_bg(self, *args):
-        """Met à jour le background"""
+    def _update_bg(self, *args: Any) -> None:
+        """Update full-screen background geometry bindings."""
         if hasattr(self, 'bg'):
             self.bg.pos = self.pos
             self.bg.size = self.size
 
-    def load_available_cities(self):
+    def load_available_cities(self) -> None:
         """Load city catalog and active cities from unified settings config."""
         active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
         catalog = [str(c).strip() for c in self.cfg.data.get("weather_city_catalog", []) if str(c).strip()]
@@ -512,17 +572,21 @@ class WeatherChoice(FloatLayout):
         if hasattr(self, "list_cities"):
             self.refresh_cities()
 
-    def create_default_config(self, config_path):
+    def create_default_config(self, config_path: str) -> None:
         """Legacy no-op retained for compatibility."""
         self.load_available_cities()
 
-    def set_city_list(self, city_geo_dict):
-        """Méthode appelée par mainApp.py"""
+    def set_city_list(self, city_geo_dict: Dict[str, Any]) -> None:
+        """Receive geo-city mapping from main application runtime.
+
+        Args:
+            city_geo_dict (Dict[str, Any]): Mapping of city names to geo metadata.
+        """
         self.city_list_geo = city_geo_dict
         print(f"[WEATHER CHOICE] Liste geo reçue: {len(city_geo_dict)} villes")
 
-    def refresh_cities(self, *args):
-        """Affiche toutes les villes disponibles"""
+    def refresh_cities(self, *args: Any) -> None:
+        """Rebuild visible city cards according to current state/filter."""
         print(f"\n[DEBUG] ========== REFRESH_CITIES ==========")
         print(f"[DEBUG] Nombre de villes: {len(self.available_cities)}")
         
@@ -594,7 +658,7 @@ class WeatherChoice(FloatLayout):
         print(f"[DEBUG] Total widgets: {len(box.children)}")
         print(f"[DEBUG] ========== FIN REFRESH ==========\n")
 
-    def toggle_city(self, city):
+    def toggle_city(self, city: str) -> None:
         """Toggle city activation in unified settings config."""
         try:
             active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
@@ -610,15 +674,18 @@ class WeatherChoice(FloatLayout):
         except Exception as e:
             print(f"[TOGGLE] ERREUR lors de la modification: {e}")
 
-    def _normalize_city_name(self, raw_name):
+    def _normalize_city_name(self, raw_name: str) -> str:
+        """Normalize user-provided city text by trimming and collapsing spaces."""
         city = (raw_name or "").strip()
         return " ".join(city.split())
 
-    def _city_exists(self, city_name):
+    def _city_exists(self, city_name: str) -> bool:
+        """Check case-insensitive city existence in catalog list."""
         target = city_name.casefold()
         return any(c.casefold() == target for c in self.available_cities)
 
-    def _append_city_to_config(self, city_name):
+    def _append_city_to_config(self, city_name: str) -> None:
+        """Append city to catalog and active list, then persist config."""
         catalog = [str(c).strip() for c in self.cfg.data.get("weather_city_catalog", []) if str(c).strip()]
         active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
         if city_name not in catalog:
@@ -629,7 +696,8 @@ class WeatherChoice(FloatLayout):
         self.cfg.data["weather_cities"] = active
         self.cfg.save()
 
-    def set_primary_city(self, city_name):
+    def set_primary_city(self, city_name: str) -> None:
+        """Set prioritized city used as primary weather city."""
         if not city_name:
             return
         self.primary_city = city_name
@@ -639,7 +707,12 @@ class WeatherChoice(FloatLayout):
         self.refresh_cities()
         self.publish_reload_event()
 
-    def _remove_city_from_config(self, city_name):
+    def _remove_city_from_config(self, city_name: str) -> bool:
+        """Remove city from catalog and active lists.
+
+        Returns:
+            bool: ``True`` when a change was applied, otherwise ``False``.
+        """
         catalog = [str(c).strip() for c in self.cfg.data.get("weather_city_catalog", []) if str(c).strip()]
         active = [str(c).strip() for c in self.cfg.data.get("weather_cities", []) if str(c).strip()]
         if city_name not in catalog and city_name not in active:
@@ -649,7 +722,8 @@ class WeatherChoice(FloatLayout):
         self.cfg.save()
         return True
 
-    def confirm_delete_city(self, city_name):
+    def confirm_delete_city(self, city_name: str) -> None:
+        """Open confirmation modal and delete city if confirmed."""
         from kivy.graphics import Color, RoundedRectangle, Line
         popup = ModalView(
             size_hint=(None, None),
@@ -749,7 +823,8 @@ class WeatherChoice(FloatLayout):
         btn_delete.bind(on_release=_confirm)
         popup.open()
 
-    def open_add_city_popup(self):
+    def open_add_city_popup(self) -> None:
+        """Open modal dialog to add and validate a new city."""
         from kivy.graphics import Color, RoundedRectangle, Line
         popup = ModalView(
             size_hint=(None, None),
@@ -863,7 +938,7 @@ class WeatherChoice(FloatLayout):
         btn_save.bind(on_release=_save)
         popup.open()
 
-    def _is_valid_city(self, city_name):
+    def _is_valid_city(self, city_name: str) -> bool:
         """Validate that the city name can be geocoded."""
         try:
             services_cfg = load_section("services", {})
@@ -883,31 +958,34 @@ class WeatherChoice(FloatLayout):
             print(f"[WEATHER CHOICE] City validation error for '{city_name}': {exc}")
             return False
     
-    def on_pre_enter(self, *args):
-        """Appelé avant d'afficher l'écran"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Start watchers and refresh content before entering screen."""
         print("[WEATHER CHOICE] on_pre_enter")
         self._start_config_watcher()
         self.update_labels()
         self.load_available_cities()
         self.refresh_cities()
 
-    def on_leave(self, *args):
+    def on_leave(self, *args: Any) -> None:
+        """Stop periodic watcher when leaving screen."""
         self._stop_config_watcher()
 
-    def _start_config_watcher(self):
+    def _start_config_watcher(self) -> None:
+        """Start periodic configuration watcher."""
         if self._watch_event is not None:
             return
         self._watch_event = Clock.schedule_interval(self._watch_config_file, 3)
         print("[WEATHER CHOICE] ✅ Config watcher activé")
 
-    def _stop_config_watcher(self):
+    def _stop_config_watcher(self) -> None:
+        """Stop periodic configuration watcher."""
         if self._watch_event is None:
             return
         self._watch_event.cancel()
         self._watch_event = None
         print("[WEATHER CHOICE] 🛑 Config watcher désactivé")
 
-    def _watch_config_file(self, dt):
+    def _watch_config_file(self, dt: float) -> None:
         """Watch unified settings for city list changes."""
         try:
             self.load_available_cities()

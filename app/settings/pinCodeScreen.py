@@ -1,4 +1,6 @@
-"""PIN entry screen for accessing settings."""
+"""PIN entry screen used to guard access to administration screens."""
+
+from typing import Any
 
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -22,12 +24,12 @@ PIN_ENV_VAR = "COBIEN_SETTINGS_PIN"
 
 
 class PinDisplay(BoxLayout):
-    """Widget d'affichage du code PIN avec points masqués"""
+    """Masked PIN visualization widget."""
     
     pin_value = StringProperty("")
     max_length = NumericProperty(4)
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.spacing = dp(10)
@@ -64,13 +66,13 @@ class PinDisplay(BoxLayout):
         
         self.bind(pin_value=self.update_display)
     
-    def _update_line(self, line, widget):
-        """Met à jour la position du contour"""
+    def _update_line(self, line: Any, widget: Any) -> None:
+        """Update rounded border geometry for one PIN slot."""
         line.rounded_rectangle = (widget.pos[0], widget.pos[1], 
                                   widget.size[0], widget.size[1], dp(12))
     
-    def update_display(self, *args):
-        """Met à jour l'affichage des points"""
+    def update_display(self, *args: Any) -> None:
+        """Refresh visible masked dots from current `pin_value`."""
         pin_len = len(self.pin_value)
         for i, (box, label) in enumerate(self.dots):
             if i < pin_len:
@@ -78,8 +80,8 @@ class PinDisplay(BoxLayout):
             else:
                 label.text = ""
     
-    def shake_animation(self):
-        """Animation de tremblement pour code incorrect"""
+    def shake_animation(self) -> None:
+        """Play horizontal shake animation for invalid PIN feedback."""
         anim = Animation(x=self.x + dp(10), duration=0.05) + \
                Animation(x=self.x - dp(10), duration=0.05) + \
                Animation(x=self.x + dp(10), duration=0.05) + \
@@ -88,9 +90,9 @@ class PinDisplay(BoxLayout):
 
 
 class PinButton(Button):
-    """Bouton personnalisé pour le clavier numérique"""
+    """Numeric keypad button with custom style."""
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.background_color = (0, 0, 0, 0)
         self.font_size = sp(32)
@@ -109,15 +111,15 @@ class PinButton(Button):
         self.bind(size=self.update_canvas)
         self.bind(state=self.on_state_change)
     
-    def update_canvas(self, *args):
-        """Met à jour les éléments graphiques"""
+    def update_canvas(self, *args: Any) -> None:
+        """Update button background/border geometry."""
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
         self.border_line.rounded_rectangle = (self.pos[0], self.pos[1], 
                                         self.size[0], self.size[1], dp(12))
     
-    def on_state_change(self, *args):
-        """Change la couleur au clic"""
+    def on_state_change(self, *args: Any) -> None:
+        """Update button fill color according to press state."""
         if self.state == 'down':
             self.bg_color.rgba = (0.85, 0.85, 0.85, 1)
         else:
@@ -125,14 +127,15 @@ class PinButton(Button):
 
 
 class PinBackButton(Button):
-    """Bouton retour avec icône pour l'écran PIN"""
+    """Back button with icon for PIN header."""
     icon_source = StringProperty("")
 
 
 class PinCodeScreen(Screen):
-    """Écran de saisie du code PIN"""
+    """PIN authentication screen for protected navigation."""
     
-    def __init__(self, sm, cfg, target_screen="settings", **kwargs):
+    def __init__(self, sm: Any, cfg: Any, target_screen: str = "settings", **kwargs: Any) -> None:
+        """Initialize PIN screen and build keypad UI."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -150,7 +153,7 @@ class PinCodeScreen(Screen):
         # ✅ Planifier update_labels après initialisation
         Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
     
-    def load_pin(self):
+    def load_pin(self) -> str:
         """Load the settings PIN from env first, then file fallback."""
         try:
             env_pin = os.getenv(PIN_ENV_VAR, "").strip()
@@ -174,8 +177,8 @@ class PinCodeScreen(Screen):
             print(f"[PIN] Failed to load settings PIN: {e}")
             return "1234"
     
-    def update_labels(self):
-        """✅ Met à jour tous les labels traduits"""
+    def update_labels(self) -> None:
+        """Refresh translated labels and helper text."""
         print("[PIN] 🔄 Mise à jour labels...")
         
         if not self.title_label or not self.message_label:
@@ -195,8 +198,8 @@ class PinCodeScreen(Screen):
         
         print(f"[PIN] ✅ Labels mis à jour: '{self.title_label.text}'")
     
-    def build_ui(self):
-        """Construit l'interface utilisateur"""
+    def build_ui(self) -> None:
+        """Build full PIN-entry layout and keypad controls."""
         root = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(20))
         
         # Header
@@ -264,8 +267,8 @@ class PinCodeScreen(Screen):
         
         self.add_widget(root)
     
-    def on_number_press(self, number):
-        """Gère l'appui sur un bouton numérique"""
+    def on_number_press(self, number: str) -> None:
+        """Handle numeric key press and trigger validation when complete."""
         current_pin = self.pin_display.pin_value
         
         if len(current_pin) < len(self.correct_pin):
@@ -274,14 +277,14 @@ class PinCodeScreen(Screen):
             if len(self.pin_display.pin_value) == len(self.correct_pin):
                 Clock.schedule_once(lambda dt: self.check_pin(), 0.3)
     
-    def on_delete_press(self, *args):
-        """Gère l'appui sur le bouton supprimer"""
+    def on_delete_press(self, *args: Any) -> None:
+        """Handle delete key press."""
         current_pin = self.pin_display.pin_value
         if len(current_pin) > 0:
             self.pin_display.pin_value = current_pin[:-1]
     
-    def check_pin(self):
-        """Vérifie si le PIN est correct"""
+    def check_pin(self) -> None:
+        """Validate entered PIN against configured secret."""
         entered_pin = self.pin_display.pin_value
         
         if entered_pin == self.correct_pin:
@@ -296,30 +299,30 @@ class PinCodeScreen(Screen):
             self.pin_display.shake_animation()
             Clock.schedule_once(lambda dt: self.reset_pin(), 1.0)
     
-    def reset_pin(self):
-        """Réinitialise l'affichage du PIN"""
+    def reset_pin(self) -> None:
+        """Clear entered PIN and reset info message style."""
         self.pin_display.pin_value = ""
         # self.message_label.text = _("Ingrese el código PIN")
         self.message_label.color = (0.4, 0.4, 0.4, 1)
     
-    def grant_access(self):
-        """Accorde l'accès à l'écran settings"""
+    def grant_access(self) -> None:
+        """Grant access and navigate to target screen."""
         print(f"[PIN] Accès autorisé - Transition vers {self.target_screen}")
         self.sm.current = self.target_screen
         self.reset_pin()
     
-    def go_back(self, *args):
-        """Retour à l'écran précédent"""
+    def go_back(self, *args: Any) -> None:
+        """Navigate back to main screen without authentication."""
         self.sm.current = "main"
     
-    def on_pre_enter(self):
-        """✅ Appelé avant d'entrer sur l'écran - Mise à jour traductions"""
+    def on_pre_enter(self) -> None:
+        """Reset state and refresh labels before screen entry."""
         print("[PIN] 📺 on_pre_enter() - Mise à jour traductions")
         self.reset_pin()
         self.update_labels()
     
-    def on_enter(self):
-        """✅ Appelé à chaque ouverture de l'écran"""
+    def on_enter(self) -> None:
+        """Refresh labels when screen becomes visible."""
         print("[PIN] 🔄 on_enter: réinitialisation du PIN")
         self.update_labels()
 

@@ -1,3 +1,7 @@
+"""Language settings screen for runtime translation switching."""
+
+from typing import Any
+
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.factory import Factory
@@ -15,6 +19,8 @@ from translation import _, change_language, get_current_language
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable icon button widget."""
+
     icon_source = StringProperty("")
 
 Factory.register("IconBadge", cls=IconBadge)
@@ -209,9 +215,21 @@ Builder.load_string(KV)
 # ----------------- SCREEN PRINCIPALE -----------------
 
 class LanguageScreen(Screen):
+    """Screen that allows selecting and saving application language."""
+
     selected_lang = StringProperty("es")
     
-    def __init__(self, sm, cfg, **kwargs):
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize screen state and language selection.
+
+        Args:
+            sm (Any): Root Kivy screen manager.
+            cfg (Any): Shared configuration object.
+            **kwargs (Any): Extra Screen arguments.
+
+        Returns:
+            None.
+        """
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -228,18 +246,36 @@ class LanguageScreen(Screen):
         # Mettre à jour les labels
         self.update_labels()
 
-    def go_back(self):
-        """Retour à l'écran settings"""
+    def go_back(self) -> None:
+        """Navigate back to settings dashboard.
+
+        Returns:
+            None.
+        """
         self.sm.current = "settings"
 
-    def select_language(self, lang):
-        """Sélectionne une langue"""
+    def select_language(self, lang: str) -> None:
+        """Select an in-memory language option.
+
+        Args:
+            lang (str): Target language code.
+
+        Returns:
+            None.
+        """
         self.selected_lang = lang
         # Forcer le rafraîchissement visuel
         self.root_view.property('parent_screen').dispatch(self.root_view)
 
-    def on_save(self):
-        """Sauvegarde la langue sélectionnée et recharge l'interface"""
+    def on_save(self) -> None:
+        """Persist current language and refresh UI state.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Refresh issues are logged.
+        """
         print(f"[LANGUAGE] 💾 Sauvegarde langue: {self.selected_lang}")
         
         # 1. Get the app
@@ -266,8 +302,12 @@ class LanguageScreen(Screen):
         print(f"[LANGUAGE] ✅ Langue appliquée: {self.selected_lang}")
 
 
-    def update_labels(self):
-        """Met à jour les labels avec les traductions"""
+    def update_labels(self) -> None:
+        """Refresh translated labels rendered by the language screen.
+
+        Returns:
+            None.
+        """
         if not hasattr(self.root_view, 'ids'):
             return
         
@@ -276,8 +316,15 @@ class LanguageScreen(Screen):
 
         print(f"[LANGUAGE] Labels mis à jour: '{_('Configuración de Idioma')}'")
 
-    def on_pre_enter(self, *args):
-        """Mise à jour avant d'entrer dans l'écran"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Update selected language and labels before entering screen.
+
+        Args:
+            *args (Any): Kivy lifecycle positional arguments.
+
+        Returns:
+            None.
+        """
         app = App.get_running_app()
         lang = app.cfg.data.get("language", "es")
         self.selected_lang = lang

@@ -1,3 +1,11 @@
+"""Settings dashboard screen and navigation widgets.
+
+This module defines the top-level settings page used to route users toward
+specialized configuration screens.
+"""
+
+from typing import Any
+
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.factory import Factory
@@ -14,10 +22,13 @@ import os
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Compact icon-only badge used for header actions."""
+
     icon_source = StringProperty("")
 
 class SettingsNavButton(ButtonBehavior, BoxLayout):
-    """Bouton de navigation spécifique aux paramètres"""
+    """Large card button used to navigate to one settings subsection."""
+
     icon_source = StringProperty("")
     text = StringProperty("")
 
@@ -250,7 +261,19 @@ KV = """
 """
 
 class SettingsScreen(Screen):
-    def __init__(self, sm, cfg, **kwargs):
+    """Top-level settings dashboard."""
+
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize settings dashboard and load localized labels.
+
+        Args:
+            sm (Any): Root Kivy screen manager.
+            cfg (Any): Shared application configuration object.
+            **kwargs (Any): Extra Kivy Screen keyword arguments.
+
+        Returns:
+            None.
+        """
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -268,7 +291,12 @@ class SettingsScreen(Screen):
         # Mettre à jour les labels
         self.update_labels()
 
-    def _load_software_version(self):
+    def _load_software_version(self) -> str:
+        """Read software version from the local VERSION file.
+
+        Returns:
+            str: Parsed version string, or ``"unknown"`` if unavailable.
+        """
         version_file = os.path.join(os.path.dirname(__file__), "..", "VERSION")
         try:
             with open(version_file, "r", encoding="utf-8") as f:
@@ -277,8 +305,15 @@ class SettingsScreen(Screen):
         except Exception:
             return "unknown"
 
-    def update_labels(self):
-        """✅ Met à jour toutes les traductions des boutons"""
+    def update_labels(self) -> None:
+        """Update all translated labels displayed by the settings dashboard.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Missing widget ids are tolerated.
+        """
         if not hasattr(self.root_view, 'ids'):
             return
 
@@ -302,8 +337,15 @@ class SettingsScreen(Screen):
         
         print(f"[SETTINGS] ✅ Labels mis à jour ({lang})")
 
-    def on_pre_enter(self, *args):
-        """✅ Appelé avant d'afficher l'écran"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Refresh labels right before the screen is displayed.
+
+        Args:
+            *args (Any): Kivy lifecycle positional arguments.
+
+        Returns:
+            None.
+        """
         print("[SETTINGS] 📺 on_pre_enter() - Mise à jour traductions")
         self.update_labels()
 

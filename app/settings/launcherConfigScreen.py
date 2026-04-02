@@ -1,6 +1,13 @@
+"""Launcher runtime-parameter settings screen.
+
+This module provides an admin UI to edit launcher environment parameters and
+trigger an immediate update/reload workflow.
+"""
+
 import os
 import subprocess
 import threading
+from typing import Any, Dict
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -16,6 +23,8 @@ from translation import _
 
 
 class IconBadgeLauncher(ButtonBehavior, AnchorLayout):
+    """Reusable icon badge button for launcher settings header."""
+
     icon_source = StringProperty("")
 
 
@@ -254,7 +263,10 @@ KV = """
 
 
 class LauncherConfigScreen(Screen):
-    def __init__(self, sm, cfg, **kwargs):
+    """Screen used to edit launcher/runtime parameters."""
+
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize launcher config screen."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -266,7 +278,8 @@ class LauncherConfigScreen(Screen):
         self.add_widget(self.root_view)
         self._update_labels()
 
-    def _env_path(self):
+    def _env_path(self) -> str:
+        """Return absolute path to launcher environment file."""
         env_from_var = os.getenv("COBIEN_UPDATE_ENV_FILE", "").strip()
         if env_from_var:
             return env_from_var
@@ -274,7 +287,8 @@ class LauncherConfigScreen(Screen):
             os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "deploy", "ubuntu", "cobien-update.env")
         )
 
-    def _read_env(self):
+    def _read_env(self) -> Dict[str, str]:
+        """Load environment key/values from launcher env file."""
         values = {}
         path = self._env_path()
         if not os.path.exists(path):
@@ -291,22 +305,26 @@ class LauncherConfigScreen(Screen):
             pass
         return values
 
-    def _write_env(self, data):
+    def _write_env(self, data: Dict[str, str]) -> None:
+        """Persist launcher environment key/values to disk."""
         path = self._env_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         lines = [f"{k}={v}" for k, v in data.items()]
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
 
-    def _update_labels(self):
+    def _update_labels(self) -> None:
+        """Refresh translated labels for this screen."""
         self.root_view.ids.lbl_title.text = _("Parámetros de lanzamiento")
         self.root_view.ids.btn_save.text = _("Guardar parámetros")
         self.root_view.ids.btn_update_reload.text = _("Actualizar y recargar ahora")
 
-    def go_back(self):
+    def go_back(self) -> None:
+        """Navigate back to settings dashboard."""
         self.sm.current = "settings"
 
-    def load_values(self):
+    def load_values(self) -> None:
+        """Load persisted values into input widgets."""
         env = self._read_env()
         ids = self.root_view.ids
         default_workspace = os.path.join(os.path.expanduser("~"), "cobien")
@@ -321,7 +339,8 @@ class LauncherConfigScreen(Screen):
         ids.input_interval.text = env.get("COBIEN_UPDATE_INTERVAL_SEC", "60")
         ids.lbl_status.text = f"{_('Configuración cargada desde')}: {self._env_path()}"
 
-    def save_changes(self):
+    def save_changes(self) -> None:
+        """Save current form values to env file and runtime config."""
         ids = self.root_view.ids
         data = {
             "COBIEN_WORKSPACE_ROOT": ids.input_workspace.text.strip(),
@@ -350,13 +369,15 @@ class LauncherConfigScreen(Screen):
 
         ids.lbl_status.text = f"{_('Parámetros guardados en')}: {self._env_path()}"
 
-    def _launcher_script_path(self):
+    def _launcher_script_path(self) -> str:
+        """Resolve absolute path to `cobien-launcher.sh` script."""
         ids = self.root_view.ids
         workspace = ids.input_workspace.text.strip() or os.path.join(os.path.expanduser("~"), "cobien")
         frontend_name = ids.input_frontend.text.strip() or "cobien_FrontEnd"
         return os.path.join(workspace, frontend_name, "deploy", "ubuntu", "cobien-launcher.sh")
 
-    def run_full_update_reload(self):
+    def run_full_update_reload(self) -> None:
+        """Run full update-and-reload sequence in a background thread."""
         # Persist current values first so launcher runs with the latest config.
         self.save_changes()
         ids = self.root_view.ids
@@ -429,6 +450,7 @@ class LauncherConfigScreen(Screen):
 
         threading.Thread(target=_run, daemon=True).start()
 
-    def on_pre_enter(self, *args):
+    def on_pre_enter(self, *args: Any) -> None:
+        """Refresh labels/values before entering this screen."""
         self._update_labels()
         self.load_values()

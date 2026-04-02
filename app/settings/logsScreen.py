@@ -1,5 +1,8 @@
+"""System logs screens for menu selection and live log tail viewing."""
+
 import glob
 import os
+from typing import Any, List
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -17,6 +20,8 @@ KV_LOADED = False
 
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable icon badge button."""
+
     icon_source = StringProperty("")
 
 
@@ -218,7 +223,10 @@ KV = """
 
 
 class LogsMenuScreen(Screen):
-    def __init__(self, sm, cfg, **kwargs):
+    """Settings menu screen that links to log viewers."""
+
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize logs menu screen."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -230,18 +238,23 @@ class LogsMenuScreen(Screen):
         self.add_widget(self.root_view)
         self.update_labels()
 
-    def update_labels(self):
+    def update_labels(self) -> None:
+        """Refresh translated labels of log menu entries."""
         self.root_view.ids.lbl_title.text = _("Logs del sistema")
         self.root_view.ids.btn_can.text = _("CAN Bus")
         self.root_view.ids.btn_bridge.text = _("MQTT-CAN Bridge")
         self.root_view.ids.btn_app.text = _("Aplicación")
 
-    def on_pre_enter(self, *args):
+    def on_pre_enter(self, *args: Any) -> None:
+        """Update labels before entering the screen."""
         self.update_labels()
 
 
 class LogsViewerScreen(Screen):
-    def __init__(self, sm, cfg, log_prefix, title_text, **kwargs):
+    """Live log tail viewer screen for one log family."""
+
+    def __init__(self, sm: Any, cfg: Any, log_prefix: str, title_text: str, **kwargs: Any) -> None:
+        """Initialize log viewer for one log prefix."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -257,7 +270,8 @@ class LogsViewerScreen(Screen):
         self.root_view = Factory.LogsViewerRoot()
         self.add_widget(self.root_view)
 
-    def _prefix_candidates(self):
+    def _prefix_candidates(self) -> List[str]:
+        """Return fallback prefixes used to locate log files."""
         mapping = {
             "can-bus": ["can-bus", "can_bus", "can"],
             "mqtt-can-bridge": ["mqtt-can-bridge", "mqtt_can_bridge", "bridge", "mqtt-bridge"],
@@ -265,7 +279,8 @@ class LogsViewerScreen(Screen):
         }
         return mapping.get(self.log_prefix, [self.log_prefix])
 
-    def _resolve_log_dir(self):
+    def _resolve_log_dir(self) -> str:
+        """Resolve effective log directory from env and known defaults."""
         env_dir = os.getenv("COBIEN_LOG_DIR", "").strip()
         candidates = []
         if env_dir:
@@ -295,7 +310,8 @@ class LogsViewerScreen(Screen):
                 return path
         return candidates[0] if candidates else ""
 
-    def _latest_log_file(self):
+    def _latest_log_file(self) -> str:
+        """Return the most recently modified matching log file."""
         log_dir = self._resolve_log_dir()
         files = []
         for prefix in self._prefix_candidates():
@@ -309,7 +325,8 @@ class LogsViewerScreen(Screen):
         files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
         return files[0]
 
-    def _load_tail(self, file_path, max_lines=250):
+    def _load_tail(self, file_path: str, max_lines: int = 250) -> None:
+        """Load tail content of one log file into viewer label."""
         try:
             with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
@@ -322,7 +339,8 @@ class LogsViewerScreen(Screen):
             self.root_view.ids.lbl_log.text = f"{_('Error al leer log')}: {exc}"
             self._read_pos = 0
 
-    def _poll_log(self, *_args):
+    def _poll_log(self, *_args: Any) -> None:
+        """Periodic poll loop to detect and append new log lines."""
         log_dir = self._resolve_log_dir()
         file_path = self._latest_log_file()
         if not file_path:
@@ -359,7 +377,8 @@ class LogsViewerScreen(Screen):
         except Exception as exc:
             self.root_view.ids.lbl_log.text = f"{_('Error al leer log')}: {exc}"
 
-    def on_pre_enter(self, *args):
+    def on_pre_enter(self, *args: Any) -> None:
+        """Start polling and initialize viewer text before entering."""
         self.root_view.ids.lbl_title.text = _(self.title_text)
         self.root_view.ids.lbl_file.text = ""
         self.root_view.ids.lbl_log.text = _("Cargando log...")
@@ -367,7 +386,8 @@ class LogsViewerScreen(Screen):
         if self._watch_event is None:
             self._watch_event = Clock.schedule_interval(self._poll_log, 1.0)
 
-    def on_leave(self, *args):
+    def on_leave(self, *args: Any) -> None:
+        """Stop polling loop when leaving viewer screen."""
         if self._watch_event is not None:
             self._watch_event.cancel()
             self._watch_event = None

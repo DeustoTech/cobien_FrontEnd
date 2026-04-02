@@ -1,3 +1,15 @@
+"""Notification settings screen for LED and ringtone behavior.
+
+This module defines the administration UI used to configure notification
+profiles (video call, new event, new photo), including:
+
+- LED color/intensity/mode payloads.
+- Ringtone selection and preview playback.
+- Persisted runtime configuration through notification runtime helpers.
+"""
+
+from typing import Any, Dict, List
+
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.factory import Factory
@@ -35,6 +47,8 @@ from popup_style import wrap_popup_content, popup_theme_kwargs
 # ----------------- WIDGETS RÉUTILISABLES -----------------
 
 class IconBadge(ButtonBehavior, AnchorLayout):
+    """Reusable icon-only badge button."""
+
     icon_source = StringProperty("")
 
 class PlayButton(ButtonBehavior, AnchorLayout):
@@ -46,12 +60,13 @@ class PlayStopButton(ButtonBehavior, AnchorLayout):
     icon_source = StringProperty("")
     is_playing = BooleanProperty(False)
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize play/stop toggle visual state."""
         super().__init__(**kwargs)
         self.bind(is_playing=self._update_color)
     
-    def _update_color(self, *args):
-        """Update button color based on state"""
+    def _update_color(self, *args: Any) -> None:
+        """Update button color according to playback state."""
         self.canvas.before.clear()
         with self.canvas.before:
             # Red when playing, green when stopped
@@ -74,23 +89,27 @@ class PlayStopButton(ButtonBehavior, AnchorLayout):
 class ColorPreview(ButtonBehavior, Widget):
     hex_color = StringProperty("#ffffff")
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize preview widget and bind visual updates."""
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect, hex_color=self.update_color)
         self._build()
     
-    def _build(self):
+    def _build(self) -> None:
+        """Build initial color preview canvas objects."""
         r, g, b, a = get_color_from_hex(self.hex_color)
         with self.canvas:
             self._col = Color(r, g, b, a)
             self._rect = Rectangle(pos=self.pos, size=self.size)
     
-    def update_rect(self, *args):
+    def update_rect(self, *args: Any) -> None:
+        """Sync preview rectangle geometry with widget bounds."""
         if hasattr(self, "_rect"):
             self._rect.pos = self.pos
             self._rect.size = self.size
     
-    def update_color(self, *args):
+    def update_color(self, *args: Any) -> None:
+        """Update preview color from current hex value."""
         r, g, b, a = get_color_from_hex(self.hex_color)
         self._col.rgba = (r, g, b, a)
 
@@ -464,6 +483,7 @@ Builder.load_string(KV)
 # ----------------- STRIP CARD WIDGET -----------------
 
 class StripCard(BoxLayout):
+    """Per-notification card used in notifications settings screen."""
     title = StringProperty("")
     strip_key = StringProperty("")
     intensity = NumericProperty(255)
@@ -484,12 +504,13 @@ class StripCard(BoxLayout):
     _stop_event = None
     _is_playing = False
     
-    def on_kv_post(self, *args):
+    def on_kv_post(self, *args: Any) -> None:
+        """Finalize widget initialization after KV binding."""
         self.initialized = True
         self.update_labels()
     
-    def update_labels(self):
-        """Update labels with translations"""
+    def update_labels(self) -> None:
+        """Refresh translated labels for card controls."""
         if not hasattr(self, 'ids'):
             return
         
@@ -504,12 +525,14 @@ class StripCard(BoxLayout):
         self.mode_values = [_("Encendido"), _("Apagado"), _("Parpadeo"), _("Parpadeo Gradual")]
         self._refresh_ringtone_spinner()
     
-    def on_intensity(self, instance, value):
+    def on_intensity(self, instance: Any, value: float) -> None:
+        """Persist intensity update when slider changes."""
         if not self.initialized or not self.parent_screen:
             return
         self.parent_screen.update_strip_value(self.strip_key, "intensity", int(value))
     
-    def on_color(self, instance, hex_color):
+    def on_color(self, instance: Any, hex_color: str) -> None:
+        """Persist color update when color value changes."""
         if not self.initialized or not self.parent_screen:
             return
         
@@ -520,7 +543,8 @@ class StripCard(BoxLayout):
             self.color = hex_str
             self.parent_screen.update_strip_value(self.strip_key, "color", hex_str)
     
-    def on_mode(self, instance, mode_text):
+    def on_mode(self, instance: Any, mode_text: str) -> None:
+        """Persist technical mode mapped from translated label."""
         if not self.initialized or not self.parent_screen:
             return
         
@@ -535,22 +559,23 @@ class StripCard(BoxLayout):
         self.mode = mode_text
         self.parent_screen.update_strip_value(self.strip_key, "mode", technical_mode)
     
-    def on_ringtone(self, instance, ringtone):
+    def on_ringtone(self, instance: Any, ringtone: str) -> None:
+        """Persist selected ringtone after display/store normalization."""
         if not self.initialized or not self.parent_screen:
             return
         stored_ringtone = self.parent_screen.to_stored_ringtone(ringtone)
         self.ringtone = self.parent_screen.to_display_ringtone(stored_ringtone)
         self.parent_screen.update_strip_value(self.strip_key, "ringtone", stored_ringtone)
     
-    def toggle_ringtone(self):
-        """Toggle between play and stop"""
+    def toggle_ringtone(self) -> None:
+        """Toggle ringtone preview playback state."""
         if self._is_playing:
             self.stop_ringtone()
         else:
             self.play_ringtone()
     
-    def play_ringtone(self):
-        """Play the selected ringtone"""
+    def play_ringtone(self) -> None:
+        """Start selected ringtone preview playback."""
         ringtone_name = self.parent_screen.to_stored_ringtone(self.ringtone) if self.parent_screen else self.ringtone
 
         if ringtone_name == NONE_RINGTONE or not ringtone_name or ringtone_name.strip() == "":
@@ -582,7 +607,8 @@ class StripCard(BoxLayout):
         self._ringtone_thread = threading.Thread(target=lambda: None, daemon=True)
         self._ringtone_thread.start()
 
-    def _refresh_ringtone_spinner(self):
+    def _refresh_ringtone_spinner(self) -> None:
+        """Refresh ringtone spinner values and selected display label."""
         if not hasattr(self, "ids") or "ringtone_spinner" not in self.ids:
             return
         if not self.parent_screen:
@@ -593,8 +619,8 @@ class StripCard(BoxLayout):
         self.ids.ringtone_spinner.values = self.available_ringtones
         self.ids.ringtone_spinner.text = self.ringtone
     
-    def stop_ringtone(self):
-        """Stop the currently playing ringtone"""
+    def stop_ringtone(self) -> None:
+        """Stop ringtone preview playback if active."""
         if not self._is_playing:
             return
         
@@ -602,16 +628,16 @@ class StripCard(BoxLayout):
         runtime_stop_ringtone()
         self._reset_button_state()
     
-    def _reset_button_state(self):
-        """Reset button to play state"""
+    def _reset_button_state(self) -> None:
+        """Reset play/stop visual button to idle state."""
         self._is_playing = False
         if hasattr(self, 'ids') and 'play_stop_btn' in self.ids:
             self.ids.play_stop_btn.is_playing = False
             self.ids.play_stop_btn.icon_source = self.play_icon
         print("[RINGTONE] Button reset to play state")
     
-    def open_color_picker(self):
-        """Open color picker in popup"""
+    def open_color_picker(self) -> None:
+        """Open modal color picker and persist live color changes."""
         content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
         
         picker = ColorPicker()
@@ -652,7 +678,8 @@ class StripCard(BoxLayout):
         close_btn.bind(on_release=self.color_popup.dismiss)
         self.color_popup.open()
     
-    def on_update(self):
+    def on_update(self) -> None:
+        """Publish current card configuration and auto-turn LEDs off."""
         if not self.parent_screen:
             return
         
@@ -663,7 +690,8 @@ class StripCard(BoxLayout):
         from notifications.mqtt_led_sender import turn_off_leds
         Clock.schedule_once(lambda dt: turn_off_leds(), 5)
 
-    def on_simulate(self):
+    def on_simulate(self) -> None:
+        """Trigger fake notification flow for current card profile."""
         if not self.parent_screen:
             return
         self.parent_screen.simulate_notification(self.strip_key)
@@ -673,13 +701,21 @@ Factory.register("StripCard", cls=StripCard)
 # ----------------- SCREEN PRINCIPALE -----------------
 
 class NotificationsScreen(Screen):
+    """Settings screen that manages notification LED/ringtone profiles."""
     ledStrips = DictProperty({
         "videollamada": {"group": 1, "intensity": 255, "color": "#00FF00", "mode": "ON", "ringtone": NONE_RINGTONE},
         "nuevo_evento": {"group": 2, "intensity": 255, "color": "#FF0000", "mode": "ON", "ringtone": NONE_RINGTONE},
         "nueva_foto": {"group": 3, "intensity": 255, "color": "#0000FF", "mode": "BLINK", "ringtone": NONE_RINGTONE},
     })
     
-    def __init__(self, sm, cfg, **kwargs):
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize notifications settings screen.
+
+        Args:
+            sm (Any): Root screen manager.
+            cfg (Any): Shared configuration object.
+            **kwargs (Any): Extra Screen parameters.
+        """
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -699,8 +735,8 @@ class NotificationsScreen(Screen):
         # Mettre à jour le titre de l'écran
         Clock.schedule_once(lambda dt: self.update_labels(), 0.15)
     
-    def update_labels(self):
-        """✅ Met à jour les labels traduits"""
+    def update_labels(self) -> None:
+        """Refresh translated labels and recreate strip cards."""
         print("[NOTIF_SCREEN] 🔄 Mise à jour labels...")
         
         if hasattr(self.root_view, 'ids') and 'lbl_title' in self.root_view.ids:
@@ -711,8 +747,8 @@ class NotificationsScreen(Screen):
         
         print("[NOTIF_SCREEN] ✅ Labels mis à jour")
     
-    def _refresh_all_strip_cards(self):
-        """Recrée tous les StripCard avec les nouvelles traductions"""
+    def _refresh_all_strip_cards(self) -> None:
+        """Recreate strip cards after translation or config update."""
         print("[NOTIF_SCREEN] 🔄 Rafraîchissement des StripCard...")
         
         if not hasattr(self.root_view, 'ids') or 'strips_grid' not in self.root_view.ids:
@@ -730,30 +766,30 @@ class NotificationsScreen(Screen):
     
     # ========== SAUVEGARDE/CHARGEMENT ==========
     
-    def load_config(self):
-        """Charge la configuration depuis le fichier JSON"""
+    def load_config(self) -> None:
+        """Load persisted notification profiles from runtime store."""
         config = runtime_load_notification_config()
         for key in self.ledStrips.keys():
             if key in config:
                 self.ledStrips[key].update(config[key])
         print("[CONFIG] ✓ Configuration chargée")
     
-    def save_config(self):
-        """Sauvegarde la configuration dans le fichier JSON"""
+    def save_config(self) -> bool:
+        """Save current notification profiles into runtime store."""
         ok = runtime_save_notification_config(dict(self.ledStrips))
         if ok:
             print("[CONFIG] ✓ Configuration sauvegardée")
         return ok
     
-    def update_strip_value(self, strip, field, value):
-        """Mise à jour + sauvegarde automatique"""
+    def update_strip_value(self, strip: str, field: str, value: Any) -> None:
+        """Update one profile field and persist configuration."""
         if field == "ringtone":
             value = self.normalize_ringtone(value)
         self.ledStrips[strip][field] = value
         self.save_config()
     
-    def publish_config(self, strip):
-        """Publie la configuration d'un strip sur MQTT en utilisant le module centralisé"""
+    def publish_config(self, strip: str) -> None:
+        """Publish one profile configuration payload via MQTT helper."""
         payload = self.ledStrips[strip]
         
         # Utiliser le module centralisé
@@ -763,31 +799,36 @@ class NotificationsScreen(Screen):
     
     # ========== AUTRES MÉTHODES ==========
     
-    def load_ringtones(self):
+    def load_ringtones(self) -> List[str]:
+        """Load available ringtone catalog from runtime helper."""
         ringtones = runtime_load_ringtones()
         print(f"[RINGTONE] Found {len(ringtones)-1} ringtones")
         return ringtones
 
-    def normalize_ringtone(self, ringtone):
+    def normalize_ringtone(self, ringtone: str) -> str:
+        """Normalize ringtone names across localized display variants."""
         ringtone_name = normalize_ringtone_name(ringtone)
         if ringtone_name in {_("Ninguna"), _("Aucune")}:
             return NONE_RINGTONE
         return ringtone_name
 
-    def to_display_ringtone(self, ringtone):
+    def to_display_ringtone(self, ringtone: str) -> str:
+        """Convert stored ringtone key into user-facing label."""
         ringtone_name = self.normalize_ringtone(ringtone)
         if ringtone_name == NONE_RINGTONE:
             return _("Ninguna")
         return ringtone_name
 
-    def to_stored_ringtone(self, ringtone):
+    def to_stored_ringtone(self, ringtone: str) -> str:
+        """Convert UI ringtone value to normalized stored representation."""
         return self.normalize_ringtone(ringtone)
 
-    def get_display_ringtones(self):
+    def get_display_ringtones(self) -> List[str]:
+        """Return display-ready ringtone options list."""
         return [self.to_display_ringtone(ringtone) for ringtone in self.available_ringtones]
     
-    def load_strip_cards(self):
-        """Charge les StripCard avec les traductions actuelles"""
+    def load_strip_cards(self) -> None:
+        """Create and attach one StripCard per notification profile."""
         if not hasattr(self.root_view, 'ids') or 'strips_grid' not in self.root_view.ids:
             print("[NOTIF_SCREEN] ⚠️ strips_grid non disponible pour load_strip_cards")
             return
@@ -826,13 +867,18 @@ class NotificationsScreen(Screen):
         
         print(f"[NOTIF_SCREEN] ✅ {len(self.ledStrips)} StripCard créés")
     
-    def on_pre_enter(self, *args):
-        """✅ Mise à jour des traductions avant d'entrer dans l'écran"""
+    def on_pre_enter(self, *args: Any) -> None:
+        """Refresh translations and ringtones before entering screen."""
         print("[NOTIF_SCREEN] 🔄 on_pre_enter")
         self.update_labels()
         self.available_ringtones = self.load_ringtones()
 
-    def simulate_notification(self, strip_key):
+    def simulate_notification(self, strip_key: str) -> None:
+        """Trigger simulated notification using NotificationManager.
+
+        Args:
+            strip_key (str): Profile key to simulate.
+        """
         app = App.get_running_app()
         manager = getattr(app, "notification_manager", None) if app else None
         if not manager:

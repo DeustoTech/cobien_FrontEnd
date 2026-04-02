@@ -1,3 +1,7 @@
+"""Joke-category selection screen used by the home joke widget."""
+
+from typing import Any, List, Tuple
+
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.factory import Factory
@@ -10,11 +14,11 @@ from translation import _, get_current_language
 
 # ✅ Déclarer les classes composites AVANT le KV
 class CategoryButton(ButtonBehavior, BoxLayout):
-    """Clickable category button"""
+    """Clickable category card."""
     pass
 
 class SettingsButton(ButtonBehavior, BoxLayout):
-    """Settings back button"""
+    """Back-navigation button to return to settings."""
     pass
 
 KV = """
@@ -143,7 +147,19 @@ KV = """
 """
 
 class JokeCategoryScreen(Screen):
-    def __init__(self, sm, cfg, **kwargs):
+    """Screen to choose the active joke category."""
+
+    def __init__(self, sm: Any, cfg: Any, **kwargs: Any) -> None:
+        """Initialize the joke category screen and preload categories.
+
+        Args:
+            sm (Any): Root Kivy screen manager.
+            cfg (Any): Shared app configuration instance.
+            **kwargs (Any): Extra Kivy Screen arguments.
+
+        Returns:
+            None.
+        """
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
@@ -171,8 +187,12 @@ class JokeCategoryScreen(Screen):
         # ✅ Initialize labels and buttons
         Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
     
-    def update_labels(self):
-        """✅ Update all translations (title + buttons via populate)"""
+    def update_labels(self) -> None:
+        """Update translated title and category button labels.
+
+        Returns:
+            None.
+        """
         print("[JOKE_CATEGORY] 🔄 Updating labels...")
         
         if hasattr(self.root_view, 'ids') and 'lbl_title' in self.root_view.ids:
@@ -186,8 +206,12 @@ class JokeCategoryScreen(Screen):
         
         print("[JOKE_CATEGORY] ✅ Labels updated")
     
-    def _refresh_all_category_buttons(self):
-        """Recreate all category buttons with the new translations"""
+    def _refresh_all_category_buttons(self) -> None:
+        """Rebuild category card widgets after a language or state change.
+
+        Returns:
+            None.
+        """
         print("[JOKE_CATEGORY] 🔄 Refreshing buttons...")
         
         if not hasattr(self.root_view, 'ids') or 'grid_categories' not in self.root_view.ids:
@@ -199,8 +223,15 @@ class JokeCategoryScreen(Screen):
         
         print("[JOKE_CATEGORY] ✅ Buttons refreshed")
     
-    def populate_categories(self):
-        """✅ Fill the grid with translated buttons (recreates, like NotificationsScreen)"""
+    def populate_categories(self) -> None:
+        """Populate category grid from configuration and translation state.
+
+        Returns:
+            None.
+
+        Examples:
+            >>> self.populate_categories()
+        """
         if not hasattr(self.root_view, 'ids') or 'grid_categories' not in self.root_view.ids:
             print("[JOKE_CATEGORY] ⚠️ grid_categories non disponible")
             return
@@ -229,8 +260,19 @@ class JokeCategoryScreen(Screen):
         
         print(f"[JOKE_CATEGORY] ✅ {len(self.categories)} buttons created")
     
-    def select_category(self, category_id):
-        """✅ FIXED: Reload config everywhere before using it"""
+    def select_category(self, category_id: str) -> None:
+        """Persist selected category and refresh dependent joke screens.
+
+        Args:
+            category_id (str): Technical identifier of selected category.
+
+        Returns:
+            None.
+
+        Raises:
+            No exception is propagated. Downstream screen-refresh failures are
+            logged and best-effort refresh continues.
+        """
         print(f"[JOKE_CATEGORY] 🎯 Category selected: {category_id}")
         
         # 1️⃣ Save to config
@@ -269,7 +311,11 @@ class JokeCategoryScreen(Screen):
         
         print(f"[JOKE_CATEGORY] ✅ Catégorie changée : {category_id}")
     
-    def on_pre_enter(self):
-        """✅ Appelé avant d'afficher l'écran - Mise à jour traductions"""
+    def on_pre_enter(self) -> None:
+        """Refresh labels every time the screen is entered.
+
+        Returns:
+            None.
+        """
         print("[JOKE_CATEGORY] 📺 on_pre_enter() - Mise à jour traductions")
         self.update_labels()
