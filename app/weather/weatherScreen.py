@@ -19,7 +19,6 @@ from datetime import datetime, timedelta
 import threading
 import requests
 import os
-import pyttsx3
 from translation import _
 from kivy.app import App
 import paho.mqtt.client as mqtt
@@ -404,11 +403,6 @@ class WeatherScreenWidget(BoxLayout):
 
         self.setup_mqtt_listener()
 
-        # Local TTS engine used for "read weather" action.
-        self.tts_engine = pyttsx3.init()
-        self.tts_engine.setProperty("rate", 150)
-        self.tts_engine.setProperty("volume", 0.9)
-
         # City list state.
         self.cities = []
         self.city_index = 0
@@ -643,8 +637,10 @@ class WeatherScreenWidget(BoxLayout):
         print(texto)
         if hasattr(self, "main_ref"):
             self.main_ref.speak(texto)
-        #self.tts_engine.say(texto)
-        #self.tts_engine.runAndWait()s
+        else:
+            app = App.get_running_app()
+            if hasattr(app, "speak"):
+                app.speak(texto)
 
     def _fetch_all_and_render(self):
         """Fetch weather bundle and schedule UI rendering on main thread."""
