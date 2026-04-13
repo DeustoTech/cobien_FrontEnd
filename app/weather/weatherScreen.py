@@ -191,8 +191,7 @@ KV = r"""
                         anchor_x: "right"
                         anchor_y: "top"
                         size_hint_x: None
-                        width: dp(200) if root.show_city_navigation else 0
-                        opacity: 1 if root.show_city_navigation else 0
+                        width: dp(420)
                     
                         BoxLayout:
                             orientation: "horizontal"
@@ -200,6 +199,7 @@ KV = r"""
                             size_hint: None, None
                             width: dp(200)
                             height: dp(250)
+                            opacity: 1 if root.show_city_navigation else 0
 
                             IconBtn:
                                 disabled: not root.show_city_navigation
@@ -220,6 +220,7 @@ KV = r"""
                         AnchorLayout:
                             anchor_x: "right"
                             anchor_y: "center"
+                            padding: [dp(210), 0, 0, 0]
                         
                             BoxLayout:
                                 orientation: "horizontal"
@@ -236,7 +237,6 @@ KV = r"""
                                         keep_ratio: True
 
                                 IconBtn:
-                                    #on_touch_up: (root.speak_window_info(), setattr(self,'state','normal')) if self.collide_point(*args[1].pos) else None
                                     on_release:
                                         root.speak_window_info()
                                         self.state = 'normal'
