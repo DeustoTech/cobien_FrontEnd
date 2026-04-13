@@ -7,6 +7,7 @@ import unicodedata
 from glob import glob
 from datetime import date, datetime
 
+from kivy.config import Config
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -83,6 +84,9 @@ Builder.load_string(PINBACK_BUTTON_KV)
 
 RUNTIME_STATE_DIR = os.path.join(os.path.dirname(__file__), "runtime_state")
 UPDATE_MARKER_FILE = os.path.join(RUNTIME_STATE_DIR, "system_updated.json")
+
+# Prevent Kivy from closing the app directly when Escape is pressed.
+Config.set("kivy", "exit_on_escape", "0")
 
 # Ventana
 Window.fullscreen = 'auto'

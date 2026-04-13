@@ -140,6 +140,23 @@ class TTSService:
             return model
         return None
 
+    def get_runtime_backend_info(self, language="es"):
+        engine_name, _rate, _volume, piper_bin, piper_model_es, piper_model_fr = self._load_runtime_tts_config()
+        backend = engine_name
+        resolved_bin = self._resolve_piper_bin(configured_bin=piper_bin) if engine_name == "piper" else None
+        resolved_model = self._resolve_piper_model(language, model_es=piper_model_es, model_fr=piper_model_fr)
+        if engine_name == "piper" and (not resolved_bin or not resolved_model):
+            backend = "pyttsx3-fallback"
+        return {
+            "engine": engine_name,
+            "backend": backend,
+            "language": language,
+            "piper_bin": resolved_bin or "",
+            "piper_model": resolved_model or "",
+            "piper_model_es": piper_model_es,
+            "piper_model_fr": piper_model_fr,
+        }
+
     def _resolve_piper_model_config(self, model_path):
         if not model_path:
             return None
