@@ -1373,12 +1373,13 @@ restart_software() {
   local relaunch_after_update="${1:-0}"
   log "Relaunching furniture software"
   if [[ "$relaunch_after_update" == "1" ]]; then
+    log "Update-triggered relaunch will use clean-launch mode."
     exec /bin/bash "$SELF_SCRIPT" \
       --non-interactive \
       --yes \
       --force-restart \
       --relaunch-after-update \
-      --mode launch \
+      --mode clean-launch \
       --workspace "$WORKSPACE_ROOT" \
       --frontend-name "$FRONTEND_REPO_NAME" \
       --mqtt-name "$MQTT_REPO_NAME" \
