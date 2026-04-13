@@ -218,9 +218,32 @@ stop_all_other_launcher_processes() {
   return 0
 }
 
+wait_for_no_other_launcher_processes() {
+  local timeout_seconds="${1:-10}"
+  local elapsed=0
+  local running_pid=""
+
+  while (( elapsed < timeout_seconds )); do
+    running_pid="$(discover_running_launcher_pid || true)"
+    if [[ -z "${running_pid:-}" ]]; then
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  running_pid="$(discover_running_launcher_pid || true)"
+  if [[ -n "${running_pid:-}" ]]; then
+    log "Launcher process still present after waiting ${timeout_seconds}s (PID=$running_pid)."
+    return 1
+  fi
+  return 0
+}
+
 stabilize_launcher_takeover() {
   stop_systemd_user_launcher_supervision || true
   stop_all_other_launcher_processes || true
+  wait_for_no_other_launcher_processes 10 || true
 }
 
 prepare_manual_launcher_takeover() {
