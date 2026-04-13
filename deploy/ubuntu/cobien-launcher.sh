@@ -70,6 +70,7 @@ Usage:
   $(basename "$0") --mode update-once
   $(basename "$0") --mode watch
   $(basename "$0") --mode launch
+  $(basename "$0") --mode clean-launch
   $(basename "$0") --mode dry-run
 
 Modes:
@@ -78,6 +79,7 @@ Modes:
   update-once   Check for changes and relaunch if updated
   watch         Check for changes every minute
   launch        Launch the furniture runtime
+  clean-launch  Stop previous launcher/runtime state and relaunch cleanly
   dry-run       Print resolved configuration
 
 Options:
@@ -104,6 +106,7 @@ Options:
   --tts-piper-voice-fr male|female
   --recreate-venv
   --force-restart
+  --clean-launch
   --skip-system-deps
   --non-interactive
   --yes
@@ -235,6 +238,25 @@ stop_existing_launcher_instance() {
   return 0
 }
 
+reopen_lock_fd() {
+  eval "exec ${LOCK_FD}>&-" || true
+  eval "exec ${LOCK_FD}>\"$LOCK_FILE\""
+}
+
+recover_stale_lock_state() {
+  local running_pid
+  running_pid="$(discover_running_launcher_pid || true)"
+  if [[ -n "${running_pid:-}" ]]; then
+    log "Lock recovery aborted: another launcher PID is still running ($running_pid)."
+    return 1
+  fi
+
+  log "No launcher process remains; removing stale lock file: $LOCK_FILE"
+  rm -f "$LOCK_FILE" || true
+  reopen_lock_fd
+  return 0
+}
+
 acquire_single_instance_lock() {
   if ! command -v flock >/dev/null 2>&1; then
     log "flock not available; single-instance protection disabled"
@@ -253,8 +275,11 @@ acquire_single_instance_lock() {
       if stop_existing_launcher_instance; then
         sleep 1
         if ! flock -n "$LOCK_FD"; then
-          log "Unable to acquire lock after stopping previous instance."
-          exit 1
+          log "Lock still busy after stopping previous instance. Attempting stale-lock recovery."
+          if ! recover_stale_lock_state || ! flock -n "$LOCK_FD"; then
+            log "Unable to acquire lock after stopping previous instance."
+            exit 1
+          fi
         fi
       else
         log "Unable to stop existing launcher instance."
@@ -264,8 +289,11 @@ acquire_single_instance_lock() {
       if stop_existing_launcher_instance; then
         sleep 1
         if ! flock -n "$LOCK_FD"; then
-          log "Unable to acquire lock after stopping previous instance."
-          exit 1
+          log "Lock still busy after stopping previous instance. Attempting stale-lock recovery."
+          if ! recover_stale_lock_state || ! flock -n "$LOCK_FD"; then
+            log "Unable to acquire lock after stopping previous instance."
+            exit 1
+          fi
         fi
       else
         log "Unable to stop existing launcher instance."
@@ -1787,6 +1815,11 @@ parse_args() {
         MODE="dry-run"
         shift
         ;;
+      --clean-launch)
+        MODE="clean-launch"
+        FORCE_RESTART="1"
+        shift
+        ;;
       --launch)
         MODE="launch"
         shift
@@ -1834,6 +1867,16 @@ main() {
       normalize_device_identity
       launch_runtime "$RELAUNCH_AFTER_UPDATE"
       log "Launch mode keeps watcher active by default."
+      run_watch_loop
+      ;;
+    clean-launch)
+      FORCE_RESTART="1"
+      check_paths
+      load_env_file
+      normalize_device_identity
+      log "Clean launch requested: previous launcher/runtime state will be replaced."
+      launch_runtime 0
+      log "Clean launch keeps watcher active by default."
       run_watch_loop
       ;;
     dry-run)
