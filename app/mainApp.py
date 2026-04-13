@@ -2183,6 +2183,10 @@ class MyApp(App):
         self._show_exit_pin_popup()
         return True
 
+    def _on_window_request_close(self, *args):
+        self._show_exit_pin_popup()
+        return True
+
 
     def _show_black_overlay(self, *args):
         # Never suspend the OS on idle; only show black overlay.
@@ -2231,7 +2235,8 @@ class MyApp(App):
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
             on_key_down=self._on_first_user_input,
-            on_mouse_move=self._on_first_user_input
+            on_mouse_move=self._on_first_user_input,
+            on_request_close=self._on_window_request_close,
         )
         # Charger config et traduction
         self.cfg = AppConfig()
