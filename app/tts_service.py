@@ -39,10 +39,20 @@ class TTSService:
         engine = (services_cfg.get("tts_engine", "pyttsx3") or "pyttsx3").strip().lower()
         rate = int(services_cfg.get("tts_rate", os.getenv("COBIEN_TTS_RATE", str(DEFAULT_RATE))))
         volume = float(services_cfg.get("tts_volume", os.getenv("COBIEN_TTS_VOLUME", str(DEFAULT_VOLUME))))
-        piper_bin = (services_cfg.get("tts_piper_bin", "") or "").strip()
-        piper_model_es = (services_cfg.get("tts_piper_model_es", "") or "").strip()
-        piper_model_fr = (services_cfg.get("tts_piper_model_fr", "") or "").strip()
-        return engine, rate, volume, piper_bin, piper_model_es, piper_model_fr
+        return {
+            "engine": engine,
+            "rate": rate,
+            "volume": volume,
+            "piper_bin": (services_cfg.get("tts_piper_bin", "") or "").strip(),
+            "piper_model_es": (services_cfg.get("tts_piper_model_es", "") or "").strip(),
+            "piper_model_fr": (services_cfg.get("tts_piper_model_fr", "") or "").strip(),
+            "piper_model_es_male": (services_cfg.get("tts_piper_model_es_male", "") or "").strip(),
+            "piper_model_es_female": (services_cfg.get("tts_piper_model_es_female", "") or "").strip(),
+            "piper_model_fr_male": (services_cfg.get("tts_piper_model_fr_male", "") or "").strip(),
+            "piper_model_fr_female": (services_cfg.get("tts_piper_model_fr_female", "") or "").strip(),
+            "piper_voice_es": (services_cfg.get("tts_piper_voice_es", "male") or "male").strip().lower(),
+            "piper_voice_fr": (services_cfg.get("tts_piper_voice_fr", "male") or "male").strip().lower(),
+        }
 
     def _voice_matches(self, voice, language):
         targets = ("french", "fr", "fr-fr") if language == "fr" else ("spanish", "es", "es-es")
@@ -76,15 +86,16 @@ class TTSService:
         if not text:
             return False
 
-        engine_name, rate, volume, piper_bin, piper_model_es, piper_model_fr = self._load_runtime_tts_config()
+        runtime_cfg = self._load_runtime_tts_config()
+        engine_name = runtime_cfg["engine"]
+        rate = runtime_cfg["rate"]
+        volume = runtime_cfg["volume"]
 
         if engine_name == "piper":
             if self._speak_with_piper(
                 text,
                 language=language,
-                configured_bin=piper_bin,
-                model_es=piper_model_es,
-                model_fr=piper_model_fr,
+                runtime_cfg=runtime_cfg,
             ):
                 return True
             print("[TTS] Piper selected but unavailable/misconfigured. Falling back to pyttsx3.")
@@ -134,17 +145,38 @@ class TTSService:
                     return found
         return None
 
-    def _resolve_piper_model(self, language, model_es="", model_fr=""):
-        model = model_fr if language == "fr" else model_es
+    def _normalize_voice(self, voice):
+        return "female" if str(voice or "").strip().lower() in ("female", "woman", "mujer") else "male"
+
+    def _resolve_piper_model(self, language, runtime_cfg):
+        voice = self._normalize_voice(
+            runtime_cfg.get("piper_voice_fr" if language == "fr" else "piper_voice_es", "male")
+        )
+        preferred_keys = [
+            f"piper_model_{language}_{voice}",
+            f"piper_model_{language}",
+        ]
+        if language == "es":
+            preferred_keys.extend(["piper_model_es_male", "piper_model_es_female"])
+        else:
+            preferred_keys.extend(["piper_model_fr_male", "piper_model_fr_female"])
+
+        model = ""
+        for key in preferred_keys:
+            candidate = (runtime_cfg.get(key, "") or "").strip()
+            if candidate and os.path.exists(candidate):
+                model = candidate
+                break
         if model and os.path.exists(model):
             return model
         return None
 
     def get_runtime_backend_info(self, language="es"):
-        engine_name, _rate, _volume, piper_bin, piper_model_es, piper_model_fr = self._load_runtime_tts_config()
+        runtime_cfg = self._load_runtime_tts_config()
+        engine_name = runtime_cfg["engine"]
         backend = engine_name
-        resolved_bin = self._resolve_piper_bin(configured_bin=piper_bin) if engine_name == "piper" else None
-        resolved_model = self._resolve_piper_model(language, model_es=piper_model_es, model_fr=piper_model_fr)
+        resolved_bin = self._resolve_piper_bin(configured_bin=runtime_cfg["piper_bin"]) if engine_name == "piper" else None
+        resolved_model = self._resolve_piper_model(language, runtime_cfg)
         if engine_name == "piper" and (not resolved_bin or not resolved_model):
             backend = "pyttsx3-fallback"
         return {
@@ -153,8 +185,13 @@ class TTSService:
             "language": language,
             "piper_bin": resolved_bin or "",
             "piper_model": resolved_model or "",
-            "piper_model_es": piper_model_es,
-            "piper_model_fr": piper_model_fr,
+            "piper_voice": self._normalize_voice(runtime_cfg.get("piper_voice_fr" if language == "fr" else "piper_voice_es")),
+            "piper_model_es": runtime_cfg["piper_model_es"],
+            "piper_model_fr": runtime_cfg["piper_model_fr"],
+            "piper_model_es_male": runtime_cfg["piper_model_es_male"],
+            "piper_model_es_female": runtime_cfg["piper_model_es_female"],
+            "piper_model_fr_male": runtime_cfg["piper_model_fr_male"],
+            "piper_model_fr_female": runtime_cfg["piper_model_fr_female"],
         }
 
     def _resolve_piper_model_config(self, model_path):
@@ -165,9 +202,10 @@ class TTSService:
             return config_path
         return None
 
-    def _speak_with_piper(self, text, language="es", configured_bin="", model_es="", model_fr=""):
-        piper_bin = self._resolve_piper_bin(configured_bin=configured_bin)
-        model_path = self._resolve_piper_model(language, model_es=model_es, model_fr=model_fr)
+    def _speak_with_piper(self, text, language="es", runtime_cfg=None):
+        runtime_cfg = runtime_cfg or self._load_runtime_tts_config()
+        piper_bin = self._resolve_piper_bin(configured_bin=runtime_cfg["piper_bin"])
+        model_path = self._resolve_piper_model(language, runtime_cfg)
         model_config_path = self._resolve_piper_model_config(model_path)
         if not piper_bin or not model_path or not model_config_path:
             if not piper_bin:

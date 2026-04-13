@@ -41,8 +41,16 @@ TTS_ENGINE="${COBIEN_TTS_ENGINE:-pyttsx3}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
 TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
 TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-}"
+TTS_PIPER_MODEL_ES_MALE="${COBIEN_TTS_PIPER_MODEL_ES_MALE:-}"
+TTS_PIPER_MODEL_ES_FEMALE="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE:-}"
+TTS_PIPER_MODEL_FR_MALE="${COBIEN_TTS_PIPER_MODEL_FR_MALE:-}"
+TTS_PIPER_MODEL_FR_FEMALE="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE:-}"
 TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-}"
 TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-}"
+TTS_PIPER_MODEL_ES_MALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_MALE_URL:-$TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL}"
+TTS_PIPER_MODEL_ES_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL:-$TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL}"
+TTS_PIPER_MODEL_FR_MALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_MALE_URL:-$TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL}"
+TTS_PIPER_MODEL_FR_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL:-$TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL}"
 TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-male}"
 TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-male}"
 TTS_PIPER_DEFAULT_MODEL_ES_MALE="es_ES-davefx-medium"
@@ -54,6 +62,10 @@ TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL="https://huggingface.co/rhasspy/piper-voic
 TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls_1840/low/fr_FR-mls_1840-low.onnx"
 TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
 TTS_PIPER_RELEASE_TAG_DEFAULT="2023.11.14-2"
+[[ -z "$TTS_PIPER_MODEL_ES_MALE_URL" ]] && TTS_PIPER_MODEL_ES_MALE_URL="$TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL"
+[[ -z "$TTS_PIPER_MODEL_ES_FEMALE_URL" ]] && TTS_PIPER_MODEL_ES_FEMALE_URL="$TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL"
+[[ -z "$TTS_PIPER_MODEL_FR_MALE_URL" ]] && TTS_PIPER_MODEL_FR_MALE_URL="$TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL"
+[[ -z "$TTS_PIPER_MODEL_FR_FEMALE_URL" ]] && TTS_PIPER_MODEL_FR_FEMALE_URL="$TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
@@ -422,8 +434,16 @@ COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
 COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
+COBIEN_TTS_PIPER_MODEL_ES_MALE=$TTS_PIPER_MODEL_ES_MALE
+COBIEN_TTS_PIPER_MODEL_ES_FEMALE=$TTS_PIPER_MODEL_ES_FEMALE
+COBIEN_TTS_PIPER_MODEL_FR_MALE=$TTS_PIPER_MODEL_FR_MALE
+COBIEN_TTS_PIPER_MODEL_FR_FEMALE=$TTS_PIPER_MODEL_FR_FEMALE
 COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL
 COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL
+COBIEN_TTS_PIPER_MODEL_ES_MALE_URL=$TTS_PIPER_MODEL_ES_MALE_URL
+COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL=$TTS_PIPER_MODEL_ES_FEMALE_URL
+COBIEN_TTS_PIPER_MODEL_FR_MALE_URL=$TTS_PIPER_MODEL_FR_MALE_URL
+COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=$TTS_PIPER_MODEL_FR_FEMALE_URL
 COBIEN_TTS_PIPER_VOICE_ES=$TTS_PIPER_VOICE_ES
 COBIEN_TTS_PIPER_VOICE_FR=$TTS_PIPER_VOICE_FR
 COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE
@@ -455,8 +475,16 @@ load_last_run_config() {
   TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
   TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
   TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-$TTS_PIPER_MODEL_FR}"
+  TTS_PIPER_MODEL_ES_MALE="${COBIEN_TTS_PIPER_MODEL_ES_MALE:-$TTS_PIPER_MODEL_ES_MALE}"
+  TTS_PIPER_MODEL_ES_FEMALE="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE:-$TTS_PIPER_MODEL_ES_FEMALE}"
+  TTS_PIPER_MODEL_FR_MALE="${COBIEN_TTS_PIPER_MODEL_FR_MALE:-$TTS_PIPER_MODEL_FR_MALE}"
+  TTS_PIPER_MODEL_FR_FEMALE="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE:-$TTS_PIPER_MODEL_FR_FEMALE}"
   TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-$TTS_PIPER_MODEL_ES_URL}"
   TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-$TTS_PIPER_MODEL_FR_URL}"
+  TTS_PIPER_MODEL_ES_MALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_MALE_URL:-$TTS_PIPER_MODEL_ES_MALE_URL}"
+  TTS_PIPER_MODEL_ES_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL:-$TTS_PIPER_MODEL_ES_FEMALE_URL}"
+  TTS_PIPER_MODEL_FR_MALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_MALE_URL:-$TTS_PIPER_MODEL_FR_MALE_URL}"
+  TTS_PIPER_MODEL_FR_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL:-$TTS_PIPER_MODEL_FR_FEMALE_URL}"
   TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-$TTS_PIPER_VOICE_ES}"
   TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-$TTS_PIPER_VOICE_FR}"
   CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
@@ -1054,38 +1082,28 @@ configure_tts_runtime() {
     fi
   fi
 
+  [[ -z "$TTS_PIPER_MODEL_ES_MALE" ]] && TTS_PIPER_MODEL_ES_MALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_MALE}.onnx"
+  [[ -z "$TTS_PIPER_MODEL_ES_FEMALE" ]] && TTS_PIPER_MODEL_ES_FEMALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_FEMALE}.onnx"
+  [[ -z "$TTS_PIPER_MODEL_FR_MALE" ]] && TTS_PIPER_MODEL_FR_MALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_MALE}.onnx"
+  [[ -z "$TTS_PIPER_MODEL_FR_FEMALE" ]] && TTS_PIPER_MODEL_FR_FEMALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_FEMALE}.onnx"
+
+  local ok_models="1"
+  install_piper_model "es-male" "$TTS_PIPER_MODEL_ES_MALE" "$TTS_PIPER_MODEL_ES_MALE_URL" || ok_models="0"
+  install_piper_model "es-female" "$TTS_PIPER_MODEL_ES_FEMALE" "$TTS_PIPER_MODEL_ES_FEMALE_URL" || ok_models="0"
+  install_piper_model "fr-male" "$TTS_PIPER_MODEL_FR_MALE" "$TTS_PIPER_MODEL_FR_MALE_URL" || ok_models="0"
+  install_piper_model "fr-female" "$TTS_PIPER_MODEL_FR_FEMALE" "$TTS_PIPER_MODEL_FR_FEMALE_URL" || ok_models="0"
+
   case "${TTS_PIPER_VOICE_ES,,}" in
-    female|mujer)
-      TTS_PIPER_VOICE_ES="female"
-      [[ -z "$TTS_PIPER_MODEL_ES" ]] && TTS_PIPER_MODEL_ES="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_FEMALE}.onnx"
-      [[ -z "$TTS_PIPER_MODEL_ES_URL" ]] && TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL"
-      ;;
-    *)
-      TTS_PIPER_VOICE_ES="male"
-      [[ -z "$TTS_PIPER_MODEL_ES" ]] && TTS_PIPER_MODEL_ES="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_MALE}.onnx"
-      [[ -z "$TTS_PIPER_MODEL_ES_URL" ]] && TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL"
-      ;;
+    female|mujer) TTS_PIPER_VOICE_ES="female"; TTS_PIPER_MODEL_ES="$TTS_PIPER_MODEL_ES_FEMALE"; TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_MODEL_ES_FEMALE_URL" ;;
+    *) TTS_PIPER_VOICE_ES="male"; TTS_PIPER_MODEL_ES="$TTS_PIPER_MODEL_ES_MALE"; TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_MODEL_ES_MALE_URL" ;;
   esac
 
   case "${TTS_PIPER_VOICE_FR,,}" in
-    female|mujer)
-      TTS_PIPER_VOICE_FR="female"
-      [[ -z "$TTS_PIPER_MODEL_FR" ]] && TTS_PIPER_MODEL_FR="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_FEMALE}.onnx"
-      [[ -z "$TTS_PIPER_MODEL_FR_URL" ]] && TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL"
-      ;;
-    *)
-      TTS_PIPER_VOICE_FR="male"
-      [[ -z "$TTS_PIPER_MODEL_FR" ]] && TTS_PIPER_MODEL_FR="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_MALE}.onnx"
-      [[ -z "$TTS_PIPER_MODEL_FR_URL" ]] && TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL"
-      ;;
+    female|mujer) TTS_PIPER_VOICE_FR="female"; TTS_PIPER_MODEL_FR="$TTS_PIPER_MODEL_FR_FEMALE"; TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_MODEL_FR_FEMALE_URL" ;;
+    *) TTS_PIPER_VOICE_FR="male"; TTS_PIPER_MODEL_FR="$TTS_PIPER_MODEL_FR_MALE"; TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_MODEL_FR_MALE_URL" ;;
   esac
 
-  local ok_es="0"
-  local ok_fr="0"
-  install_piper_model "es" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_ES_URL" && ok_es="1"
-  install_piper_model "fr" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_FR_URL" && ok_fr="1"
-
-  if [[ "$ok_es" != "1" || "$ok_fr" != "1" ]]; then
+  if [[ "$ok_models" != "1" ]]; then
     log "Piper models are incomplete. Runtime will fallback to pyttsx3."
     TTS_ENGINE="pyttsx3"
   fi
@@ -1101,12 +1119,12 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$APP_LANGUAGE" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" <<'PY'
+  python3 - "$unified_config_file" "$APP_LANGUAGE" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" "$TTS_PIPER_MODEL_ES_MALE" "$TTS_PIPER_MODEL_ES_FEMALE" "$TTS_PIPER_MODEL_FR_MALE" "$TTS_PIPER_MODEL_FR_FEMALE" "$TTS_PIPER_MODEL_ES_MALE_URL" "$TTS_PIPER_MODEL_ES_FEMALE_URL" "$TTS_PIPER_MODEL_FR_MALE_URL" "$TTS_PIPER_MODEL_FR_FEMALE_URL" <<'PY'
 import json
 import os
 import sys
 
-config_file, app_language, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr = sys.argv[1:14]
+config_file, app_language, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr, tts_piper_model_es_male, tts_piper_model_es_female, tts_piper_model_fr_male, tts_piper_model_fr_female, tts_piper_model_es_male_url, tts_piper_model_es_female_url, tts_piper_model_fr_male_url, tts_piper_model_fr_female_url = sys.argv[1:22]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -1136,8 +1154,16 @@ services["tts_engine"] = tts_engine or "pyttsx3"
 services["tts_piper_bin"] = tts_piper_bin
 services["tts_piper_model_es"] = tts_piper_model_es
 services["tts_piper_model_fr"] = tts_piper_model_fr
+services["tts_piper_model_es_male"] = tts_piper_model_es_male
+services["tts_piper_model_es_female"] = tts_piper_model_es_female
+services["tts_piper_model_fr_male"] = tts_piper_model_fr_male
+services["tts_piper_model_fr_female"] = tts_piper_model_fr_female
 services["tts_piper_model_es_url"] = tts_piper_model_es_url
 services["tts_piper_model_fr_url"] = tts_piper_model_fr_url
+services["tts_piper_model_es_male_url"] = tts_piper_model_es_male_url
+services["tts_piper_model_es_female_url"] = tts_piper_model_es_female_url
+services["tts_piper_model_fr_male_url"] = tts_piper_model_fr_male_url
+services["tts_piper_model_fr_female_url"] = tts_piper_model_fr_female_url
 services["tts_piper_voice_es"] = tts_piper_voice_es
 services["tts_piper_voice_fr"] = tts_piper_voice_fr
 
@@ -1369,8 +1395,16 @@ COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
 COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR
+COBIEN_TTS_PIPER_MODEL_ES_MALE=$TTS_PIPER_MODEL_ES_MALE
+COBIEN_TTS_PIPER_MODEL_ES_FEMALE=$TTS_PIPER_MODEL_ES_FEMALE
+COBIEN_TTS_PIPER_MODEL_FR_MALE=$TTS_PIPER_MODEL_FR_MALE
+COBIEN_TTS_PIPER_MODEL_FR_FEMALE=$TTS_PIPER_MODEL_FR_FEMALE
 COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL
 COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL
+COBIEN_TTS_PIPER_MODEL_ES_MALE_URL=$TTS_PIPER_MODEL_ES_MALE_URL
+COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL=$TTS_PIPER_MODEL_ES_FEMALE_URL
+COBIEN_TTS_PIPER_MODEL_FR_MALE_URL=$TTS_PIPER_MODEL_FR_MALE_URL
+COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=$TTS_PIPER_MODEL_FR_FEMALE_URL
 COBIEN_TTS_PIPER_VOICE_ES=$TTS_PIPER_VOICE_ES
 COBIEN_TTS_PIPER_VOICE_FR=$TTS_PIPER_VOICE_FR
 COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate
@@ -1450,8 +1484,16 @@ handoff_to_updated_launcher() {
     --tts-piper-bin "$TTS_PIPER_BIN" \
     --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
     --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
+    --tts-piper-model-es-male "$TTS_PIPER_MODEL_ES_MALE" \
+    --tts-piper-model-es-female "$TTS_PIPER_MODEL_ES_FEMALE" \
+    --tts-piper-model-fr-male "$TTS_PIPER_MODEL_FR_MALE" \
+    --tts-piper-model-fr-female "$TTS_PIPER_MODEL_FR_FEMALE" \
     --tts-piper-model-es-url "$TTS_PIPER_MODEL_ES_URL" \
     --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL" \
+    --tts-piper-model-es-male-url "$TTS_PIPER_MODEL_ES_MALE_URL" \
+    --tts-piper-model-es-female-url "$TTS_PIPER_MODEL_ES_FEMALE_URL" \
+    --tts-piper-model-fr-male-url "$TTS_PIPER_MODEL_FR_MALE_URL" \
+    --tts-piper-model-fr-female-url "$TTS_PIPER_MODEL_FR_FEMALE_URL" \
     --tts-piper-voice-es "$TTS_PIPER_VOICE_ES" \
     --tts-piper-voice-fr "$TTS_PIPER_VOICE_FR"
 }
@@ -1546,8 +1588,16 @@ restart_software() {
       --tts-piper-bin "$TTS_PIPER_BIN" \
       --tts-piper-model-es "$TTS_PIPER_MODEL_ES" \
       --tts-piper-model-fr "$TTS_PIPER_MODEL_FR" \
+      --tts-piper-model-es-male "$TTS_PIPER_MODEL_ES_MALE" \
+      --tts-piper-model-es-female "$TTS_PIPER_MODEL_ES_FEMALE" \
+      --tts-piper-model-fr-male "$TTS_PIPER_MODEL_FR_MALE" \
+      --tts-piper-model-fr-female "$TTS_PIPER_MODEL_FR_FEMALE" \
       --tts-piper-model-es-url "$TTS_PIPER_MODEL_ES_URL" \
       --tts-piper-model-fr-url "$TTS_PIPER_MODEL_FR_URL" \
+      --tts-piper-model-es-male-url "$TTS_PIPER_MODEL_ES_MALE_URL" \
+      --tts-piper-model-es-female-url "$TTS_PIPER_MODEL_ES_FEMALE_URL" \
+      --tts-piper-model-fr-male-url "$TTS_PIPER_MODEL_FR_MALE_URL" \
+      --tts-piper-model-fr-female-url "$TTS_PIPER_MODEL_FR_FEMALE_URL" \
       --tts-piper-voice-es "$TTS_PIPER_VOICE_ES" \
       --tts-piper-voice-fr "$TTS_PIPER_VOICE_FR" \
       --branch "$BRANCH_NAME"
@@ -1991,12 +2041,44 @@ parse_args() {
         TTS_PIPER_MODEL_FR="$2"
         shift 2
         ;;
+      --tts-piper-model-es-male)
+        TTS_PIPER_MODEL_ES_MALE="$2"
+        shift 2
+        ;;
+      --tts-piper-model-es-female)
+        TTS_PIPER_MODEL_ES_FEMALE="$2"
+        shift 2
+        ;;
+      --tts-piper-model-fr-male)
+        TTS_PIPER_MODEL_FR_MALE="$2"
+        shift 2
+        ;;
+      --tts-piper-model-fr-female)
+        TTS_PIPER_MODEL_FR_FEMALE="$2"
+        shift 2
+        ;;
       --tts-piper-model-es-url)
         TTS_PIPER_MODEL_ES_URL="$2"
         shift 2
         ;;
       --tts-piper-model-fr-url)
         TTS_PIPER_MODEL_FR_URL="$2"
+        shift 2
+        ;;
+      --tts-piper-model-es-male-url)
+        TTS_PIPER_MODEL_ES_MALE_URL="$2"
+        shift 2
+        ;;
+      --tts-piper-model-es-female-url)
+        TTS_PIPER_MODEL_ES_FEMALE_URL="$2"
+        shift 2
+        ;;
+      --tts-piper-model-fr-male-url)
+        TTS_PIPER_MODEL_FR_MALE_URL="$2"
+        shift 2
+        ;;
+      --tts-piper-model-fr-female-url)
+        TTS_PIPER_MODEL_FR_FEMALE_URL="$2"
         shift 2
         ;;
       --tts-piper-voice-es)

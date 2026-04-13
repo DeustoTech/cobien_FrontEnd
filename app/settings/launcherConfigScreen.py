@@ -403,8 +403,16 @@ class LauncherConfigScreen(Screen):
             values.setdefault("COBIEN_TTS_PIPER_BIN", shutil.which("piper") or os.path.expanduser("~/.local/bin/piper"))
             values.setdefault("COBIEN_TTS_PIPER_MODEL_ES", os.path.join(app_dir, "models", "piper", f"{DEFAULT_PIPER_MODEL_ES}.onnx"))
             values.setdefault("COBIEN_TTS_PIPER_MODEL_FR", os.path.join(app_dir, "models", "piper", f"{DEFAULT_PIPER_MODEL_FR}.onnx"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_ES_MALE", os.path.join(app_dir, "models", "piper", "es_ES-davefx-medium.onnx"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_ES_FEMALE", os.path.join(app_dir, "models", "piper", "es_ES-mls_10246-low.onnx"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_FR_MALE", os.path.join(app_dir, "models", "piper", "fr_FR-mls_1840-low.onnx"))
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_FR_FEMALE", os.path.join(app_dir, "models", "piper", "fr_FR-siwis-medium.onnx"))
             values.setdefault("COBIEN_TTS_PIPER_MODEL_ES_URL", DEFAULT_PIPER_MODEL_ES_URL)
             values.setdefault("COBIEN_TTS_PIPER_MODEL_FR_URL", DEFAULT_PIPER_MODEL_FR_URL)
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_ES_MALE_URL", DEFAULT_PIPER_MODEL_ES_URL)
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL", "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/mls_10246/low/es_ES-mls_10246-low.onnx")
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_FR_MALE_URL", DEFAULT_PIPER_MODEL_FR_URL)
+            values.setdefault("COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL", "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx")
             values.setdefault("COBIEN_TTS_PIPER_VOICE_ES", "male")
             values.setdefault("COBIEN_TTS_PIPER_VOICE_FR", "male")
         return values
@@ -435,12 +443,30 @@ class LauncherConfigScreen(Screen):
             services["tts_piper_bin"] = current_env.get("COBIEN_TTS_PIPER_BIN", services.get("tts_piper_bin", ""))
             services["tts_piper_model_es"] = current_env.get("COBIEN_TTS_PIPER_MODEL_ES", services.get("tts_piper_model_es", ""))
             services["tts_piper_model_fr"] = current_env.get("COBIEN_TTS_PIPER_MODEL_FR", services.get("tts_piper_model_fr", ""))
+            services["tts_piper_model_es_male"] = current_env.get("COBIEN_TTS_PIPER_MODEL_ES_MALE", services.get("tts_piper_model_es_male", ""))
+            services["tts_piper_model_es_female"] = current_env.get("COBIEN_TTS_PIPER_MODEL_ES_FEMALE", services.get("tts_piper_model_es_female", ""))
+            services["tts_piper_model_fr_male"] = current_env.get("COBIEN_TTS_PIPER_MODEL_FR_MALE", services.get("tts_piper_model_fr_male", ""))
+            services["tts_piper_model_fr_female"] = current_env.get("COBIEN_TTS_PIPER_MODEL_FR_FEMALE", services.get("tts_piper_model_fr_female", ""))
             services["tts_piper_model_es_url"] = current_env.get(
                 "COBIEN_TTS_PIPER_MODEL_ES_URL", services.get("tts_piper_model_es_url", "")
             )
             services["tts_piper_model_fr_url"] = current_env.get(
                 "COBIEN_TTS_PIPER_MODEL_FR_URL", services.get("tts_piper_model_fr_url", "")
             )
+            services["tts_piper_model_es_male_url"] = current_env.get(
+                "COBIEN_TTS_PIPER_MODEL_ES_MALE_URL", services.get("tts_piper_model_es_male_url", "")
+            )
+            services["tts_piper_model_es_female_url"] = current_env.get(
+                "COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL", services.get("tts_piper_model_es_female_url", "")
+            )
+            services["tts_piper_model_fr_male_url"] = current_env.get(
+                "COBIEN_TTS_PIPER_MODEL_FR_MALE_URL", services.get("tts_piper_model_fr_male_url", "")
+            )
+            services["tts_piper_model_fr_female_url"] = current_env.get(
+                "COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL", services.get("tts_piper_model_fr_female_url", "")
+            )
+            services["tts_piper_voice_es"] = current_env.get("COBIEN_TTS_PIPER_VOICE_ES", services.get("tts_piper_voice_es", "male"))
+            services["tts_piper_voice_fr"] = current_env.get("COBIEN_TTS_PIPER_VOICE_FR", services.get("tts_piper_voice_fr", "male"))
             save_section("services", services)
         except Exception as exc:
             print(f"[LAUNCHER_SETTINGS] Failed to sync TTS services config: {exc}")
