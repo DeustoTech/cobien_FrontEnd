@@ -198,6 +198,31 @@ stop_systemd_user_launcher_supervision() {
   return 0
 }
 
+stop_all_other_launcher_processes() {
+  local remaining_pid
+  local stopped_any="0"
+  while IFS= read -r remaining_pid; do
+    [[ -z "$remaining_pid" ]] && continue
+    if kill -0 "$remaining_pid" >/dev/null 2>&1; then
+      log "Stopping extra launcher instance PID=$remaining_pid"
+      kill -TERM "$remaining_pid" >/dev/null 2>&1 || true
+      sleep 1
+      if kill -0 "$remaining_pid" >/dev/null 2>&1; then
+        kill -KILL "$remaining_pid" >/dev/null 2>&1 || true
+      fi
+      stopped_any="1"
+    fi
+  done < <(discover_running_launcher_pids)
+
+  [[ "$stopped_any" == "1" ]] && sleep 1
+  return 0
+}
+
+stabilize_launcher_takeover() {
+  stop_systemd_user_launcher_supervision || true
+  stop_all_other_launcher_processes || true
+}
+
 prepare_manual_launcher_takeover() {
   if is_running_inside_systemd_user_service; then
     return 0
@@ -269,17 +294,7 @@ stop_existing_launcher_instance() {
     return 1
   fi
 
-  local remaining_pid
-  while IFS= read -r remaining_pid; do
-    [[ -z "$remaining_pid" ]] && continue
-    if kill -0 "$remaining_pid" >/dev/null 2>&1; then
-      log "Stopping extra launcher instance PID=$remaining_pid"
-      kill -TERM "$remaining_pid" >/dev/null 2>&1 || true
-      sleep 1
-      kill -KILL "$remaining_pid" >/dev/null 2>&1 || true
-    fi
-  done < <(discover_running_launcher_pids)
-
+  stop_all_other_launcher_processes
   return 0
 }
 
@@ -292,8 +307,13 @@ recover_stale_lock_state() {
   local running_pid
   running_pid="$(discover_running_launcher_pid || true)"
   if [[ -n "${running_pid:-}" ]]; then
-    log "Lock recovery aborted: another launcher PID is still running ($running_pid)."
-    return 1
+    log "Another launcher PID appeared during lock recovery ($running_pid). Trying supervised takeover cleanup."
+    stabilize_launcher_takeover
+    running_pid="$(discover_running_launcher_pid || true)"
+    if [[ -n "${running_pid:-}" ]]; then
+      log "Lock recovery aborted: another launcher PID is still running ($running_pid)."
+      return 1
+    fi
   fi
 
   log "No launcher process remains; removing stale lock file: $LOCK_FILE"
