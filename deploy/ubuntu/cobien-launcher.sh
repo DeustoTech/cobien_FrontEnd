@@ -32,6 +32,7 @@ CAN_LOG_ENABLE="${COBIEN_CAN_LOG_ENABLE:-$CAN_LOG_ENABLE_DEFAULT}"
 LOG_RETENTION_DAYS="${COBIEN_LOG_RETENTION_DAYS:-$LOG_RETENTION_DAYS_DEFAULT}"
 RELAUNCH_AFTER_UPDATE="${COBIEN_RELAUNCH_AFTER_UPDATE:-0}"
 FORCE_RESTART="${COBIEN_FORCE_RESTART:-0}"
+APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-es}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
@@ -97,6 +98,7 @@ Options:
   --device-id NAME
   --videocall-room NAME
   --device-location LOCATION
+  --app-language es|fr
   --hardware-mode real|mock|auto
   --tts-engine ENGINE
   --tts-piper-bin PATH
@@ -411,6 +413,7 @@ COBIEN_MQTT_REPO_NAME=$MQTT_REPO_NAME
 COBIEN_UPDATE_BRANCH=$BRANCH_NAME
 COBIEN_UPDATE_REMOTE=$REMOTE_NAME
 COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
+COBIEN_APP_LANGUAGE=$APP_LANGUAGE
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
@@ -443,6 +446,7 @@ load_last_run_config() {
   BRANCH_NAME="${COBIEN_UPDATE_BRANCH:-$BRANCH_NAME}"
   REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-$REMOTE_NAME}"
   POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_SEC}"
+  APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-$APP_LANGUAGE}"
   DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
   VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
@@ -467,6 +471,7 @@ print_last_run_config_summary() {
   echo "  Frontend repo:    $FRONTEND_REPO_NAME"
   echo "  MQTT repo:        $MQTT_REPO_NAME"
   echo "  Branch:           $BRANCH_NAME"
+  echo "  App language:     $APP_LANGUAGE"
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
   echo "  Device location:  $DEVICE_LOCATION"
@@ -503,6 +508,10 @@ derive_default_device_id() {
 }
 
 normalize_device_identity() {
+  case "${APP_LANGUAGE,,}" in
+    fr|french|francais|français) APP_LANGUAGE="fr" ;;
+    *) APP_LANGUAGE="es" ;;
+  esac
   if [[ -z "$DEVICE_ID" ]]; then
     DEVICE_ID="$(derive_default_device_id)"
   fi
@@ -1092,12 +1101,12 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" <<'PY'
+  python3 - "$unified_config_file" "$APP_LANGUAGE" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" <<'PY'
 import json
 import os
 import sys
 
-config_file, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr = sys.argv[1:13]
+config_file, app_language, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr = sys.argv[1:14]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -1114,6 +1123,7 @@ if not isinstance(settings, dict):
     settings = {}
 data["settings"] = settings
 
+settings["language"] = app_language or "es"
 settings["device_id"] = device_id
 settings["videocall_room"] = videocall_room
 settings["device_location"] = device_location
@@ -1135,7 +1145,7 @@ with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
 PY
 
-  log "Device identity synced: device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', location='$DEVICE_LOCATION', tts_engine='$TTS_ENGINE'"
+  log "Device identity synced: language='$APP_LANGUAGE', device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', location='$DEVICE_LOCATION', tts_engine='$TTS_ENGINE'"
 }
 
 configure_audio_input_defaults() {
@@ -1350,6 +1360,7 @@ COBIEN_WORKSPACE_ROOT=$WORKSPACE_ROOT
 COBIEN_UPDATE_REMOTE=$REMOTE_NAME
 COBIEN_UPDATE_BRANCH=$BRANCH_NAME
 COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
+COBIEN_APP_LANGUAGE=$APP_LANGUAGE
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
@@ -1430,6 +1441,7 @@ handoff_to_updated_launcher() {
     --workspace "$WORKSPACE_ROOT" \
     --frontend-name "$FRONTEND_REPO_NAME" \
     --mqtt-name "$MQTT_REPO_NAME" \
+    --app-language "$APP_LANGUAGE" \
     --device-id "$DEVICE_ID" \
     --videocall-room "$VIDEOCALL_ROOM" \
     --device-location "$DEVICE_LOCATION" \
@@ -1525,6 +1537,7 @@ restart_software() {
       --workspace "$WORKSPACE_ROOT" \
       --frontend-name "$FRONTEND_REPO_NAME" \
       --mqtt-name "$MQTT_REPO_NAME" \
+      --app-language "$APP_LANGUAGE" \
       --device-id "$DEVICE_ID" \
       --videocall-room "$VIDEOCALL_ROOM" \
       --device-location "$DEVICE_LOCATION" \
@@ -1654,6 +1667,7 @@ print_dry_run() {
   log "BRANCH_NAME=$BRANCH_NAME"
   log "REMOTE_NAME=$REMOTE_NAME"
   log "POLL_INTERVAL_SEC=$POLL_INTERVAL_SEC"
+  log "APP_LANGUAGE=$APP_LANGUAGE"
   log "DEVICE_ID=$DEVICE_ID"
   log "VIDEOCALL_ROOM=$VIDEOCALL_ROOM"
   log "DEVICE_LOCATION=$DEVICE_LOCATION"
@@ -1735,6 +1749,8 @@ run_full_flow() {
     WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
     FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
     MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
+    normalize_device_identity
+    APP_LANGUAGE="$(ask "Application language (es/fr)" "$APP_LANGUAGE")"
     normalize_device_identity
     DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
     VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
@@ -1834,6 +1850,7 @@ run_full_flow() {
   echo "  Recreate .venv:   $RECREATE_VENV"
   echo "  One-shot update:  $RUN_UPDATE_ONCE"
   echo "  Watch mode:       $ENABLE_WATCH"
+  echo "  App language:     $APP_LANGUAGE"
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
   echo "  Device location:  $DEVICE_LOCATION"
@@ -1936,6 +1953,10 @@ parse_args() {
         ;;
       --cron-schedule)
         CRON_SCHEDULE="$2"
+        shift 2
+        ;;
+      --app-language)
+        APP_LANGUAGE="$2"
         shift 2
         ;;
       --device-id)

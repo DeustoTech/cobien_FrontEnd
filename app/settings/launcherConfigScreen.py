@@ -196,6 +196,19 @@ KV = """
                     font_size: sp(18)
 
                 Label:
+                    text: "Idioma de la aplicación (es/fr)"
+                    color: 0,0,0,1
+                    font_size: sp(20)
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Spinner:
+                    id: input_app_language
+                    text: "es"
+                    values: ("es", "fr")
+                    font_size: sp(18)
+
+                Label:
                     text: "Device ID (identificador del mueble)"
                     color: 0,0,0,1
                     font_size: sp(20)
@@ -359,6 +372,7 @@ class LauncherConfigScreen(Screen):
         ids.input_mqtt.text = env.get("COBIEN_MQTT_REPO_NAME", "cobien_MQTT_Dictionnary")
         ids.input_branch.text = env.get("COBIEN_UPDATE_BRANCH", "development_fix")
         ids.input_remote.text = env.get("COBIEN_UPDATE_REMOTE", "origin")
+        ids.input_app_language.text = (env.get("COBIEN_APP_LANGUAGE", self.cfg.data.get("language", "es")) or "es").strip().lower()
         ids.input_device_id.text = env.get("COBIEN_DEVICE_ID", self.cfg.get_device_id())
         ids.input_room.text = env.get("COBIEN_VIDEOCALL_ROOM", self.cfg.get_videocall_room())
         ids.input_location.text = env.get("COBIEN_DEVICE_LOCATION", self.cfg.get_device_location())
@@ -375,6 +389,7 @@ class LauncherConfigScreen(Screen):
             "COBIEN_MQTT_REPO_NAME": ids.input_mqtt.text.strip(),
             "COBIEN_UPDATE_BRANCH": ids.input_branch.text.strip() or "development_fix",
             "COBIEN_UPDATE_REMOTE": ids.input_remote.text.strip() or "origin",
+            "COBIEN_APP_LANGUAGE": "fr" if (ids.input_app_language.text or "es").strip().lower() == "fr" else "es",
             "COBIEN_DEVICE_ID": ids.input_device_id.text.strip(),
             "COBIEN_VIDEOCALL_ROOM": ids.input_room.text.strip(),
             "COBIEN_DEVICE_LOCATION": ids.input_location.text.strip(),
@@ -406,6 +421,7 @@ class LauncherConfigScreen(Screen):
         self._write_env(current_env)
 
         # sync runtime app config for immediate consistency
+        self.cfg.data["language"] = current_env["COBIEN_APP_LANGUAGE"] or self.cfg.data.get("language", "es")
         self.cfg.data["device_id"] = current_env["COBIEN_DEVICE_ID"] or self.cfg.data.get("device_id", "CoBien1")
         self.cfg.data["videocall_room"] = current_env["COBIEN_VIDEOCALL_ROOM"] or self.cfg.data.get("videocall_room", "CoBien1")
         self.cfg.data["device_location"] = current_env["COBIEN_DEVICE_LOCATION"] or self.cfg.data.get("device_location", "Bilbao")
@@ -463,6 +479,7 @@ class LauncherConfigScreen(Screen):
         device_id = ids.input_device_id.text.strip() or self.cfg.get_device_id()
         room = ids.input_room.text.strip() or self.cfg.get_videocall_room()
         location = ids.input_location.text.strip() or self.cfg.get_device_location()
+        app_language = "fr" if (ids.input_app_language.text or "es").strip().lower() == "fr" else "es"
         tts_engine = (ids.input_tts_engine.text or "pyttsx3").strip().lower()
 
         # Full update + clean relaunch sequence.
@@ -477,6 +494,7 @@ class LauncherConfigScreen(Screen):
             "--frontend-name", frontend_name,
             "--mqtt-name", mqtt_name,
             "--branch", branch,
+            "--app-language", app_language,
             "--device-id", device_id,
             "--videocall-room", room,
             "--device-location", location,
