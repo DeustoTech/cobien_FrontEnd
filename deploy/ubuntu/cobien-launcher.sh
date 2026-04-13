@@ -59,7 +59,8 @@ ARGS_PROVIDED="0"
 GLOBAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cobien"
 LAST_RUN_CONFIG_FILE="$GLOBAL_CONFIG_DIR/launcher-last.env"
 LOCK_FILE="${COBIEN_LAUNCHER_LOCK_FILE:-/tmp/cobien-launcher.lock}"
-LOCK_FD=99
+LOCK_DIR="${LOCK_FILE}.d"
+LOCK_PID_FILE="$LOCK_DIR/pid"
 
 usage() {
   cat <<EOF
@@ -152,8 +153,8 @@ log_section() {
 }
 
 read_lock_pid() {
-  if [[ -f "$LOCK_FILE" ]]; then
-    head -n1 "$LOCK_FILE" 2>/dev/null | tr -dc '0-9'
+  if [[ -f "$LOCK_PID_FILE" ]]; then
+    head -n1 "$LOCK_PID_FILE" 2>/dev/null | tr -dc '0-9'
   fi
 }
 
@@ -321,9 +322,10 @@ stop_existing_launcher_instance() {
   return 0
 }
 
-reopen_lock_fd() {
-  eval "exec ${LOCK_FD}>&-" || true
-  eval "exec ${LOCK_FD}>\"$LOCK_FILE\""
+release_single_instance_lock() {
+  if [[ -d "$LOCK_DIR" ]]; then
+    rm -rf "$LOCK_DIR" || true
+  fi
 }
 
 recover_stale_lock_state() {
@@ -339,22 +341,17 @@ recover_stale_lock_state() {
     fi
   fi
 
-  log "No launcher process remains; removing stale lock file: $LOCK_FILE"
+  log "No launcher process remains; removing stale launcher lock directory: $LOCK_DIR"
+  release_single_instance_lock
   rm -f "$LOCK_FILE" || true
-  reopen_lock_fd
   return 0
 }
 
 acquire_single_instance_lock() {
-  if ! command -v flock >/dev/null 2>&1; then
-    log "flock not available; single-instance protection disabled"
-    return 0
-  fi
-
   mkdir -p "$(dirname "$LOCK_FILE")"
+  : > "$LOCK_FILE"
 
-  eval "exec ${LOCK_FD}>\"$LOCK_FILE\""
-  if ! flock -n "$LOCK_FD"; then
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     local lock_pid
     lock_pid="$(read_lock_pid)"
     log "Another cobien-launcher instance is already running (PID=${lock_pid:-unknown})."
@@ -362,9 +359,9 @@ acquire_single_instance_lock() {
     if [[ "$FORCE_RESTART" == "1" ]]; then
       if stop_existing_launcher_instance; then
         sleep 1
-        if ! flock -n "$LOCK_FD"; then
+        if ! mkdir "$LOCK_DIR" 2>/dev/null; then
           log "Lock still busy after stopping previous instance. Attempting stale-lock recovery."
-          if ! recover_stale_lock_state || ! flock -n "$LOCK_FD"; then
+          if ! recover_stale_lock_state || ! mkdir "$LOCK_DIR" 2>/dev/null; then
             log "Unable to acquire lock after stopping previous instance."
             exit 1
           fi
@@ -376,9 +373,9 @@ acquire_single_instance_lock() {
     elif [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to stop the previous launcher instance and continue" "y"; then
       if stop_existing_launcher_instance; then
         sleep 1
-        if ! flock -n "$LOCK_FD"; then
+        if ! mkdir "$LOCK_DIR" 2>/dev/null; then
           log "Lock still busy after stopping previous instance. Attempting stale-lock recovery."
-          if ! recover_stale_lock_state || ! flock -n "$LOCK_FD"; then
+          if ! recover_stale_lock_state || ! mkdir "$LOCK_DIR" 2>/dev/null; then
             log "Unable to acquire lock after stopping previous instance."
             exit 1
           fi
@@ -393,7 +390,8 @@ acquire_single_instance_lock() {
     fi
   fi
 
-  printf '%s\n' "$$" 1>&"$LOCK_FD" || true
+  printf '%s\n' "$$" >"$LOCK_PID_FILE" || true
+  trap release_single_instance_lock EXIT
   log "Single-instance lock acquired: $LOCK_FILE"
 }
 
