@@ -197,8 +197,7 @@ CONTACT_KV = f"""
                 font_size: sp(65)
                 bold: True
                 color: C_BLACK
-                size_hint_x: None
-                width: dp(350)
+                size_hint_x: 0.28
                 halign: "left"
                 valign: "middle"
                 text_size: self.size
@@ -210,8 +209,7 @@ CONTACT_KV = f"""
                 width: dp(14)
             BoxLayout:
                 orientation: "vertical"
-                size_hint_x: None
-                width: dp(700)
+                size_hint_x: 0.52
                 Label:
                     id: lbl_today
                     text: ""
@@ -228,12 +226,10 @@ CONTACT_KV = f"""
                     halign: "left"
                     valign: "top"
                     text_size: self.size
-            Widget:
             AnchorLayout:
                 anchor_x: "right"
                 anchor_y: "center"
-                size_hint_x: None
-                width: dp(210)
+                size_hint_x: 0.20
                 BoxLayout:
                     orientation: "horizontal"
                     size_hint: None, None
