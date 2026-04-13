@@ -177,6 +177,51 @@ discover_running_launcher_pids() {
   done < <(pgrep -f "cobien-launcher.sh" 2>/dev/null || true)
 }
 
+is_running_inside_systemd_user_service() {
+  [[ -n "${INVOCATION_ID:-}" ]]
+}
+
+has_active_systemd_user_launcher_service() {
+  command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet cobien-launcher.service
+}
+
+stop_systemd_user_launcher_supervision() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 1
+  fi
+
+  log "Stopping systemd user launcher supervision before manual relaunch."
+  systemctl --user stop cobien-update.timer >/dev/null 2>&1 || true
+  systemctl --user stop cobien-update.service >/dev/null 2>&1 || true
+  systemctl --user stop cobien-launcher.service >/dev/null 2>&1 || true
+  sleep 1
+  return 0
+}
+
+prepare_manual_launcher_takeover() {
+  if is_running_inside_systemd_user_service; then
+    return 0
+  fi
+
+  if ! has_active_systemd_user_launcher_service; then
+    return 0
+  fi
+
+  log "systemd user service 'cobien-launcher.service' is active."
+  if [[ "$FORCE_RESTART" == "1" ]]; then
+    stop_systemd_user_launcher_supervision
+    return 0
+  fi
+
+  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want the launcher to stop the active systemd user service before continuing" "y"; then
+    stop_systemd_user_launcher_supervision
+    return 0
+  fi
+
+  log "Exiting without changes. Stop 'cobien-launcher.service' or use --force-restart/--clean-launch."
+  exit 0
+}
+
 stop_existing_launcher_instance() {
   local lock_pid
   lock_pid="$(read_lock_pid)"
@@ -1909,6 +1954,7 @@ parse_args() {
 main() {
   init_colors
   parse_args "$@"
+  prepare_manual_launcher_takeover
   acquire_single_instance_lock
   resolve_paths
   normalize_device_identity
