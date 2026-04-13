@@ -144,6 +144,15 @@ KV = """
                 color: (1,1,1,1)
                 on_release: app.root.current = "settings_logs_app"
 
+            Button:
+                id: btn_icso
+                text: ""
+                font_size: sp(34)
+                background_normal: ""
+                background_color: (0.45, 0.35, 0.85, 1)
+                color: (1,1,1,1)
+                on_release: app.root.current = "settings_logs_icso"
+
 <LogsViewerRoot@FloatLayout>:
     canvas.before:
         Color:
@@ -244,6 +253,7 @@ class LogsMenuScreen(Screen):
         self.root_view.ids.btn_can.text = _("CAN Bus")
         self.root_view.ids.btn_bridge.text = _("MQTT-CAN Bridge")
         self.root_view.ids.btn_app.text = _("Aplicación")
+        self.root_view.ids.btn_icso.text = _("Telemetría ICSO")
 
     def on_pre_enter(self, *args: Any) -> None:
         """Update labels before entering the screen."""
@@ -253,13 +263,22 @@ class LogsMenuScreen(Screen):
 class LogsViewerScreen(Screen):
     """Live log tail viewer screen for one log family."""
 
-    def __init__(self, sm: Any, cfg: Any, log_prefix: str, title_text: str, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        sm: Any,
+        cfg: Any,
+        log_prefix: str,
+        title_text: str,
+        explicit_files: List[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize log viewer for one log prefix."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
         self.log_prefix = log_prefix
         self.title_text = title_text
+        self.explicit_files = explicit_files or []
         self._watch_event = None
         self._current_file = ""
         self._read_pos = 0
@@ -314,11 +333,19 @@ class LogsViewerScreen(Screen):
         """Return the most recently modified matching log file."""
         log_dir = self._resolve_log_dir()
         files = []
+        for explicit_name in self.explicit_files:
+            explicit_path = os.path.join(log_dir, explicit_name)
+            if os.path.isfile(explicit_path):
+                files.append(explicit_path)
         for prefix in self._prefix_candidates():
             pattern = os.path.join(log_dir, f"{prefix}-*.log")
             files.extend(glob.glob(pattern))
             pattern_alt = os.path.join(log_dir, f"{prefix}*.log")
             files.extend(glob.glob(pattern_alt))
+            txt_pattern = os.path.join(log_dir, f"{prefix}*.txt")
+            files.extend(glob.glob(txt_pattern))
+            json_pattern = os.path.join(log_dir, f"{prefix}*.json")
+            files.extend(glob.glob(json_pattern))
         files = list(dict.fromkeys(files))
         if not files:
             return ""

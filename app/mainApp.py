@@ -2319,6 +2319,15 @@ class MyApp(App):
             sm, self.cfg, log_prefix="cobien-app", title_text="Log Aplicación", name='settings_logs_app'
         )
         sm.add_widget(logs_app)
+        logs_icso = LogsViewerScreen(
+            sm,
+            self.cfg,
+            log_prefix="icso",
+            title_text="Log ICSO",
+            explicit_files=["icso_log.txt", "icso_log.json", "icso_proximity_sensors.txt"],
+            name='settings_logs_icso',
+        )
+        sm.add_widget(logs_icso)
         launcher_settings_screen = LauncherConfigScreen(sm, self.cfg, name='settings_launcher')
         sm.add_widget(launcher_settings_screen)
         sm.add_widget(Screen(name='joke_category'))
