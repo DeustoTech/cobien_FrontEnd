@@ -789,10 +789,10 @@ ask_menu_choice() {
     return
   fi
 
-  echo "$prompt"
+  printf '%s\n' "$prompt" >&2
   local option
   for option in "${options[@]}"; do
-    echo "  $option"
+    printf '  %s\n' "$option" >&2
   done
 
   while true; do
