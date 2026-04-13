@@ -52,6 +52,7 @@ TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL="https://huggingface.co/rhasspy/piper-voices
 TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/mls_10246/low/es_ES-mls_10246-low.onnx"
 TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls_1840/low/fr_FR-mls_1840-low.onnx"
 TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
+TTS_PIPER_RELEASE_TAG_DEFAULT="2023.11.14-2"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
 PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
@@ -685,9 +686,9 @@ launch_runtime() {
   local relaunch_after_update="${1:-0}"
   check_paths
   normalize_device_identity
-  ensure_device_identity_config
   ensure_runtime_dependencies
   configure_tts_runtime
+  ensure_device_identity_config
   configure_audio_input_defaults
   resolve_python_bin
   resolve_uv_bin
@@ -890,6 +891,49 @@ ensure_runtime_dependencies() {
 }
 
 configure_tts_runtime() {
+  install_piper_runtime_binary() {
+    local release_tag="${COBIEN_TTS_PIPER_RELEASE_TAG:-$TTS_PIPER_RELEASE_TAG_DEFAULT}"
+    local machine archive_name runtime_dir archive_path download_url extracted_dir
+    machine="$(uname -m)"
+    case "$machine" in
+      x86_64|amd64) archive_name="piper_linux_x86_64.tar.gz" ;;
+      aarch64|arm64) archive_name="piper_linux_aarch64.tar.gz" ;;
+      armv7l|armv7) archive_name="piper_linux_armv7l.tar.gz" ;;
+      *)
+        log "WARN: Unsupported architecture for automatic Piper binary install: $machine"
+        return 1
+        ;;
+    esac
+
+    runtime_dir="$FRONTEND_APP_DIR/models/piper/runtime"
+    archive_path="$runtime_dir/$archive_name"
+    download_url="https://github.com/rhasspy/piper/releases/download/${release_tag}/${archive_name}"
+    mkdir -p "$runtime_dir"
+
+    log "Downloading Piper runtime from: $download_url"
+    if ! download_file "$download_url" "$archive_path"; then
+      rm -f "$archive_path" || true
+      log "Failed to download Piper runtime archive."
+      return 1
+    fi
+
+    rm -rf "$runtime_dir/piper" || true
+    if ! tar -xzf "$archive_path" -C "$runtime_dir"; then
+      log "Failed to extract Piper runtime archive."
+      return 1
+    fi
+
+    extracted_dir="$runtime_dir/piper"
+    if [[ -x "$extracted_dir/piper" ]]; then
+      TTS_PIPER_BIN="$extracted_dir/piper"
+      log "Piper runtime installed at: $TTS_PIPER_BIN"
+      return 0
+    fi
+
+    log "Piper runtime archive extracted but binary was not found."
+    return 1
+  }
+
   download_file() {
     local url="$1"
     local out_file="$2"
@@ -991,6 +1035,8 @@ configure_tts_runtime() {
       elif [[ -x "$HOME/.local/bin/piper" ]]; then
         TTS_PIPER_BIN="$HOME/.local/bin/piper"
         log "Piper installed at user path: $TTS_PIPER_BIN"
+      elif install_piper_runtime_binary; then
+        :
       else
         log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
         TTS_ENGINE="pyttsx3"
