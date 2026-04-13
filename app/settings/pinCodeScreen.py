@@ -7,7 +7,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.graphics import Color, RoundedRectangle, Line, Ellipse
 from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, NumericProperty
 from kivy.animation import Animation
@@ -45,20 +45,19 @@ class PinDisplay(BoxLayout):
                                                dot_box.size[0], dot_box.size[1], dp(12)), 
                            width=2)
             
-            dot_label = Label(
-                text="",
-                font_size=sp(40),
-                color=(0.2, 0.2, 0.2, 1),
-                bold=True
-            )
-            
-            dot_box.add_widget(dot_label)
             dot_box.bind(pos=lambda x, y, r=dot_rect: setattr(r, 'pos', x.pos))
             dot_box.bind(size=lambda x, y, r=dot_rect: setattr(r, 'size', x.size))
             dot_box.bind(pos=lambda x, y, l=dot_line: self._update_line(l, x))
             dot_box.bind(size=lambda x, y, l=dot_line: self._update_line(l, x))
-            
-            self.dots.append((dot_box, dot_label))
+
+            with dot_box.canvas.after:
+                dot_fill = Color(0, 0, 0, 0)
+                dot_circle = Ellipse(pos=(0, 0), size=(0, 0))
+
+            dot_box.bind(pos=lambda x, y, c=dot_circle: self._update_dot(c, x))
+            dot_box.bind(size=lambda x, y, c=dot_circle: self._update_dot(c, x))
+
+            self.dots.append((dot_box, dot_fill, dot_circle))
             self.add_widget(dot_box)
         
         self.bind(pin_value=self.update_display)
@@ -67,15 +66,24 @@ class PinDisplay(BoxLayout):
         """Update rounded border geometry for one PIN slot."""
         line.rounded_rectangle = (widget.pos[0], widget.pos[1], 
                                   widget.size[0], widget.size[1], dp(12))
+
+    def _update_dot(self, dot: Any, widget: Any) -> None:
+        """Center and size one black PIN dot inside its slot."""
+        diameter = min(widget.width, widget.height) * 0.28
+        dot.size = (diameter, diameter)
+        dot.pos = (
+            widget.x + (widget.width - diameter) / 2,
+            widget.y + (widget.height - diameter) / 2,
+        )
     
     def update_display(self, *args: Any) -> None:
         """Refresh visible masked dots from current `pin_value`."""
         pin_len = len(self.pin_value)
-        for i, (box, label) in enumerate(self.dots):
+        for i, (_box, dot_fill, _dot_circle) in enumerate(self.dots):
             if i < pin_len:
-                label.text = "●"
+                dot_fill.rgba = (0, 0, 0, 1)
             else:
-                label.text = ""
+                dot_fill.rgba = (0, 0, 0, 0)
     
     def shake_animation(self) -> None:
         """Play horizontal shake animation for invalid PIN feedback."""
