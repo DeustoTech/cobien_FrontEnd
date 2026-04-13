@@ -2,10 +2,12 @@
   "settings": {
     "language": "es",
     "weather_cities": [
-      "Bilbao"
+      "Bilbao",
+      "Toulouse"
     ],
     "weather_city_catalog": [
-      "Bilbao"
+      "Bilbao",
+      "Toulouse"
     ],
     "weather_primary_city": "Bilbao",
     "device_id": "CoBien1",

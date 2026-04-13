@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 from datetime import datetime
 
 
@@ -34,9 +35,9 @@ DEFAULT_UNIFIED_CONFIG = {
     },
     "settings": {
         "language": "es",
-        "weather_cities": [],
-        "weather_city_catalog": [],
-        "weather_primary_city": "",
+        "weather_cities": ["Bilbao", "Toulouse"],
+        "weather_city_catalog": ["Bilbao", "Toulouse"],
+        "weather_primary_city": "Bilbao",
         "button_colors": {},
         "rfid_actions": {},
         "microphone_device": "",
@@ -97,6 +98,52 @@ DEFAULT_UNIFIED_CONFIG = {
         "version": "",
     },
 }
+
+DEFAULT_WEATHER_CITIES = ["Bilbao", "Toulouse"]
+_INVALID_CITY_PATTERNS = (
+    "section",
+    "ville par ligne",
+    "une ville",
+    "villes meteo",
+    "ciudades meteorologia",
+    "weather cities",
+    "one city per line",
+)
+_CITY_ALLOWED_RE = re.compile(r"^[A-Za-zÀ-ÿ' .-]{2,60}$")
+
+
+def _normalize_weather_city_name(value):
+    city = " ".join(str(value or "").strip().split())
+    return city
+
+
+def _is_valid_weather_city(value):
+    city = _normalize_weather_city_name(value)
+    if not city:
+        return False
+    lowered = city.casefold()
+    if any(pattern in lowered for pattern in _INVALID_CITY_PATTERNS):
+        return False
+    if lowered.startswith("#") or lowered.startswith("[") or lowered.startswith("{"):
+        return False
+    if not _CITY_ALLOWED_RE.match(city):
+        return False
+    return True
+
+
+def _sanitize_weather_city_list(values):
+    sanitized = []
+    seen = set()
+    for raw in values or []:
+        city = _normalize_weather_city_name(raw)
+        if not _is_valid_weather_city(city):
+            continue
+        key = city.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        sanitized.append(city)
+    return sanitized
 def _load_local_config():
     if not os.path.exists(LOCAL_CONFIG_PATH):
         return {}
@@ -282,8 +329,30 @@ def _ensure_schema(data):
     merged = copy.deepcopy(DEFAULT_UNIFIED_CONFIG)
     _deep_merge_dict(merged, data)
 
-    if not merged["settings"].get("weather_city_catalog"):
-        merged["settings"]["weather_city_catalog"] = list(merged["settings"]["weather_cities"])
+    settings = merged["settings"]
+    active_cities = _sanitize_weather_city_list(settings.get("weather_cities", []))
+    catalog_cities = _sanitize_weather_city_list(settings.get("weather_city_catalog", []))
+
+    if not catalog_cities:
+        catalog_cities = list(active_cities)
+
+    if not active_cities:
+        active_cities = [city for city in DEFAULT_WEATHER_CITIES if city in catalog_cities] or list(DEFAULT_WEATHER_CITIES)
+
+    if not catalog_cities:
+        catalog_cities = list(DEFAULT_WEATHER_CITIES)
+
+    for city in active_cities:
+        if city not in catalog_cities:
+            catalog_cities.append(city)
+
+    primary_city = _normalize_weather_city_name(settings.get("weather_primary_city", ""))
+    if not _is_valid_weather_city(primary_city) or primary_city not in catalog_cities:
+        primary_city = active_cities[0] if active_cities else DEFAULT_WEATHER_CITIES[0]
+
+    settings["weather_cities"] = active_cities
+    settings["weather_city_catalog"] = catalog_cities
+    settings["weather_primary_city"] = primary_city
 
     merged["meta"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
     if not merged["software"].get("version"):
