@@ -28,11 +28,8 @@ _last_rfid_at = 0.0
 today = date.today().isoformat()
 tf = TimezoneFinder()
 BASE_DIR = os.path.dirname(__file__)
-CONFIG_DIR = os.path.join(BASE_DIR, "config")
-WEATHER_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_weather.txt")
-RFID_CONFIG_PATH = os.path.join(CONFIG_DIR, "config_rfid.txt")
 
-# Geocoding the cities in config_weather.txt
+# Geocoding configured cities
 def geocode_city(city_name):
     try:
         services_cfg = load_section("services", {})
@@ -53,7 +50,7 @@ def geocode_city(city_name):
         print(f"[GEO] Erreur géocodage {city_name}: {e}")
         return None
 
-# Loading the cities in config_weather.txt
+# Loading the configured weather cities
 def load_primary_weather_city():
     try:
         data = load_section("settings", {})
@@ -63,7 +60,7 @@ def load_primary_weather_city():
         return ""
 
 
-def load_weather_config(path="config/config_weather.txt"):
+def load_weather_config():
     settings = load_section("settings", {})
     configured = settings.get("weather_cities", [])
     if isinstance(configured, list) and configured:
@@ -74,28 +71,7 @@ def load_weather_config(path="config/config_weather.txt"):
             print(f"[CONFIG] ⭐ Ville prioritaire météo: {primary_city}")
         return cities
 
-    cities = []
-    path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
-    if not os.path.exists(path):
-        print(f"[CONFIG] Fichier météo introuvable : {path}")
-        return cities
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            for raw in f:
-                line = raw.strip()
-                if not line or line.startswith("#"):
-                    continue
-                cities.append(line)
-                print(f"[CONFIG]   + Ville : {line}")
-    except Exception as e:
-        print("[CONFIG WEATHER ERROR]", e)
-
-    primary_city = load_primary_weather_city()
-    if primary_city and primary_city in cities:
-        cities = [primary_city] + [c for c in cities if c != primary_city]
-        print(f"[CONFIG] ⭐ Ville prioritaire météo: {primary_city}")
-
-    return cities
+    return []
 
 #Charging the contacts
 def load_contacts_map():
@@ -125,8 +101,8 @@ def load_contacts_map():
     print(f"[CONTACTS] {len(m)} contacts chargés depuis {path}")
     return m
 
-# Loading the RFID cards actions in config_rfid.txt
-def load_rfid_config(path="config/config_rfid.txt"):
+# Loading the configured RFID cards actions
+def load_rfid_config():
     settings = load_section("settings", {})
     configured = settings.get("rfid_actions", {})
     if isinstance(configured, dict) and configured:
@@ -163,87 +139,15 @@ def load_rfid_config(path="config/config_rfid.txt"):
                 }
         return actions
 
-    path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
-    contacts_map = load_contacts_map()
-    actions = {}
-    if not os.path.exists(path):
-        print(f"[CONFIG] Fichier RFID introuvable : {path}")
-        return actions
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            for raw in f:
-                line = raw.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" not in line:
-                    continue
-                left, right = line.split("=", 1)
-                card_id = int(left.strip())
-                action_text = right.strip().lower()
-
-                # --- Weather
-                # Load the list of valid cities from config_weather.txt
-                valid_cities = []
-                try:
-                    with open(WEATHER_CONFIG_PATH, "r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if not line or line.startswith("#"):  # commented lines = inactive cities
-                                continue
-                            valid_cities.append(line)
-                except Exception as e:
-                    print(f"[WARN] Impossible de charger config_weather.txt : {e}")
-
-                # --- Weather
-                if action_text.lower().startswith("weather") or action_text.lower().startswith("meteo"):
-                    if ":" in action_text:
-                        city = action_text.split(":", 1)[1].strip()
-                        city = city[0].upper() + city[1:] if city else city
-                        if city not in valid_cities:
-                            print(f"[WARN] City {city} ignored (not listed in config_weather.txt)")
-                            continue  # skip this card
-                        geo = geocode_city(city)
-                        if geo:
-                            actions[card_id] = {
-                                "target": "weather",
-                                "extra": geo
-                            }
-
-                # --- Events
-                elif action_text == "events" or action_text == "eventos":
-                    actions[card_id] = {
-                        "target": "day_events",
-                        "extra": {"day": date.today().isoformat()}
-                    }
-                # --- Videocall
-                elif action_text.startswith("videocall") or action_text.startswith("videollamada"):
-                    contact_display = None
-                    if ":" in action_text:
-                        contact_display = action_text.split(":", 1)[1].strip()
-
-                    payload = {"target": "videocall"}
-
-                    # Si on a un nom de contact (ex: "Capucine"), on le résout en user (ex: "capucine")
-                    if contact_display:
-                        user = contacts_map.get(contact_display.lower())
-                        if user:
-                            payload["extra"] = {"to_user": user, "label": contact_display}
-                        else:
-                            print(f"[RFID] Contact inconnu : {contact_display} (pas dans list_contacts.txt)")
-
-                    actions[card_id] = payload
-                       
-    except Exception as e:
-        print("[CONFIG RFID ERROR]", e)
-    return actions
+    return {}
 
 # Charging the cities while loading the app
 global WEATHER_CITIES_RAW
 global RFID_ACTIONS
 global WEATHER_CITIES_GEO
 
-WEATHER_CITIES_RAW = load_weather_config(WEATHER_CONFIG_PATH)
-RFID_ACTIONS = load_rfid_config(RFID_CONFIG_PATH)
+WEATHER_CITIES_RAW = load_weather_config()
+RFID_ACTIONS = load_rfid_config()
 
 # Geocoding the cities
 WEATHER_CITIES_GEO = []
@@ -330,7 +234,7 @@ def on_message(client, userdata, msg):
     elif msg.topic == TOPIC_RFID_RELOAD:
         print("[MQTT] ⚡ Rechargement actions RFID demandé")
         
-        RFID_ACTIONS = load_rfid_config(path="config/config_rfid.txt")
+        RFID_ACTIONS = load_rfid_config()
         
         print(f"[MQTT] ✅ {len(RFID_ACTIONS)} actions RFID rechargées")
         print(f"[MQTT] Actions actuelles : {list(RFID_ACTIONS.keys())}")
@@ -339,7 +243,7 @@ def on_message(client, userdata, msg):
     # --- WEATHER RELOAD ---
     elif msg.topic == TOPIC_WEATHER_RELOAD:
         print("[MQTT] ⚡ Rechargement météo demandé")
-        WEATHER_CITIES_RAW = load_weather_config(path="config/config_weather.txt")
+        WEATHER_CITIES_RAW = load_weather_config()
         
         WEATHER_CITIES_GEO = []
         for city_name in WEATHER_CITIES_RAW:

@@ -50,7 +50,7 @@ text + optional image content addressed to the current furniture device.
 
 ## Configuration Dependencies
 
-Read from unified config (`app/config/config.json` via `config_store`):
+Read from unified config (`app/config/config.local.json` via `config_store`):
 
 - `services.pizarra_messages_url`
 - `services.pizarra_delete_url_template`

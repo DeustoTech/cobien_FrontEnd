@@ -32,7 +32,6 @@ Runtime notification subsystem for CoBien.
   - `app/notifications/cache/active_notifications.json`
 - Notification config source:
   - Unified config via `config_store` section `notifications`
-  - Legacy materialized file path variable points to `app/config/notifications_config.json`
 - Ringtones directory:
   - `app/settings/ringtones/`
 

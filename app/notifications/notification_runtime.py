@@ -15,8 +15,6 @@ from config_store import load_section, save_section
 
 
 NONE_RINGTONE = ""
-CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "notifications_config.json")
 RINGTONES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "settings", "ringtones")
 
 DEFAULT_NOTIFICATION_CONFIG = {

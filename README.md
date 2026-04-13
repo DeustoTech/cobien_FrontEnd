@@ -218,9 +218,19 @@ Template:
 
 - `deploy/ubuntu/cobien-update.env.example`
 
-Unified app runtime config:
+App configuration resolution order:
 
-- `app/config/config.json` (generated/updated from defaults + launcher sync)
+- Environment variables
+- `app/config/config.local.json` (full local override, untracked)
+- `app/config/config.default.json` (tracked defaults/template)
+
+Recommended deployment file for a specific furniture device:
+
+- `app/config/config.local.json`
+
+Template:
+
+- `app/config/config.local.example.json`
 
 Defaults:
 

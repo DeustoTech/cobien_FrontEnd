@@ -195,11 +195,18 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
   - `uv sync --project . --python 3.11`
 
 3) Keys and Connection
-Configure environment variables or .env file with:
-MONGO_URI
-OWM_API_KEY
-NEWS_API_KEY
-SPOONACULAR_API_KEY
+Recommended options:
+- `app/config/config.local.json` for a full per-device local configuration
+- environment variables for `systemd` or launcher-managed deployments
+
+Resolution priority:
+1. Environment variables
+2. `app/config/config.local.json`
+
+`config.local.json` can store together:
+- secrets (`MONGO_URI`, `OWM_API_KEY`, `NEWS_API_KEY`, `SPOONACULAR_API_KEY`, `COBIEN_NOTIFY_API_KEY`)
+- URLs and broker endpoints
+- furniture/device options (`device_id`, `videocall_room`, `device_location`, etc.)
 
 4) Execution
 - `uv run --project . mainApp.py`   # only UI (no camera)

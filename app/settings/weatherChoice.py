@@ -214,7 +214,7 @@ class WeatherChoice(FloatLayout):
         self.city_list_geo = {}
         self.available_cities = []
         self.active_cities = []
-        self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config_weather.txt")
+        self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.local.json")
         self.last_mtime = 0
         self._watch_event = None
         self.selected_letter = None

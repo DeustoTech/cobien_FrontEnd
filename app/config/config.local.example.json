@@ -1,0 +1,76 @@
+{
+  "settings": {
+    "language": "es",
+    "weather_cities": [
+      "Bilbao"
+    ],
+    "weather_city_catalog": [
+      "Bilbao"
+    ],
+    "weather_primary_city": "Bilbao",
+    "device_id": "CoBien1",
+    "videocall_room": "CoBien1",
+    "device_location": "Bilbao",
+    "joke_category": "general",
+    "idle_timeout_sec": 60
+  },
+  "notifications": {
+    "videollamada": {
+      "group": 1,
+      "intensity": 255,
+      "color": "#00FF00",
+      "mode": "ON",
+      "ringtone": ""
+    },
+    "nuevo_evento": {
+      "group": 2,
+      "intensity": 255,
+      "color": "#FF0000",
+      "mode": "ON",
+      "ringtone": ""
+    },
+    "nueva_foto": {
+      "group": 3,
+      "intensity": 255,
+      "color": "#0000FF",
+      "mode": "BLINK",
+      "ringtone": ""
+    }
+  },
+  "security": {
+    "settings_pin": ""
+  },
+  "services": {
+    "mqtt_local_broker": "localhost",
+    "mqtt_local_port": 1883,
+    "mqtt_backend_broker": "broker.hivemq.com",
+    "mqtt_backend_port": 1883,
+    "backend_base_url": "http://portal.co-bien.eu",
+    "owm_api_key": "",
+    "news_api_key": "",
+    "spoonacular_api_key": "",
+    "mongo_uri": "",
+    "http_timeout_sec": 8.0,
+    "tts_engine": "pyttsx3",
+    "tts_rate": 155,
+    "tts_volume": 0.85,
+    "tts_piper_bin": "",
+    "tts_piper_model_es": "",
+    "tts_piper_model_fr": "",
+    "disable_system_sleep": "0",
+    "notify_api_key": "",
+    "pizarra_notify_url": "http://portal.co-bien.eu/pizarra/api/notify/",
+    "pizarra_messages_url": "http://portal.co-bien.eu/pizarra/api/messages/",
+    "pizarra_delete_url_template": "http://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/",
+    "contacts_api_url": "http://portal.co-bien.eu/pizarra/api/contacts/",
+    "portal_videocall_url": "https://portal.co-bien.eu/videocall/",
+    "portal_call_answered_url": "https://portal.co-bien.eu/videocall/call-answered/",
+    "openweather_current_url": "https://api.openweathermap.org/data/2.5/weather",
+    "openweather_forecast_url": "https://api.openweathermap.org/data/2.5/forecast",
+    "news_api_url": "https://newsapi.org/v2/top-headlines",
+    "spoonacular_search_url": "https://api.spoonacular.com/recipes/complexSearch",
+    "spoonacular_info_url_template": "https://api.spoonacular.com/recipes/{id}/information",
+    "open_meteo_url": "https://api.open-meteo.com/v1/forecast",
+    "nominatim_search_url": "https://nominatim.openstreetmap.org/search"
+  }
+}

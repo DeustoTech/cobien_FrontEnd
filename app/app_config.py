@@ -7,7 +7,7 @@ from config_store import load_section, save_section
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.json")
+CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.local.json")
 _SERVICES_CFG = load_section("services", {})
 MQTT_LOCAL_BROKER = _SERVICES_CFG.get("mqtt_local_broker", os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost"))
 MQTT_LOCAL_PORT = int(_SERVICES_CFG.get("mqtt_local_port", os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883")))

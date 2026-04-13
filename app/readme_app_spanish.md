@@ -195,11 +195,18 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
   - `uv sync --project . --python 3.11`
 
 3) Claves y conexión
-Configurar variables de entorno o .env con:
-MONGO_URI
-OWM_API_KEY
-NEWS_API_KEY
-SPOONACULAR_API_KEY
+Opciones recomendadas:
+- `app/config/config.local.json` para una configuración completa por mueble
+- variables de entorno para despliegues gestionados por `systemd` o launcher
+
+Orden de prioridad:
+1. Variables de entorno
+2. `app/config/config.local.json`
+
+En `config.local.json` puedes guardar conjuntamente:
+- secretos (`MONGO_URI`, `OWM_API_KEY`, `NEWS_API_KEY`, `SPOONACULAR_API_KEY`, `COBIEN_NOTIFY_API_KEY`)
+- URLs y brokers
+- opciones del mueble (`device_id`, `videocall_room`, `device_location`, etc.)
 
 4) Ejecución
 - `uv run --project . mainApp.py`   # solo interfaz (sin cámara)

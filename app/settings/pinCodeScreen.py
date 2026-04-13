@@ -12,14 +12,11 @@ from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, NumericProperty
 from kivy.animation import Animation
 from kivy.clock import Clock
-import os
 
 from translation import _, get_current_language
 from config_store import load_section, save_section
 
 
-# PIN file path configuration
-PIN_FILE_PATH = os.path.join(os.path.dirname(__file__), "pin.txt")
 PIN_ENV_VAR = "COBIEN_SETTINGS_PIN"
 
 

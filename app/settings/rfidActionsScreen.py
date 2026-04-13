@@ -216,7 +216,7 @@ class RFIDCardWidget(BoxLayout):
         self.action = action
         self.extra_data = extra_data
         self.parent_screen = parent_screen
-        self.config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config_rfid.txt"))
+        self.config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config.local.json"))
         
         self.orientation = "vertical"
         self.size_hint_y = None
@@ -489,21 +489,6 @@ class RFIDActionsScreen(Screen):
             print(f"[RFID] Erreur chargement contacts : {e}")
             self.available_contacts = []
     
-    def _find_weather_config_file(self) -> Optional[str]:
-        """Resolve `config_weather.txt` from known candidate paths."""
-        possible_paths = [
-            "config/config_weather.txt",
-            os.path.join(os.path.dirname(__file__), "config/config_weather.txt"),
-            os.path.join(os.path.dirname(__file__), "../config/config_weather.txt"),
-            os.path.join(os.path.dirname(__file__), "config_weather.txt"),
-            "config_weather.txt"
-        ]
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                return path
-        return None
-    
     def load_config(self):
         """Load RFID action mapping from unified settings."""
         self.root_view.ids.cards_container.clear_widgets()
@@ -523,21 +508,6 @@ class RFIDActionsScreen(Screen):
                 self.add_card_widget(card_id, action, extra)
         except Exception as e:
             print(f"[RFID] Erreur chargement config: {e}")
-    
-    def _find_config_file(self) -> Optional[str]:
-        """Resolve `config_rfid.txt` from known candidate paths."""
-        possible_paths = [
-            "config/config_rfid.txt",
-            os.path.join(os.path.dirname(__file__), "config/config_rfid.txt"),
-            os.path.join(os.path.dirname(__file__), "../config/config_rfid.txt"),
-            os.path.join(os.path.dirname(__file__), "config_rfid.txt"),
-            "config_rfid.txt"
-        ]
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                return path
-        return None
     
     def add_card_widget(self, card_id: int, action: str = "day_events", extra_data: str = "") -> None:
         """Create and mount a card widget in the UI."""

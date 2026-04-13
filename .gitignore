@@ -207,6 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 # CoBien frontend runtime artifacts
+app/config/config.json
+app/config/config.local.json
+app/config/secrets.local.json
 app/board/board_cache/
 app/events/eventos_local.json
 app/face_authentication/face_data.json

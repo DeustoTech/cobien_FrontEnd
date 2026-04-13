@@ -41,7 +41,7 @@
         }
     },
     "security": {
-        "settings_pin": "1234"
+        "settings_pin": ""
     },
     "services": {
         "mqtt_local_broker": "localhost",
@@ -49,10 +49,10 @@
         "mqtt_backend_broker": "broker.hivemq.com",
         "mqtt_backend_port": 1883,
         "backend_base_url": "http://portal.co-bien.eu",
-        "owm_api_key": "6128e2f97c533ad711be849699cb4d47",
-        "news_api_key": "9edb8e12e0f040038a79a7c18d71b017",
-        "spoonacular_api_key": "b5be2f3b6e2d457bbf7bdd1c2dbc0b10",
-        "mongo_uri": "mongodb+srv://usuarioCoBien:passwordCoBien@clustercobienevents.j8ev5.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true",
+        "owm_api_key": "",
+        "news_api_key": "",
+        "spoonacular_api_key": "",
+        "mongo_uri": "",
         "http_timeout_sec": 8.0,
         "tts_engine": "pyttsx3",
         "tts_rate": 155,
@@ -65,7 +65,7 @@
         "tts_piper_voice_es": "male",
         "tts_piper_voice_fr": "male",
         "disable_system_sleep": "0",
-        "notify_api_key": "test_jules",
+        "notify_api_key": "",
         "pizarra_notify_url": "http://portal.co-bien.eu/pizarra/api/notify/",
         "pizarra_messages_url": "http://portal.co-bien.eu/pizarra/api/messages/",
         "pizarra_delete_url_template": "http://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/",
