@@ -886,7 +886,7 @@ configure_tts_runtime() {
 
 ensure_device_identity_config() {
   local unified_config_file
-  unified_config_file="$FRONTEND_APP_DIR/config/config.json"
+  unified_config_file="$FRONTEND_APP_DIR/config/config.local.json"
   mkdir -p "$(dirname "$unified_config_file")"
 
   if ! command -v python3 >/dev/null 2>&1; then
@@ -942,7 +942,7 @@ PY
 
 configure_audio_input_defaults() {
   local unified_config_file
-  unified_config_file="$FRONTEND_APP_DIR/config/config.json"
+  unified_config_file="$FRONTEND_APP_DIR/config/config.local.json"
 
   if command -v systemctl >/dev/null 2>&1; then
     systemctl --user restart pipewire pipewire-pulse wireplumber >/dev/null 2>&1 || true
