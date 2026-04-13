@@ -50,7 +50,7 @@ from settings.launcherConfigScreen import LauncherConfigScreen
 from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from jokes.jokesScreen import JokesScreen
-from settings.pinCodeScreen import PinCodeScreen, PINBACK_BUTTON_KV
+from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from config_store import load_section
 
@@ -2074,8 +2074,9 @@ class MyApp(App):
             return
 
         expected_pin = self._load_settings_pin()
+        entered_pin = {"value": ""}
 
-        root = BoxLayout(orientation="vertical", spacing=dp(14))
+        root = BoxLayout(orientation="vertical", spacing=dp(18))
         title = Label(
             text=_("Confirmar salida"),
             font_size=sp(28),
@@ -2095,16 +2096,7 @@ class MyApp(App):
         )
         info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
 
-        pin_input = TextInput(
-            multiline=False,
-            password=True,
-            hint_text=_("PIN"),
-            font_size=sp(30),
-            halign="center",
-            size_hint_y=None,
-            height=dp(62),
-            input_filter="int",
-        )
+        pin_display = PinDisplay(max_length=max(len(expected_pin), 4))
 
         feedback = Label(
             text="",
@@ -2114,6 +2106,49 @@ class MyApp(App):
             height=dp(30),
         )
 
+        def _cancel(*_args):
+            self._close_exit_pin_popup()
+
+        def _append_digit(digit, *_args):
+            if len(entered_pin["value"]) >= len(expected_pin):
+                return
+            entered_pin["value"] += digit
+            pin_display.pin_value = entered_pin["value"]
+            feedback.text = ""
+            if len(entered_pin["value"]) == len(expected_pin):
+                _confirm()
+
+        def _delete_digit(*_args):
+            entered_pin["value"] = entered_pin["value"][:-1]
+            pin_display.pin_value = entered_pin["value"]
+            feedback.text = ""
+
+        def _confirm(*_args):
+            if entered_pin["value"].strip() == expected_pin:
+                self._close_exit_pin_popup()
+                App.get_running_app().stop()
+                return
+            feedback.text = _("PIN incorrecto")
+            entered_pin["value"] = ""
+            pin_display.pin_value = ""
+            pin_display.shake_animation()
+
+        keyboard = BoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, height=dp(300))
+        for row in (("1", "2", "3"), ("4", "5", "6"), ("7", "8", "9"), ("Cancelar", "0", "⌫")):
+            row_box = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(66))
+            for key in row:
+                btn = PinButton(text=key)
+                if key == "Cancelar":
+                    btn.font_size = sp(22)
+                row_box.add_widget(btn)
+                if key.isdigit():
+                    btn.bind(on_release=lambda _btn, num=key: _append_digit(num))
+                elif key == "⌫":
+                    btn.bind(on_release=_delete_digit)
+                else:
+                    btn.bind(on_release=_cancel)
+            keyboard.add_widget(row_box)
+
         btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
         cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
         confirm_btn = Button(text=_("Salir"), font_size=sp(22), background_color=(0.85, 0.18, 0.18, 1))
@@ -2122,37 +2157,25 @@ class MyApp(App):
 
         root.add_widget(title)
         root.add_widget(info)
-        root.add_widget(pin_input)
+        root.add_widget(pin_display)
         root.add_widget(feedback)
+        root.add_widget(keyboard)
         root.add_widget(btn_row)
 
         popup = Popup(
             title="",
             content=wrap_popup_content(root),
-            size_hint=(0.56, 0.52),
+            size_hint=(0.62, 0.78),
             auto_dismiss=False,
             **popup_theme_kwargs(),
         )
 
-        def _cancel(*_args):
-            self._close_exit_pin_popup()
-
-        def _confirm(*_args):
-            if pin_input.text.strip() == expected_pin:
-                self._close_exit_pin_popup()
-                App.get_running_app().stop()
-                return
-            feedback.text = _("PIN incorrecto")
-            pin_input.text = ""
-
         cancel_btn.bind(on_release=_cancel)
         confirm_btn.bind(on_release=_confirm)
-        pin_input.bind(on_text_validate=lambda *_: _confirm())
         popup.bind(on_dismiss=lambda *_: setattr(self, "_exit_pin_popup", None))
 
         self._exit_pin_popup = popup
         popup.open()
-        Clock.schedule_once(lambda _dt: setattr(pin_input, "focus", True), 0)
 
     def _handle_escape_request(self, *args):
         keycode = self._extract_window_keycode(*args)
