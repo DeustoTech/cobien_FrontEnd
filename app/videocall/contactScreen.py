@@ -229,19 +229,23 @@ CONTACT_KV = f"""
                     valign: "top"
                     text_size: self.size
             Widget:
-            BoxLayout:
-                orientation: "horizontal"
+            AnchorLayout:
+                anchor_x: "right"
+                anchor_y: "center"
                 size_hint_x: None
-                spacing: dp(12)
-                padding: [0, 0, dp(22), 0]
-                width: self.minimum_width
-                IconBadge:
-                    icon_source: "{img_path('back.png')}"
-                    on_release: app.root.current = "main"
-                IconBadge:
-                    icon_source: "{img_path('voice.png')}"
-                    on_release: app.start_assistant()
-                    #on_release: app.start_voice_command()
+                width: dp(210)
+                BoxLayout:
+                    orientation: "horizontal"
+                    size_hint: None, None
+                    size: dp(172), dp(80)
+                    spacing: dp(12)
+                    IconBadge:
+                        icon_source: "{img_path('back.png')}"
+                        on_release: app.root.current = "main"
+                    IconBadge:
+                        icon_source: "{img_path('voice.png')}"
+                        on_release: app.start_assistant()
+                        #on_release: app.start_voice_command()
         
         # ------ Contacts ------
         ScrollView:
