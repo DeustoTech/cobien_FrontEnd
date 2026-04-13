@@ -34,7 +34,7 @@ from icso_data.videocall_logger import log_call_request
 
 # ------------------- Paths -------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-IMG_DIR = os.path.join(os.path.dirname(BASE_DIR), "images")
+IMG_DIR = os.path.join(os.path.dirname(BASE_DIR), "data", "images")
 CONTACT_DIR = os.path.join(os.path.dirname(BASE_DIR), "contacts")
 
 def img_path(name: str) -> str:
