@@ -356,6 +356,12 @@ acquire_single_instance_lock() {
     lock_pid="$(read_lock_pid)"
     log "Another cobien-launcher instance is already running (PID=${lock_pid:-unknown})."
 
+    if [[ -n "${lock_pid:-}" && "$lock_pid" == "$$" ]]; then
+      log "Reusing existing single-instance lock owned by current PID=$$."
+      trap release_single_instance_lock EXIT
+      return 0
+    fi
+
     if [[ "$FORCE_RESTART" == "1" ]]; then
       if stop_existing_launcher_instance; then
         sleep 1
@@ -1367,6 +1373,7 @@ handoff_to_updated_launcher() {
   local next_mode="$1"
 
   log "Launcher script changed; re-executing updated launcher in current terminal"
+  release_single_instance_lock
   exec /bin/bash "$SELF_SCRIPT" \
     --non-interactive \
     --yes \
@@ -1460,6 +1467,7 @@ restart_software() {
   log "Relaunching furniture software"
   if [[ "$relaunch_after_update" == "1" ]]; then
     log "Update-triggered relaunch will use clean-launch mode."
+    release_single_instance_lock
     exec /bin/bash "$SELF_SCRIPT" \
       --non-interactive \
       --yes \
