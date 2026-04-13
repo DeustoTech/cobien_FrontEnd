@@ -685,6 +685,36 @@ ask_yes_no() {
   done
 }
 
+ask_menu_choice() {
+  local prompt="$1"
+  local default_value="$2"
+  shift 2
+  local options=("$@")
+  local answer=""
+
+  if [[ "$NON_INTERACTIVE" == "1" ]]; then
+    echo "$default_value"
+    return
+  fi
+
+  echo "$prompt"
+  local option
+  for option in "${options[@]}"; do
+    echo "  $option"
+  done
+
+  while true; do
+    read -r -p "Choose an option [$default_value]: " answer
+    answer="${answer:-$default_value}"
+    case "$answer" in
+      1|2|3|4|5)
+        echo "$answer"
+        return
+        ;;
+    esac
+  done
+}
+
 detect_python311() {
   command -v python3.11 >/dev/null 2>&1
 }
@@ -1502,6 +1532,7 @@ run_full_flow() {
   local reuse_existing_installation="0"
   local use_last_config="0"
   local first_run_without_systemd="0"
+  local launcher_action="1"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     log_section "CoBien Ubuntu Setup Assistant"
     if [[ "$ARGS_PROVIDED" == "0" ]]; then
@@ -1510,6 +1541,40 @@ run_full_flow() {
         AUTO_CONFIRM="1"
       fi
     fi
+  fi
+
+  if [[ "$NON_INTERACTIVE" != "1" ]]; then
+    echo
+    launcher_action="$(
+      ask_menu_choice \
+        "Select what you want the launcher to do:" \
+        "1" \
+        "1. Full assistant: review setup, config, optional update, and then launch." \
+        "2. Normal launch: start the furniture runtime using the current installation." \
+        "3. Clean relaunch: stop old launcher/runtime state, recover stale lock files, and start again cleanly." \
+        "4. Setup only: prepare dependencies, uv, Python and .venv, but do not launch." \
+        "5. Update only: fetch latest code and redeploy if changes exist."
+    )"
+
+    case "$launcher_action" in
+      2)
+        MODE="launch"
+        return
+        ;;
+      3)
+        MODE="clean-launch"
+        FORCE_RESTART="1"
+        return
+        ;;
+      4)
+        MODE="setup"
+        return
+        ;;
+      5)
+        MODE="update-once"
+        return
+        ;;
+    esac
   fi
 
   if [[ "$NON_INTERACTIVE" != "1" ]] && load_last_run_config; then
@@ -1851,6 +1916,36 @@ main() {
   case "$MODE" in
     run)
       run_full_flow
+      case "$MODE" in
+        launch)
+          check_paths
+          load_env_file
+          normalize_device_identity
+          launch_runtime "$RELAUNCH_AFTER_UPDATE"
+          log "Launch mode keeps watcher active by default."
+          run_watch_loop
+          ;;
+        clean-launch)
+          FORCE_RESTART="1"
+          check_paths
+          load_env_file
+          normalize_device_identity
+          log "Clean launch requested: previous launcher/runtime state will be replaced."
+          launch_runtime 0
+          log "Clean launch keeps watcher active by default."
+          run_watch_loop
+          ;;
+        setup)
+          setup_environment
+          ;;
+        update-once)
+          run_update_once launch
+          ;;
+        run)
+          ;;
+        *)
+          ;;
+      esac
       ;;
     setup)
       setup_environment
