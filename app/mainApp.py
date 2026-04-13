@@ -2151,9 +2151,9 @@ class MyApp(App):
 
         btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
         cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
-        confirm_btn = Button(text=_("Salir"), font_size=sp(22), background_color=(0.85, 0.18, 0.18, 1))
+        btn_row.add_widget(Widget())
         btn_row.add_widget(cancel_btn)
-        btn_row.add_widget(confirm_btn)
+        btn_row.add_widget(Widget())
 
         root.add_widget(title)
         root.add_widget(info)
@@ -2171,7 +2171,6 @@ class MyApp(App):
         )
 
         cancel_btn.bind(on_release=_cancel)
-        confirm_btn.bind(on_release=_confirm)
         popup.bind(on_dismiss=lambda *_: setattr(self, "_exit_pin_popup", None))
 
         self._exit_pin_popup = popup
