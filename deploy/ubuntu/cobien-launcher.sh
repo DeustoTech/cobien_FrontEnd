@@ -2345,6 +2345,9 @@ main() {
       print_dry_run
       ;;
     diagnose)
+      log "Diagnose: attempting to stop active systemd user services to avoid interference"
+      stop_systemd_user_launcher_supervision || log "Could not stop systemd user services or none active"
+      sleep 1
       print_diagnostics
       ;;
     *)
