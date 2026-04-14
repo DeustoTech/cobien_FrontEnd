@@ -1470,7 +1470,7 @@ class MainScreen(Screen):
         # ✅ ========== APPEL MANQUÉ ==========
         if notif_type == "missed_call":
             timestamp = data.get("timestamp", "")
-            caller = data.get("from", "Quelqu'un")
+            caller = data.get("from") or _("Alguien")
             
             # Parser l'heure
             try:
@@ -1479,7 +1479,7 @@ class MainScreen(Screen):
                 local_time = dt.astimezone()
                 time_str = local_time.strftime("%H:%M")
             except:
-                time_str = "récemment"
+                time_str = _("recientemente")
             
             print(f"[BACKEND_NOTIF] 📞 Appel manqué")
             print(f"[BACKEND_NOTIF]    Caller: {caller}")
@@ -1493,7 +1493,7 @@ class MainScreen(Screen):
         
         # ✅ VIDEOCALL (CASE-SENSITIVE STRICT)
         if notif_type == "videocall":
-            caller = data.get("from", "Inconnu")
+            caller = data.get("from") or _("Desconocido")
             room = data.get("room", self.VIDEOCALL_ROOM)  # ✅ Depuis settings.json
             
             print(f"[BACKEND_NOTIF] 📞 Videocall")
@@ -1506,7 +1506,7 @@ class MainScreen(Screen):
         
         # ✅ NEW MESSAGE
         elif notif_type == "new_message":
-            sender_msg = data.get("from", "Inconnu")
+            sender_msg = data.get("from") or _("Desconocido")
             has_image = bool(data.get("image"))
             has_text = bool(data.get("text"))
             
@@ -1522,7 +1522,7 @@ class MainScreen(Screen):
         
         # ✅ NEW EVENT
         elif notif_type == "new_event":
-            title = data.get("title", "Nouvel événement")
+            title = data.get("title") or _("Nuevo evento")
             date_str = data.get("date", "")
             location = data.get("location", "")
             
