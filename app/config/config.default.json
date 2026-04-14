@@ -84,6 +84,8 @@
         "pizarra_messages_url": "http://portal.co-bien.eu/pizarra/api/messages/",
         "pizarra_delete_url_template": "http://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/",
         "contacts_api_url": "http://portal.co-bien.eu/pizarra/api/contacts/",
+        "icso_telemetry_url": "http://portal.co-bien.eu/pizarra/api/icso/telemetry/",
+        "icso_events_url": "http://portal.co-bien.eu/pizarra/api/icso/events/",
         "portal_videocall_url": "https://portal.co-bien.eu/videocall/",
         "portal_call_answered_url": "https://portal.co-bien.eu/videocall/call-answered/",
         "openweather_current_url": "https://api.openweathermap.org/data/2.5/weather",

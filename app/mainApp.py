@@ -59,6 +59,7 @@ from config_store import load_section
 from icso_data.navigation_logger import log_navigation
 from icso_data.videocall_logger import log_call_request
 from icso_data.wakeup_logger import log_wakeup
+from icso_data.sync_service import schedule_icso_sync
 
 # Virtual assistant
 from virtual_assistant.actions import ActionExecutor
@@ -1943,6 +1944,7 @@ class MyApp(App):
     def on_start(self):
         self._start_orchestrator()
         self._start_proximity_logger()
+        schedule_icso_sync(force_snapshot=True)
         Clock.schedule_once(lambda dt: self._show_pending_system_update_notification(), 1.0)
 
     def on_stop(self):

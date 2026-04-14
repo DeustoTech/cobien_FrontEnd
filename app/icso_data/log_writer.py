@@ -79,6 +79,15 @@ DEFAULT_STATE = {
 }
 
 
+def _schedule_background_sync(force_snapshot: bool = False) -> None:
+    try:
+        from .sync_service import schedule_icso_sync
+
+        schedule_icso_sync(force_snapshot=force_snapshot)
+    except Exception:
+        pass
+
+
 def _deep_merge_defaults(current: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
     """Recursively populate missing keys from a default state template.
 
@@ -154,6 +163,7 @@ def write_log_json(state: Dict[str, Any]) -> None:
     """
     with open(LOG_JSON, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=4, ensure_ascii=False)
+    _schedule_background_sync(force_snapshot=True)
 
 
 def write_log_txt(
@@ -231,3 +241,4 @@ def write_log_txt(
 
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(line + "\n")
+    _schedule_background_sync(force_snapshot=False)
