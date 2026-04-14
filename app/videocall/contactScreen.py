@@ -8,6 +8,7 @@ images when available.
 import os
 import unicodedata
 import re
+import threading
 from typing import Any, Dict, List
 from translation import _
 from datetime import datetime
@@ -328,12 +329,24 @@ class ContactCard(ButtonBehavior, BoxLayout):
             Any exception raised by downstream notification services can propagate
             if those services do not handle errors internally.
         """
-        send_pizarra_notification(self.user_name)
-        show_call_sent_popup(contact_name=self.display_name)
-        log_navigation("touchscreen", "videocall request")
-        log_call_request()
-        
-        print(f"[CONTACT] 📞 Notification sent to {self.user_name} ({self.display_name})")
+        def _send_request():
+            response = send_pizarra_notification(self.user_name)
+
+            def _notify_result(_dt):
+                if response is not None:
+                    show_call_sent_popup(contact_name=self.display_name)
+                    log_navigation("touchscreen", "videocall request")
+                    log_call_request()
+                    print(f"[CONTACT] 📞 Notification sent to {self.user_name} ({self.display_name})")
+                    return
+                app = App.get_running_app()
+                if app and hasattr(app, "speak"):
+                    app.speak(_("No se ha podido enviar la videollamada"))
+                print(f"[CONTACT] ❌ Failed to send notification to {self.user_name} ({self.display_name})")
+
+            Clock.schedule_once(_notify_result, 0)
+
+        threading.Thread(target=_send_request, daemon=True).start()
 
 class ContactScreen(Screen):
     """Contacts browser used to trigger video-call notifications."""

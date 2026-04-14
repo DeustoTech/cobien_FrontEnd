@@ -37,12 +37,12 @@ def _default_config_path() -> str:
     """Return default runtime config path used by video-call launcher.
 
     Returns:
-        Absolute path to ``settings/settings.json``.
+        Absolute path to unified local config.
     """
     return os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
-        "settings",
-        "settings.json"
+        "config",
+        "config.local.json"
     )
 
 
@@ -68,7 +68,11 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             return config
     except Exception as e:
         print(f"[VIDEOCALL] ⚠️ Erreur config ({selected_path}): {e}")
-        return {"device_id": "CoBien1", "videocall_room": "CoBien1"}
+        settings_cfg = load_section("settings", {}) or {}
+        return {
+            "device_id": settings_cfg.get("device_id", "CoBien1"),
+            "videocall_room": settings_cfg.get("videocall_room", "CoBien1"),
+        }
 
 
 def resolve_runtime_config(argv: Optional[list] = None) -> Tuple[Dict[str, Any], str, str]:

@@ -8,6 +8,7 @@ IMPORTANT: Room names are CASE-SENSITIVE to distinguish between:
 - 'Maria' and 'maria' (different rooms)
 """
 from typing import Any, Callable, Dict, List, Optional
+import threading
 from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -922,9 +923,12 @@ class NotificationManager:
             
             # ✅ CREATE TEMPORARY CONFIG FILE FOR LAUNCHER
             import tempfile
+            device_id = self.cfg.get_device_id()
             config_data = {
-                'room': room,  # Exact case preserved from settings.json
-                'identity': room  # Use room as identity
+                'room': room,
+                'identity': device_id,
+                'device_id': device_id,
+                'videocall_room': room,
             }
             
             try:
@@ -963,6 +967,7 @@ class NotificationManager:
                 print(f"[NOTIF]    Room: '{room}' (from settings.json)")
                 
                 self.active_call_process = subprocess.Popen([sys.executable, launcher_path, config_file])
+                self._cleanup_videocall_temp_file_later(config_file, self.active_call_process)
                 
                 print(f"[NOTIF] ✅ Videocall launcher started")
                 log_call_start()
@@ -984,6 +989,21 @@ class NotificationManager:
             room = data.get('room', 'Unknown')
             print(f"[NOTIF] ⏰ Call expired")
             print(f"[NOTIF]    From: '{caller}', Room: '{room}'")
+
+    def _cleanup_videocall_temp_file_later(self, temp_path: str, process: Any) -> None:
+        """Remove temporary launcher config once the call process finishes."""
+        def _cleanup() -> None:
+            try:
+                process.wait(timeout=None)
+            except Exception:
+                pass
+            try:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception as exc:
+                print(f"[NOTIF] ⚠️ Could not remove temporary videocall config {temp_path}: {exc}")
+
+        threading.Thread(target=_cleanup, daemon=True).start()
     
     def _handle_event_action(self, action: str, data: Dict[str, Any]) -> None:
         """Handle event-notification user actions."""

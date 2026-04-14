@@ -4,28 +4,35 @@ This module encapsulates the API call used to notify remote contacts that a
 call has been requested from the device UI.
 """
 
-import os
 from typing import Optional
 
 import requests
-from app_config import AppConfig
 from config_store import load_section
 
 
-_cfg = AppConfig()
-_services_cfg = load_section("services", {})
-DEFAULT_API_KEY = (_services_cfg.get("notify_api_key", "") or "").strip()
-DEFAULT_FROM_DEVICE = _cfg.get_device_id()
-DEFAULT_PIZARRA_NOTIFY_URL = _services_cfg.get(
-    "pizarra_notify_url",
-    "http://portal.co-bien.eu/pizarra/api/notify/",
-)
+DEFAULT_PIZARRA_NOTIFY_URL = "http://portal.co-bien.eu/pizarra/api/notify/"
+DEFAULT_HTTP_TIMEOUT_SEC = 8.0
+
+
+def _load_runtime_notify_config():
+    services_cfg = load_section("services", {}) or {}
+    settings_cfg = load_section("settings", {}) or {}
+    return {
+        "api_key": (services_cfg.get("notify_api_key", "") or "").strip(),
+        "from_device": (settings_cfg.get("device_id", "") or "").strip(),
+        "url": (
+            services_cfg.get("pizarra_notify_url", DEFAULT_PIZARRA_NOTIFY_URL)
+            or DEFAULT_PIZARRA_NOTIFY_URL
+        ).strip(),
+        "timeout": float(
+            services_cfg.get("http_timeout_sec", DEFAULT_HTTP_TIMEOUT_SEC)
+            or DEFAULT_HTTP_TIMEOUT_SEC
+        ),
+    }
 
 def send_pizarra_notification(
     to_user: str,
-    api_key: str = DEFAULT_API_KEY,
     message: str = "Call now?",
-    from_device: str = DEFAULT_FROM_DEVICE,
 ) -> Optional[requests.Response]:
     """Send call-ready notification to remote pizarra backend.
 
@@ -48,7 +55,19 @@ def send_pizarra_notification(
         >>> response is None or response.status_code in (200, 201, 202)
         True
     """
-    url = DEFAULT_PIZARRA_NOTIFY_URL
+    runtime_cfg = _load_runtime_notify_config()
+    api_key = runtime_cfg["api_key"]
+    from_device = runtime_cfg["from_device"]
+    url = runtime_cfg["url"]
+    timeout = runtime_cfg["timeout"]
+
+    if not to_user.strip():
+        print("[VIDEOCALL] Missing to_user for outbound notification.")
+        return None
+
+    if not api_key:
+        print("[VIDEOCALL] Missing notify_api_key; cannot send videocall notification.")
+        return None
 
     data = {
         "to_user": to_user,
@@ -64,9 +83,12 @@ def send_pizarra_notification(
     }
 
     try:
-        r = requests.post(url, json=data, headers=headers)
+        r = requests.post(url, json=data, headers=headers, timeout=timeout)
         print("Status:", r.status_code)
         print("Response:", r.text)
+        if not r.ok:
+            print(f"[VIDEOCALL] Notification rejected by backend: HTTP {r.status_code}")
+            return None
         return r
     except Exception as e:
         print("Erreur en envoyant la notification :", e)
