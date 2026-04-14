@@ -1124,18 +1124,7 @@ configure_tts_runtime() {
     fi
   fi
 
-      else
-        # Try to download and install official Piper release binary
-        if install_piper_binary; then
-          if command -v piper >/dev/null 2>&1; then
-            TTS_PIPER_BIN="$(command -v piper)"
-          elif [[ -x "$HOME/.local/bin/piper" ]]; then
-            TTS_PIPER_BIN="$HOME/.local/bin/piper"
-          fi
-          if [[ -n "$TTS_PIPER_BIN" ]]; then
-            log "Piper installed successfully via release asset: $TTS_PIPER_BIN"
-          fi
-        fi
+      
   [[ -z "$TTS_PIPER_MODEL_ES_MALE" ]] && TTS_PIPER_MODEL_ES_MALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_MALE}.onnx"
   [[ -z "$TTS_PIPER_MODEL_ES_FEMALE" ]] && TTS_PIPER_MODEL_ES_FEMALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_FEMALE}.onnx"
   [[ -z "$TTS_PIPER_MODEL_FR_MALE" ]] && TTS_PIPER_MODEL_FR_MALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_MALE}.onnx"
