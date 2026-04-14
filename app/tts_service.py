@@ -36,7 +36,8 @@ class TTSService:
     def _load_runtime_tts_config(self):
         """Read current TTS settings from unified config at call time."""
         services_cfg = load_section("services", {})
-        engine = (services_cfg.get("tts_engine", "pyttsx3") or "pyttsx3").strip().lower()
+        # Piper is the only supported engine now
+        engine = (services_cfg.get("tts_engine", "piper") or "piper").strip().lower()
         rate = int(services_cfg.get("tts_rate", os.getenv("COBIEN_TTS_RATE", str(DEFAULT_RATE))))
         volume = float(services_cfg.get("tts_volume", os.getenv("COBIEN_TTS_VOLUME", str(DEFAULT_VOLUME))))
         return {
@@ -91,36 +92,20 @@ class TTSService:
         rate = runtime_cfg["rate"]
         volume = runtime_cfg["volume"]
 
+        # Only attempt Piper. Do not fallback to pyttsx3.
         if engine_name == "piper":
-            if self._speak_with_piper(
+            ok = self._speak_with_piper(
                 text,
                 language=language,
                 runtime_cfg=runtime_cfg,
-            ):
+            )
+            if ok:
                 return True
-            print("[TTS] Piper selected but unavailable/misconfigured. Falling back to pyttsx3.")
-
-        engine = self._ensure_engine()
-        if engine is None:
-            print(f"[TTS fallback] {text}")
+            print("[TTS] Piper selected but unavailable/misconfigured. No fallback configured.")
             return False
-
-        with self._lock:
-            try:
-                engine.setProperty("rate", rate)
-                engine.setProperty("volume", volume)
-                self._select_voice(engine, language)
-                try:
-                    engine.stop()
-                except Exception:
-                    pass
-                engine.say(text)
-                engine.runAndWait()
-                return True
-            except Exception as exc:
-                print(f"[TTS ERROR] {exc}")
-                print(text)
-                return False
+        # If somehow another engine is set, refuse to speak.
+        print(f"[TTS] Unsupported engine '{engine_name}'; only 'piper' is supported.")
+        return False
 
     def _resolve_piper_bin(self, configured_bin=""):
         if self._piper_bin_cache:
@@ -178,7 +163,7 @@ class TTSService:
         resolved_bin = self._resolve_piper_bin(configured_bin=runtime_cfg["piper_bin"]) if engine_name == "piper" else None
         resolved_model = self._resolve_piper_model(language, runtime_cfg)
         if engine_name == "piper" and (not resolved_bin or not resolved_model):
-            backend = "pyttsx3-fallback"
+            backend = "piper-missing"
         return {
             "engine": engine_name,
             "backend": backend,

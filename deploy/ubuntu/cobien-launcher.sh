@@ -37,7 +37,7 @@ DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
-TTS_ENGINE="${COBIEN_TTS_ENGINE:-pyttsx3}"
+TTS_ENGINE="${COBIEN_TTS_ENGINE:-piper}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
 TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
 TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-}"
@@ -1245,7 +1245,7 @@ services = data.get("services")
 if not isinstance(services, dict):
     services = {}
 data["services"] = services
-services["tts_engine"] = tts_engine or "pyttsx3"
+services["tts_engine"] = tts_engine or "piper"
 services["tts_piper_bin"] = tts_piper_bin
 services["tts_piper_model_es"] = tts_piper_model_es
 services["tts_piper_model_fr"] = tts_piper_model_fr
