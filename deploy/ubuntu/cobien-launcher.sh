@@ -88,6 +88,7 @@ Usage:
   $(basename "$0") --mode launch
   $(basename "$0") --mode clean-launch
   $(basename "$0") --mode dry-run
+  $(basename "$0") --mode diagnose
 
 Modes:
   run           Full interactive or unattended flow
@@ -97,6 +98,7 @@ Modes:
   launch        Launch the furniture runtime
   clean-launch  Stop previous launcher/runtime state and relaunch cleanly
   dry-run       Print resolved configuration
+  diagnose      Run extended diagnostics to help debug runtime and install issues
 
 Options:
   --workspace PATH
@@ -119,6 +121,7 @@ Options:
   --tts-piper-model-fr PATH
   --tts-piper-model-es-url URL
   --tts-piper-model-fr-url URL
+  --diagnose      Run extended diagnostics (local checks, services, files)
   --tts-piper-voice-es male|female
   --tts-piper-voice-fr male|female
   --recreate-venv
@@ -1778,6 +1781,76 @@ print_dry_run() {
   log "PYTHON_REQUEST=$PYTHON_REQUEST"
 }
 
+print_diagnostics() {
+  # Non-destructive diagnostics to help debug Piper/install/runtime issues
+  set +e
+  check_paths || true
+  load_env_file || true
+  normalize_device_identity || true
+
+  log_section "Diagnostics"
+  log "User: $(id -un 2>/dev/null || true) (uid=$(id -u 2>/dev/null || true))"
+  log "Shell: ${SHELL:-unknown}"
+  log "PATH: ${PATH:-}" 
+  log "Which piper: $(command -v piper 2>/dev/null || echo 'not found')"
+  log "TTS_PIPER_BIN: ${TTS_PIPER_BIN:-unset}"
+  log "ENV_FILE: $ENV_FILE"
+
+  if [[ -f "$ENV_FILE" ]]; then
+    log "--- ENV_FILE contents ---"
+    sed -n '1,200p' "$ENV_FILE" 2>/dev/null || true
+  else
+    log "ENV_FILE not found: $ENV_FILE"
+  fi
+
+  local cfg="$FRONTEND_APP_DIR/config/config.local.json"
+  log "Unified config: $cfg"
+  if [[ -f "$cfg" ]]; then
+    log "--- config.local.json (first 200 lines) ---"
+    sed -n '1,200p' "$cfg" 2>/dev/null || true
+  else
+    log "config.local.json missing"
+  fi
+
+  log "Piper models dir: $FRONTEND_APP_DIR/models/piper"
+  if [[ -d "$FRONTEND_APP_DIR/models/piper" ]]; then
+    ls -la "$FRONTEND_APP_DIR/models/piper" 2>/dev/null || true
+  else
+    log "Piper models directory not present"
+  fi
+
+  log "Checking common piper locations"
+  if [[ -x "$HOME/.local/bin/piper" ]]; then
+    log "Found user piper at $HOME/.local/bin/piper (version)"
+    "$HOME/.local/bin/piper" --version 2>&1 | sed -n '1,5p' || true
+  fi
+  if command -v piper >/dev/null 2>&1; then
+    log "System piper: $(command -v piper)"
+    piper --version 2>&1 | sed -n '1,5p' || true
+  else
+    log "piper not available on PATH"
+  fi
+
+  log "systemd user service status (if available)"
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user status cobien-launcher.service --no-pager 2>&1 || true
+    systemctl --user status cobien-update.timer --no-pager 2>&1 || true
+  else
+    log "systemctl not available"
+  fi
+
+  log "crontab (current user):"
+  crontab -l 2>/dev/null || log "no crontab for user"
+
+  log "Last run config file: $LAST_RUN_CONFIG_FILE"
+  if [[ -f "$LAST_RUN_CONFIG_FILE" ]]; then
+    sed -n '1,200p' "$LAST_RUN_CONFIG_FILE" 2>/dev/null || true
+  fi
+
+  log_section "Diagnostics end"
+  set -e
+}
+
 run_full_flow() {
   local reuse_existing_installation="0"
   local use_last_config="0"
@@ -2169,6 +2242,10 @@ parse_args() {
         MODE="dry-run"
         shift
         ;;
+      --diagnose)
+        MODE="diagnose"
+        shift
+        ;;
       --clean-launch)
         MODE="clean-launch"
         FORCE_RESTART="1"
@@ -2266,6 +2343,9 @@ main() {
       ;;
     dry-run)
       print_dry_run
+      ;;
+    diagnose)
+      print_diagnostics
       ;;
     *)
       usage
