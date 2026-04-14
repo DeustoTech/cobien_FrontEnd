@@ -1,66 +1,130 @@
 
 # Módulo de Videollamadas – Proyecto CoBien
 
-Este sistema permite realizar videollamadas entre una persona mayor usando el mueble inteligente y un familiar desde la web del proyecto CoBien.
+Este módulo cubre dos flujos distintos:
 
-## Descripción General
+1. Videollamada saliente desde la pantalla de contactos del mueble.
+2. Videollamada entrante aceptada desde una notificación del sistema.
 
-Cuando un familiar inicia una videollamada desde la web del proyecto, se envía una notificación MQTT al mueble. Este muestra un mensaje de voz y texto informando al usuario. Si el usuario pulsa el botón de "Iniciar videollamada", se abre una ventana independiente (creada con PyQt5) con la videollamada ya activa.
+## Descripción general
 
----
+La pantalla de contactos no consulta la web en tiempo real para mostrarse. Los
+contactos visibles salen del fichero local `app/contacts/list_contacts.txt` y de
+las imágenes ya descargadas en `app/contacts/`.
 
-## Flujo de funcionamiento
+Cuando el usuario pulsa un contacto válido:
+- se muestra un popup de espera activa
+- se envía una petición HTTP al backend/pizarra
+- después se muestra un popup de éxito o de error
 
-1. La web inicia una videollamada → envía un mensaje MQTT al topic `videollamada` con el nombre del familiar.
-2. La app Kivy del mueble está siempre suscrita al topic MQTT y al recibir el mensaje:
-   - Muestra un mensaje en pantalla: `Videollamada entrante de Pedro`
-   - Reproduce por voz el aviso: `Tienes una videollamada de Pedro`
-   - Espera a que el usuario pulse el botón "Iniciar Videollamada"
-3. Cuando el usuario pulsa el botón:
-   - Se ejecuta el script `videocall_launcher.py`, que abre la página: https://portal.co-bien.eu/videocall/
-   - Se rellenan automáticamente los datos necesarios gracias a `CustomWebEnginePage`.
+Cuando llega una videollamada entrante:
+- el backend publica una notificación MQTT
+- el frontend muestra el popup entrante
+- si el usuario acepta, se lanza `videocall_launcher.py`
+- el launcher abre el portal web y notifica al backend que la llamada ha sido atendida
 
----
+## Flujo actual
 
-## Estructura de archivos
+### 1. Solicitud saliente desde contactos
 
+1. La pantalla `contactScreen.py` carga `list_contacts.txt`.
+2. Solo se muestran contactos con `username` válido.
+3. Al pulsar un contacto:
+   - aparece `Solicitando videollamada`
+   - se llama a `POST /pizarra/api/notify/`
+4. Si el backend responde correctamente:
+   - se muestra `Notificación enviada`
+5. Si falla:
+   - se muestra `Solicitud no enviada`
+   - los detalles técnicos quedan ocultos detrás de `Mostrar detalles`
+
+### 2. Llamada entrante
+
+1. El backend publica una notificación MQTT de tipo `videocall`.
+2. `notification_manager.py` muestra el popup de llamada entrante.
+3. Si el usuario acepta:
+   - se crea un JSON temporal con `room`, `device_id` e `identity`
+   - se lanza `videocall_launcher.py`
+   - el launcher abre `portal_videocall_url`
+   - el launcher hace `POST /api/call-answered/`
+4. Al terminar la llamada se registra la duración y se elimina el JSON temporal.
+
+## Configuración relevante
+
+La configuración sale de `app/config/config.local.json`, sección `services`.
+
+Claves importantes:
+- `notify_api_key`
+- `pizarra_notify_url`
+- `contacts_api_url`
+- `portal_videocall_url`
+- `portal_call_answered_url`
+- `http_timeout_sec`
+
+Y en `settings`:
+- `device_id`
+- `videocall_room`
+
+## Endpoints backend usados
+
+- `POST /pizarra/api/notify/`
+  Envía una solicitud de videollamada al usuario web.
+
+- `GET /pizarra/api/contacts/?device_id=...`
+  Devuelve contactos sincronizables para el mueble.
+
+- `POST /pizarra/api/contacts/sync/`
+  Publica por MQTT una orden de refresco de contactos.
+
+- `POST /api/call-answered/`
+  Marca en backend que el mueble ha aceptado la llamada.
+
+## Códigos de error en videollamada saliente
+
+Cuando falla una solicitud saliente, el popup muestra primero un mensaje simple.
+Si el usuario pulsa `Mostrar detalles`, se ven el código y el detalle técnico.
+
+Códigos actuales:
+- `VC-CONFIG`: falta `notify_api_key` en configuración.
+- `VC-DEVICE`: falta `device_id` en configuración.
+- `VC-USER`: el contacto no tiene destino válido.
+- `VC-TIMEOUT`: el backend no respondió a tiempo.
+- `VC-NET`: error de conexión con backend.
+- `VC-REQ`: error HTTP genérico de la librería cliente.
+- `VC-401`, `VC-403`, `VC-404`, `VC-500`, etc.: respuesta HTTP del backend.
+- `VC-UNK`: error no clasificado.
+
+## Validación de contactos
+
+`list_contacts.txt` usa formato:
+
+```text
+NombreVisible=username_backend
 ```
-videocall/
-├── videocallScreen.py       # Pantalla Kivy con el botón de videollamada
-├── videocall_launcher.py    # Ventana PyQt5 que abre la videollamada en un navegador embebido
+
+Ahora el frontend filtra contactos inválidos:
+- no se muestran líneas sin `=`
+- no se muestran contactos con `username` vacío
+- no se muestran contactos con caracteres fuera de `[A-Za-z0-9_.-]`
+
+Ejemplos válidos:
+
+```text
+Jules=jules_pourret
+Capucine=capucine
+Jojo=joisback
 ```
 
----
+Ejemplos inválidos:
 
-## Detalles técnicos
+```text
+Mathurin=
+Marie=
+Simona=
+```
 
-### 1. MQTT
-- Se utiliza el broker público de HiveMQ: `broker.hivemq.com`
-- La app Kivy se suscribe a dos topics:
-  - `tarjeta` → para navegación por tarjeta NFC
-  - `videollamada` → para videollamadas
-- La web hace el papel del publisher. El script `mqtt_publisher.py` es solo para pruebas.
+## Notas operativas
 
-### 2. Navegador embebido con PyQt5
-- Usa `QWebEngineView` para mostrar el portal de videollamadas.
-- Permisos de micrófono y cámara concedidos automáticamente (`--use-fake-ui-for-media-stream`).
-- Prompt automático con el nombre “Maria” para completar el acceso.
-
----
-
-## Cómo lanzar la videollamada
-
-Desde la interfaz del mueble:
-1. Recibir notificación MQTT desde la web
-2. Pulsar botón “Iniciar Videollamada”
-3. Se lanza `videocall_launcher.py` en una ventana nueva
-4. El navegador embebido abre la URL: https://portal.co-bien.eu/videocall/
-
----
-
-## Notas adicionales
-
-- Si se cierra la ventana de PyQt5, la app vuelve automáticamente a la pantalla principal.
-- Se puede lanzar `videocall_launcher.py` de forma aislada para pruebas.
-
----
+- Si la web está caída, los contactos pueden seguir viéndose porque salen de caché local.
+- Ver contactos no implica que se puedan actualizar ni que se pueda iniciar una llamada.
+- `videocall_launcher.py` puede ejecutarse de forma aislada para pruebas, pero el flujo normal usa el JSON temporal generado por `notification_manager.py`.

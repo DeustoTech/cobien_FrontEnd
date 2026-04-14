@@ -35,14 +35,14 @@ Examples:
 ```text
 Jules=jules_pourret
 Capucine=capucine
-Mathurin=
 ```
 
 Notes:
 
 - `DisplayName` is the UI label.
 - `username` is the backend target for call notifications.
-- An empty username is allowed but may produce non-routable call requests.
+- Empty or malformed usernames are now rejected by the frontend loader and the
+  contact is hidden from the UI.
 
 ## Image Resolution Rules
 
@@ -72,7 +72,7 @@ Supported extension order:
 
 ## Known Technical Debt / Bad Practices
 
-- Contacts source-of-truth is a plain text file (`list_contacts.txt`) without schema validation.
-- Empty usernames are accepted and can produce non-routable call requests at runtime.
+- Contacts source-of-truth is a plain text file (`list_contacts.txt`) without a formal schema.
+- Validation now rejects empty or malformed usernames, but the format is still ad-hoc text.
 - Contact logic lives in `app/videocall/contactScreen.py`, while assets live here, which increases cross-module coupling.
 - Loader diagnostics rely on `print()` instead of structured logging and severity levels.
