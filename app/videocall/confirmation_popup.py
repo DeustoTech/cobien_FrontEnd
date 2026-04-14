@@ -431,10 +431,14 @@ def show_call_request_progress_popup(contact_name: str = "") -> CallRequestProgr
     return popup
 
 
-def show_call_failed_popup(contact_name: str = "") -> CallResultPopup:
+def show_call_failed_popup(contact_name: str = "", error_code: str = "", detail: str = "") -> CallResultPopup:
     message = _("No se ha podido enviar la solicitud de videollamada.")
     if contact_name:
         message = f"{message}\n{contact_name}"
+    if error_code:
+        message = f"{message}\n{_('Código')}: {error_code}"
+    if detail:
+        message = f"{message}\n{detail}"
     popup = CallResultPopup(
         title_text=_("Solicitud no enviada"),
         message_text=message,

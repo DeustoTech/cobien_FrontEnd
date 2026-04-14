@@ -1,10 +1,6 @@
-"""HTTP utilities for outbound video-call request notifications.
+"""HTTP utilities for outbound video-call request notifications."""
 
-This module encapsulates the API call used to notify remote contacts that a
-call has been requested from the device UI.
-"""
-
-from typing import Optional
+from typing import Dict, Optional
 
 import requests
 from config_store import load_section
@@ -30,10 +26,19 @@ def _load_runtime_notify_config():
         ),
     }
 
+
+def _build_result(ok: bool, code: str, detail: str = "", response: Optional[requests.Response] = None) -> Dict[str, object]:
+    return {
+        "ok": ok,
+        "code": code,
+        "detail": detail,
+        "response": response,
+    }
+
 def send_pizarra_notification(
     to_user: str,
     message: str = "Call now?",
-) -> Optional[requests.Response]:
+) -> Dict[str, object]:
     """Send call-ready notification to remote pizarra backend.
 
     Args:
@@ -43,8 +48,8 @@ def send_pizarra_notification(
         from_device (str): Device identifier sending the request.
 
     Returns:
-        Optional[requests.Response]: HTTP response when request succeeds,
-        otherwise ``None``.
+        Dict[str, object]: Structured result with ``ok``, ``code``, ``detail``
+        and optional ``response`` keys.
 
     Raises:
         No exception is propagated. Network and request errors are handled and
@@ -52,7 +57,7 @@ def send_pizarra_notification(
 
     Examples:
         >>> response = send_pizarra_notification("jules")
-        >>> response is None or response.status_code in (200, 201, 202)
+        >>> response["ok"] in (True, False)
         True
     """
     runtime_cfg = _load_runtime_notify_config()
@@ -63,11 +68,15 @@ def send_pizarra_notification(
 
     if not to_user.strip():
         print("[VIDEOCALL] Missing to_user for outbound notification.")
-        return None
+        return _build_result(False, "VC-USER", "Contacto de destino no válido")
 
     if not api_key:
         print("[VIDEOCALL] Missing notify_api_key; cannot send videocall notification.")
-        return None
+        return _build_result(False, "VC-CONFIG", "Falta notify_api_key en la configuración")
+
+    if not from_device:
+        print("[VIDEOCALL] Missing device_id; cannot identify calling device.")
+        return _build_result(False, "VC-DEVICE", "Falta device_id en la configuración")
 
     data = {
         "to_user": to_user,
@@ -88,8 +97,17 @@ def send_pizarra_notification(
         print("Response:", r.text)
         if not r.ok:
             print(f"[VIDEOCALL] Notification rejected by backend: HTTP {r.status_code}")
-            return None
-        return r
+            return _build_result(False, f"VC-{r.status_code}", f"Backend devolvió HTTP {r.status_code}", r)
+        return _build_result(True, "VC-200", "Solicitud enviada correctamente", r)
+    except requests.exceptions.Timeout as e:
+        print("Erreur en envoyant la notification :", e)
+        return _build_result(False, "VC-TIMEOUT", "Tiempo de espera agotado")
+    except requests.exceptions.ConnectionError as e:
+        print("Erreur en envoyant la notification :", e)
+        return _build_result(False, "VC-NET", "No se pudo conectar con el servidor")
+    except requests.exceptions.RequestException as e:
+        print("Erreur en envoyant la notification :", e)
+        return _build_result(False, "VC-REQ", str(e))
     except Exception as e:
         print("Erreur en envoyant la notification :", e)
-        return None
+        return _build_result(False, "VC-UNK", str(e))

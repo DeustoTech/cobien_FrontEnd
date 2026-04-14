@@ -340,23 +340,29 @@ class ContactCard(ButtonBehavior, BoxLayout):
         progress_popup = show_call_request_progress_popup(contact_name=self.display_name)
 
         def _send_request():
-            response = send_pizarra_notification(self.user_name)
+            result = send_pizarra_notification(self.user_name)
 
             def _notify_result(_dt):
                 self._request_in_progress = False
                 if progress_popup.parent:
                     progress_popup.dismiss()
-                if response is not None:
+                if result.get("ok"):
                     show_call_sent_popup(contact_name=self.display_name)
                     log_navigation("touchscreen", "videocall request")
                     log_call_request()
                     print(f"[CONTACT] 📞 Notification sent to {self.user_name} ({self.display_name})")
                     return
-                show_call_failed_popup(contact_name=self.display_name)
+                error_code = str(result.get("code", "VC-UNK"))
+                detail = str(result.get("detail", "") or "")
+                show_call_failed_popup(
+                    contact_name=self.display_name,
+                    error_code=error_code,
+                    detail=detail,
+                )
                 app = App.get_running_app()
                 if app and hasattr(app, "speak"):
                     app.speak(_("No se ha podido enviar la videollamada"))
-                print(f"[CONTACT] ❌ Failed to send notification to {self.user_name} ({self.display_name})")
+                print(f"[CONTACT] ❌ Failed to send notification to {self.user_name} ({self.display_name}) [{error_code}] {detail}")
 
             Clock.schedule_once(_notify_result, 0)
 
