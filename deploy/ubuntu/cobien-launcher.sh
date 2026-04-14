@@ -1171,8 +1171,7 @@ configure_tts_runtime() {
       elif install_piper_runtime_binary; then
         :
       else
-        log "Piper could not be installed automatically. Runtime will fallback to pyttsx3."
-        TTS_ENGINE="pyttsx3"
+        log "Piper could not be installed automatically. Leaving TTS_ENGINE unchanged (user preference preserved)."
         return 0
       fi
     fi
@@ -1201,8 +1200,7 @@ configure_tts_runtime() {
   esac
 
   if [[ "$ok_models" != "1" ]]; then
-    log "Piper models are incomplete. Runtime will fallback to pyttsx3."
-    TTS_ENGINE="pyttsx3"
+    log "Piper models are incomplete. Leaving TTS_ENGINE unchanged (user preference preserved)."
   fi
 }
 
