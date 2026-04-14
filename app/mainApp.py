@@ -2078,6 +2078,7 @@ class MyApp(App):
             return
 
         expected_pin = self._load_settings_pin()
+        print(f"[APP] Exit PIN requested, expected_pin_length={len(expected_pin)}")
         entered_pin = {"value": ""}
 
         root = BoxLayout(orientation="vertical", spacing=dp(18))
@@ -2128,6 +2129,13 @@ class MyApp(App):
             feedback.text = ""
 
         def _confirm(*_args):
+            if expected_pin.strip() == "":
+                print("[APP] Warning: expected PIN is empty — ignoring close request")
+                feedback.text = _("PIN not configured")
+                entered_pin["value"] = ""
+                pin_display.pin_value = ""
+                return
+
             if entered_pin["value"].strip() == expected_pin:
                 self._close_exit_pin_popup()
                 App.get_running_app().stop()
