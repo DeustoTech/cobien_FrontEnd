@@ -28,6 +28,9 @@ from kivy.graphics import Color, RoundedRectangle
 from vosk import Model, KaldiRecognizer  # noqa
 import pyaudio  # noqa
 import paho.mqtt.client as mqtt
+import signal
+import traceback
+import atexit
 
 # Pantallas // Ecrans
 from weather.weatherScreen import WeatherScreenWidget
@@ -2275,6 +2278,28 @@ class MyApp(App):
             on_mouse_move=self._on_first_user_input,
             on_request_close=self._on_window_request_close,
         )
+        # Global safety: intercept termination signals to show PIN popup instead
+        def _signal_handler(sig, frame):
+            print(f"[APP] Signal received: {sig}; scheduling exit PIN popup")
+            try:
+                Clock.schedule_once(lambda dt: App.get_running_app()._show_exit_pin_popup(), 0)
+            except Exception as ex:
+                print(f"[APP] Error scheduling exit PIN popup from signal: {ex}")
+
+        for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            try:
+                signal.signal(s, _signal_handler)
+            except Exception:
+                pass
+
+        # Log unhandled exceptions and atexit
+        def _excepthook(exc_type, exc_value, exc_tb):
+            print("[APP] Unhandled exception:")
+            traceback.print_exception(exc_type, exc_value, exc_tb)
+            sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+        sys.excepthook = _excepthook
+        atexit.register(lambda: print("[APP] atexit: application exiting"))
         # Charger config et traduction
         self.cfg = AppConfig()
 
