@@ -1035,6 +1035,38 @@ configure_tts_runtime() {
     return 1
   }
 
+  install_piper_via_snap() {
+    # Try to install piper-tts using snap (preferred for persistence)
+    if ! command -v snap >/dev/null 2>&1; then
+      log "snap not found; attempting to install snapd via apt"
+      sudo apt update || true
+      sudo apt install -y snapd || return 1
+      # allow snapd to setup
+      sleep 1
+    fi
+
+    if snap list piper-tts >/dev/null 2>&1; then
+      log "snap: piper-tts already installed"
+    else
+      log "Installing piper-tts via snap (requires sudo)"
+      if ! sudo snap install piper-tts; then
+        log "snap: failed to install piper-tts"
+        return 1
+      fi
+    fi
+
+    # detect piper binary path from snap
+    if command -v piper >/dev/null 2>&1; then
+      TTS_PIPER_BIN="$(command -v piper)"
+      return 0
+    fi
+    if [[ -x "/snap/bin/piper" ]]; then
+      TTS_PIPER_BIN="/snap/bin/piper"
+      return 0
+    fi
+    return 1
+  }
+
   install_piper_model() {
     local lang="$1"
     local model_path="$2"
@@ -1150,6 +1182,11 @@ configure_tts_runtime() {
       if [[ -n "$local_uv" ]]; then
         log "WARN: Piper not available from apt. Trying UV tool install..."
         "$local_uv" tool install --upgrade piper-tts >/dev/null 2>&1 || true
+      fi
+
+      # Try snap install (preferred for persistence) before other fallbacks
+      if install_piper_via_snap; then
+        log "Piper installed via snap: ${TTS_PIPER_BIN:-/snap/bin/piper}"
       fi
 
       # Try installing a native system binary to /usr/local/bin if sudo is available
