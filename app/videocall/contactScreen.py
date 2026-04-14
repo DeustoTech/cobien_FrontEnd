@@ -94,6 +94,14 @@ def normalize_name(name: str) -> str:
     )
     return re.sub(r'[^a-z0-9]', '', name.lower())
 
+
+def is_valid_contact_username(user_name: str) -> bool:
+    """Validate contact usernames before exposing them as callable targets."""
+    candidate = str(user_name or "").strip()
+    if not candidate:
+        return False
+    return re.fullmatch(r"[A-Za-z0-9_.-]+", candidate) is not None
+
 def load_contacts_from_file(file_path: str, default_image: str) -> List[Dict[str, str]]:
     """Load contacts from a key-value text file.
 
@@ -131,6 +139,9 @@ def load_contacts_from_file(file_path: str, default_image: str) -> List[Dict[str
             display_name, user_name = line.strip().split("=", 1)
             display_name = display_name.strip()
             user_name = user_name.strip()
+            if not display_name or not is_valid_contact_username(user_name):
+                print(f"[CONTACTS] ⚠️ Invalid contact skipped: '{line.strip()}'")
+                continue
             
             # Search image with multiple supported extensions
             img_base_name = normalize_name(display_name)
@@ -292,6 +303,7 @@ class ContactCard(ButtonBehavior, BoxLayout):
                          **kwargs)
         self.display_name = display_name
         self.user_name = user_name
+        self.is_callable = is_valid_contact_username(user_name)
         
         # Background
         with self.canvas.before:
@@ -333,6 +345,10 @@ class ContactCard(ButtonBehavior, BoxLayout):
             Any exception raised by downstream notification services can propagate
             if those services do not handle errors internally.
         """
+        if not self.is_callable:
+            print(f"[CONTACT] ⚠️ Contact disabled because destination is invalid: {self.display_name}")
+            return
+
         if getattr(self, "_request_in_progress", False):
             return
 
