@@ -2138,7 +2138,12 @@ class MyApp(App):
 
             if entered_pin["value"].strip() == expected_pin:
                 self._close_exit_pin_popup()
-                App.get_running_app().stop()
+                app = App.get_running_app()
+                try:
+                    setattr(app, "_force_exit", True)
+                except Exception:
+                    pass
+                app.stop()
                 return
             feedback.text = _("PIN incorrecto")
             entered_pin["value"] = ""
@@ -2203,6 +2208,20 @@ class MyApp(App):
     def _on_window_request_close(self, *args):
         self._show_exit_pin_popup()
         return True
+
+    def stop(self, *args, **kwargs):
+        """Intercept App.stop() to prevent immediate shutdown from external signals
+        unless `_force_exit` is set. This ensures Escape/window-close shows the
+        PIN confirmation popup instead of terminating the app immediately.
+        """
+        if not getattr(self, "_force_exit", False):
+            print("[APP] stop() intercepted: showing exit PIN popup")
+            try:
+                self._show_exit_pin_popup()
+            except Exception as exc:
+                print(f"[APP] Error showing exit PIN popup: {exc}")
+            return
+        return super().stop(*args, **kwargs)
 
 
     def _show_black_overlay(self, *args):
