@@ -975,6 +975,52 @@ configure_tts_runtime() {
     return 1
   }
 
+  install_piper_system_binary() {
+    local arch asset asset_url extract_dir asset_tmp piper_found dest_bin
+    arch="$(uname -m)"
+    case "$arch" in
+      x86_64|amd64) asset="piper_linux_x86_64.tar.gz" ;;
+      aarch64|arm64) asset="piper_linux_aarch64.tar.gz" ;;
+      armv7l|armv7) asset="piper_linux_armv7l.tar.gz" ;;
+      *) asset="piper_linux_x86_64.tar.gz" ;;
+    esac
+    asset_url="https://github.com/rhasspy/piper/releases/download/${TTS_PIPER_RELEASE_TAG_DEFAULT}/${asset}"
+    extract_dir="$(mktemp -d)"
+    asset_tmp="$extract_dir/$asset"
+
+    log "Attempting system install of Piper from: $asset_url"
+    if ! download_file "$asset_url" "$asset_tmp"; then
+      log "Failed to download Piper release for system install"
+      rm -rf "$extract_dir" || true
+      return 1
+    fi
+
+    if ! tar -xzf "$asset_tmp" -C "$extract_dir" >/dev/null 2>&1; then
+      log "Failed to extract Piper system archive"
+      rm -rf "$extract_dir" || true
+      return 1
+    fi
+
+    piper_found="$(find "$extract_dir" -type f -name piper -perm /111 | head -n1 || true)"
+    if [[ -z "$piper_found" ]]; then
+      log "Piper executable not found inside system archive"
+      rm -rf "$extract_dir" || true
+      return 1
+    fi
+
+    dest_bin="/usr/local/bin/piper"
+    if sudo sh -c "mkdir -p /usr/local/bin && cp '$piper_found' '$dest_bin' && chmod +x '$dest_bin'"; then
+      log "Piper installed to: $dest_bin"
+      TTS_PIPER_BIN="$dest_bin"
+      rm -rf "$extract_dir" || true
+      return 0
+    else
+      log "Failed to install Piper to /usr/local/bin (sudo failed)"
+      rm -rf "$extract_dir" || true
+      return 1
+    fi
+  }
+
   download_file() {
     local url="$1"
     local out_file="$2"
@@ -1104,6 +1150,11 @@ configure_tts_runtime() {
       if [[ -n "$local_uv" ]]; then
         log "WARN: Piper not available from apt. Trying UV tool install..."
         "$local_uv" tool install --upgrade piper-tts >/dev/null 2>&1 || true
+      fi
+
+      # Try installing a native system binary to /usr/local/bin if sudo is available
+      if install_piper_system_binary; then
+        log "Piper installed system-wide at: ${TTS_PIPER_BIN:-/usr/local/bin/piper}"
       fi
 
       if ! command -v piper >/dev/null 2>&1 && [[ ! -x "$HOME/.local/bin/piper" ]]; then
@@ -1492,6 +1543,8 @@ setup_environment() {
   checkout_branch "$FRONTEND_REPO"
   checkout_branch "$MQTT_REPO"
   prepare_venv
+  # Ensure Piper runtime and models are installed so ENV_FILE contains correct paths
+  configure_tts_runtime || true
   write_env_file
 }
 
