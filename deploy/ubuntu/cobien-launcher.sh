@@ -1048,6 +1048,47 @@ configure_tts_runtime() {
       TTS_PIPER_BIN="$(command -v piper)"
       log "Piper installed successfully: $TTS_PIPER_BIN"
     else
+      
+      install_piper_binary() {
+        local arch asset_url asset_tmp extract_dir dest_bin
+        arch="$(uname -m)"
+        case "$arch" in
+          x86_64|amd64) asset="piper_linux_x86_64.tar.gz" ;;
+          aarch64|arm64) asset="piper_linux_aarch64.tar.gz" ;;
+          *) asset="piper_linux_x86_64.tar.gz" ;;
+        esac
+        asset_url="https://github.com/rhasspy/piper/releases/download/${TTS_PIPER_RELEASE_TAG_DEFAULT}/${asset}"
+        extract_dir="$(mktemp -d)"
+        asset_tmp="$extract_dir/$asset"
+        log "Attempting to download Piper binary from: $asset_url"
+        if ! download_file "$asset_url" "$asset_tmp"; then
+          log "Failed to download Piper release asset: $asset_url"
+          rm -rf "$extract_dir" || true
+          return 1
+        fi
+        mkdir -p "$HOME/.local/bin"
+        if tar -xzf "$asset_tmp" -C "$extract_dir" >/dev/null 2>&1; then
+          # find piper executable inside archive
+          piper_found="$(find "$extract_dir" -type f -name piper -perm /111 | head -n1 || true)"
+          if [[ -n "$piper_found" ]]; then
+            dest_bin="$HOME/.local/bin/piper"
+            mv -f "$piper_found" "$dest_bin"
+            chmod +x "$dest_bin" || true
+            rm -rf "$extract_dir" || true
+            log "Piper binary installed to: $dest_bin"
+            return 0
+          else
+            log "Piper binary not found inside archive"
+            rm -rf "$extract_dir" || true
+            return 1
+          fi
+        else
+          log "Failed to extract Piper archive: $asset_tmp"
+          rm -rf "$extract_dir" || true
+          return 1
+        fi
+      }
+
       local local_uv=""
       if [[ -n "${UV_BIN:-}" && -x "${UV_BIN:-}" ]]; then
         local_uv="$UV_BIN"
@@ -1083,6 +1124,18 @@ configure_tts_runtime() {
     fi
   fi
 
+      else
+        # Try to download and install official Piper release binary
+        if install_piper_binary; then
+          if command -v piper >/dev/null 2>&1; then
+            TTS_PIPER_BIN="$(command -v piper)"
+          elif [[ -x "$HOME/.local/bin/piper" ]]; then
+            TTS_PIPER_BIN="$HOME/.local/bin/piper"
+          fi
+          if [[ -n "$TTS_PIPER_BIN" ]]; then
+            log "Piper installed successfully via release asset: $TTS_PIPER_BIN"
+          fi
+        fi
   [[ -z "$TTS_PIPER_MODEL_ES_MALE" ]] && TTS_PIPER_MODEL_ES_MALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_MALE}.onnx"
   [[ -z "$TTS_PIPER_MODEL_ES_FEMALE" ]] && TTS_PIPER_MODEL_ES_FEMALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_ES_FEMALE}.onnx"
   [[ -z "$TTS_PIPER_MODEL_FR_MALE" ]] && TTS_PIPER_MODEL_FR_MALE="$FRONTEND_APP_DIR/models/piper/${TTS_PIPER_DEFAULT_MODEL_FR_MALE}.onnx"
