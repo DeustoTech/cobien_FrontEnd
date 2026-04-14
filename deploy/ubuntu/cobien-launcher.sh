@@ -39,6 +39,8 @@ DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
 TTS_ENGINE="${COBIEN_TTS_ENGINE:-piper}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
+TTS_PIPER_PROVIDER="${COBIEN_TTS_PIPER_PROVIDER:-}"
+TTS_PIPER_VERSION="${COBIEN_TTS_PIPER_VERSION:-}"
 TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-}"
 TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-}"
 TTS_PIPER_MODEL_ES_MALE="${COBIEN_TTS_PIPER_MODEL_ES_MALE:-}"
@@ -451,6 +453,15 @@ COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=$TTS_PIPER_MODEL_FR_FEMALE_URL
 COBIEN_TTS_PIPER_VOICE_ES=$TTS_PIPER_VOICE_ES
 COBIEN_TTS_PIPER_VOICE_FR=$TTS_PIPER_VOICE_FR
 COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE
+COBIEN_INSTALL_SYSTEMD_USER=$INSTALL_SYSTEMD_USER
+COBIEN_INSTALL_CRON=$INSTALL_CRON
+COBIEN_ENABLE_WATCH=$ENABLE_WATCH
+COBIEN_RECREATE_VENV=$RECREATE_VENV
+COBIEN_INSTALL_SYSTEM_DEPS=$INSTALL_SYSTEM_DEPS
+COBIEN_TTS_PIPER_PROVIDER=$TTS_PIPER_PROVIDER
+COBIEN_TTS_PIPER_VERSION=$TTS_PIPER_VERSION
+COBIEN_NON_INTERACTIVE=$NON_INTERACTIVE
+COBIEN_AUTO_CONFIRM=$AUTO_CONFIRM
 COBIEN_BOOTSTRAP_PYTHON_VERSION=$PYTHON_REQUEST
 EOF
   log "Last run configuration saved to: $LAST_RUN_CONFIG_FILE"
@@ -492,6 +503,15 @@ load_last_run_config() {
   TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-$TTS_PIPER_VOICE_ES}"
   TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-$TTS_PIPER_VOICE_FR}"
   CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
+  INSTALL_SYSTEMD_USER="${COBIEN_INSTALL_SYSTEMD_USER:-$INSTALL_SYSTEMD_USER}"
+  INSTALL_CRON="${COBIEN_INSTALL_CRON:-$INSTALL_CRON}"
+  ENABLE_WATCH="${COBIEN_ENABLE_WATCH:-$ENABLE_WATCH}"
+  RECREATE_VENV="${COBIEN_RECREATE_VENV:-$RECREATE_VENV}"
+  INSTALL_SYSTEM_DEPS="${COBIEN_INSTALL_SYSTEM_DEPS:-$INSTALL_SYSTEM_DEPS}"
+  TTS_PIPER_PROVIDER="${COBIEN_TTS_PIPER_PROVIDER:-$TTS_PIPER_PROVIDER}"
+  TTS_PIPER_VERSION="${COBIEN_TTS_PIPER_VERSION:-$TTS_PIPER_VERSION}"
+  NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-$NON_INTERACTIVE}"
+  AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-$AUTO_CONFIRM}"
   PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-$PYTHON_REQUEST}"
   return 0
 }
@@ -967,6 +987,8 @@ configure_tts_runtime() {
     extracted_dir="$runtime_dir/piper"
     if [[ -x "$extracted_dir/piper" ]]; then
       TTS_PIPER_BIN="$extracted_dir/piper"
+      TTS_PIPER_PROVIDER="user"
+      TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
       log "Piper runtime installed at: $TTS_PIPER_BIN"
       return 0
     fi
@@ -1012,6 +1034,8 @@ configure_tts_runtime() {
     if sudo sh -c "mkdir -p /usr/local/bin && cp '$piper_found' '$dest_bin' && chmod +x '$dest_bin'"; then
       log "Piper installed to: $dest_bin"
       TTS_PIPER_BIN="$dest_bin"
+      TTS_PIPER_PROVIDER="system"
+      TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
       rm -rf "$extract_dir" || true
       return 0
     else
@@ -1058,10 +1082,14 @@ configure_tts_runtime() {
     # detect piper binary path from snap
     if command -v piper >/dev/null 2>&1; then
       TTS_PIPER_BIN="$(command -v piper)"
+      TTS_PIPER_PROVIDER="snap"
+      TTS_PIPER_VERSION="$(piper --version 2>/dev/null | sed -n '1p' || true)"
       return 0
     fi
     if [[ -x "/snap/bin/piper" ]]; then
       TTS_PIPER_BIN="/snap/bin/piper"
+      TTS_PIPER_PROVIDER="snap"
+      TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
       return 0
     fi
     return 1
@@ -1127,7 +1155,18 @@ configure_tts_runtime() {
 
     if command -v piper >/dev/null 2>&1; then
       TTS_PIPER_BIN="$(command -v piper)"
-      log "Piper installed successfully: $TTS_PIPER_BIN"
+      # infer provider from installation path
+      if [[ "$TTS_PIPER_BIN" == */snap/* || "$TTS_PIPER_BIN" == /snap/* ]]; then
+        TTS_PIPER_PROVIDER="snap"
+      elif [[ "$TTS_PIPER_BIN" == /usr/local/* ]]; then
+        TTS_PIPER_PROVIDER="system"
+      elif [[ "$TTS_PIPER_BIN" == $HOME/* ]]; then
+        TTS_PIPER_PROVIDER="user"
+      else
+        TTS_PIPER_PROVIDER="system"
+      fi
+      TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
+      log "Piper installed successfully: $TTS_PIPER_BIN (provider=$TTS_PIPER_PROVIDER)"
     else
       
       install_piper_binary() {
@@ -1156,6 +1195,9 @@ configure_tts_runtime() {
             mv -f "$piper_found" "$dest_bin"
             chmod +x "$dest_bin" || true
             rm -rf "$extract_dir" || true
+            TTS_PIPER_BIN="$dest_bin"
+            TTS_PIPER_PROVIDER="user"
+            TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
             log "Piper binary installed to: $dest_bin"
             return 0
           else
@@ -1184,27 +1226,70 @@ configure_tts_runtime() {
         "$local_uv" tool install --upgrade piper-tts >/dev/null 2>&1 || true
       fi
 
-      # Try snap install (preferred for persistence) before other fallbacks
-      if install_piper_via_snap; then
-        log "Piper installed via snap: ${TTS_PIPER_BIN:-/snap/bin/piper}"
+      # Install according to requested provider (if set), otherwise prefer snap then system then user
+      if [[ -n "$TTS_PIPER_PROVIDER" && "$TTS_PIPER_PROVIDER" != "" ]]; then
+        case "$TTS_PIPER_PROVIDER" in
+          snap)
+            if install_piper_via_snap; then
+              log "Piper installed via snap: ${TTS_PIPER_BIN:-/snap/bin/piper}";
+            else
+              log "Piper snap install failed as requested provider; aborting provider-based install.";
+              return 1;
+            fi
+            ;;
+          system)
+            if install_piper_system_binary; then
+              log "Piper installed system-wide at: ${TTS_PIPER_BIN:-/usr/local/bin/piper}";
+            else
+              log "Piper system install failed as requested provider; aborting provider-based install.";
+              return 1;
+            fi
+            ;;
+          user)
+            if install_piper_binary; then
+              log "Piper installed to user path: ${TTS_PIPER_BIN:-$HOME/.local/bin/piper}";
+            else
+              if install_piper_runtime_binary; then
+                log "Piper runtime extracted to: ${TTS_PIPER_BIN:-}";
+              else
+                log "Piper user install failed as requested provider; aborting provider-based install.";
+                return 1;
+              fi
+            fi
+            ;;
+          skip)
+            log "User requested to skip Piper installation.";
+            ;;
+          *)
+            # unknown provider, fall back to default flow
+            ;;
+        esac
+      else
+        # Default auto flow: try snap, then system, then user/runtime
+        if install_piper_via_snap; then
+          log "Piper installed via snap: ${TTS_PIPER_BIN:-/snap/bin/piper}"
+        fi
+        if [[ -z "$TTS_PIPER_BIN" ]] && install_piper_system_binary; then
+          log "Piper installed system-wide at: ${TTS_PIPER_BIN:-/usr/local/bin/piper}"
+        fi
       fi
 
-      # Try installing a native system binary to /usr/local/bin if sudo is available
-      if install_piper_system_binary; then
-        log "Piper installed system-wide at: ${TTS_PIPER_BIN:-/usr/local/bin/piper}"
-      fi
-
-      if ! command -v piper >/dev/null 2>&1 && [[ ! -x "$HOME/.local/bin/piper" ]]; then
-        log "WARN: Piper still unavailable after apt/uv attempts."
-        log "WARN: Skipping pip fallback to keep runtime dependency management UV-only."
-      fi
-
+      # Final availability checks: prefer command on PATH, then user-local, then runtime
       if command -v piper >/dev/null 2>&1; then
         TTS_PIPER_BIN="$(command -v piper)"
-        log "Piper installed successfully: $TTS_PIPER_BIN"
+        # infer provider
+        if [[ "$TTS_PIPER_BIN" == */snap/* || "$TTS_PIPER_BIN" == /snap/* ]]; then
+          TTS_PIPER_PROVIDER="snap"
+        elif [[ "$TTS_PIPER_BIN" == /usr/local/* ]]; then
+          TTS_PIPER_PROVIDER="system"
+        elif [[ "$TTS_PIPER_BIN" == $HOME/* ]]; then
+          TTS_PIPER_PROVIDER="user"
+        fi
+        TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
       elif [[ -x "$HOME/.local/bin/piper" ]]; then
         TTS_PIPER_BIN="$HOME/.local/bin/piper"
-        log "Piper installed at user path: $TTS_PIPER_BIN"
+        TTS_PIPER_PROVIDER="user"
+        TTS_PIPER_VERSION="$($TTS_PIPER_BIN --version 2>/dev/null | sed -n '1p' || true)"
       elif install_piper_runtime_binary; then
         :
       else
@@ -1548,6 +1633,16 @@ write_env_file() {
     echo "COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL]:-$TTS_PIPER_MODEL_FR_FEMALE_URL}"
     echo "COBIEN_TTS_PIPER_VOICE_ES=${existing_env[COBIEN_TTS_PIPER_VOICE_ES]:-$TTS_PIPER_VOICE_ES}"
     echo "COBIEN_TTS_PIPER_VOICE_FR=${existing_env[COBIEN_TTS_PIPER_VOICE_FR]:-$TTS_PIPER_VOICE_FR}"
+    echo "COBIEN_INSTALL_SYSTEMD_USER=${existing_env[COBIEN_INSTALL_SYSTEMD_USER]:-$INSTALL_SYSTEMD_USER}"
+    echo "COBIEN_INSTALL_CRON=${existing_env[COBIEN_INSTALL_CRON]:-$INSTALL_CRON}"
+    echo "COBIEN_CRON_SCHEDULE=${existing_env[COBIEN_CRON_SCHEDULE]:-$CRON_SCHEDULE}"
+    echo "COBIEN_ENABLE_WATCH=${existing_env[COBIEN_ENABLE_WATCH]:-$ENABLE_WATCH}"
+    echo "COBIEN_RECREATE_VENV=${existing_env[COBIEN_RECREATE_VENV]:-$RECREATE_VENV}"
+    echo "COBIEN_INSTALL_SYSTEM_DEPS=${existing_env[COBIEN_INSTALL_SYSTEM_DEPS]:-$INSTALL_SYSTEM_DEPS}"
+    echo "COBIEN_TTS_PIPER_PROVIDER=${existing_env[COBIEN_TTS_PIPER_PROVIDER]:-$TTS_PIPER_PROVIDER}"
+    echo "COBIEN_TTS_PIPER_VERSION=${existing_env[COBIEN_TTS_PIPER_VERSION]:-$TTS_PIPER_VERSION}"
+    echo "COBIEN_NON_INTERACTIVE=${existing_env[COBIEN_NON_INTERACTIVE]:-$NON_INTERACTIVE}"
+    echo "COBIEN_AUTO_CONFIRM=${existing_env[COBIEN_AUTO_CONFIRM]:-$AUTO_CONFIRM}"
     echo "COBIEN_VENV_ACTIVATE=${existing_env[COBIEN_VENV_ACTIVATE]:-$VENV_DIR/bin/activate}"
     echo "COBIEN_PYTHON_BIN=${existing_env[COBIEN_PYTHON_BIN]:-$PYTHON_BIN}"
     echo "COBIEN_UV_BIN=${existing_env[COBIEN_UV_BIN]:-$UV_BIN}"
@@ -2028,6 +2123,33 @@ run_full_flow() {
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
     if [[ "$TTS_ENGINE" == "piper" ]]; then
       TTS_PIPER_BIN="$(ask "Piper binary path (empty=auto detect)" "$TTS_PIPER_BIN")"
+      # If user provided an explicit path, treat provider as 'user'
+      if [[ -n "$TTS_PIPER_BIN" ]]; then
+        TTS_PIPER_PROVIDER="user"
+      else
+        if [[ "$NON_INTERACTIVE" == "1" ]]; then
+          # prefer snap in non-interactive mode
+          TTS_PIPER_PROVIDER="snap"
+        else
+          echo
+          local provider_choice
+          provider_choice=$(ask_menu_choice \
+            "How should Piper be installed if not present?" \
+            "1" \
+            "1. snap (recommended, persistent)" \
+            "2. system (install to /usr/local, requires sudo)" \
+            "3. user (install to ~/.local/bin)" \
+            "4. skip (do not install)"
+          )
+          case "$provider_choice" in
+            1) TTS_PIPER_PROVIDER="snap" ;;
+            2) TTS_PIPER_PROVIDER="system" ;;
+            3) TTS_PIPER_PROVIDER="user" ;;
+            4) TTS_PIPER_PROVIDER="skip" ;;
+            *) TTS_PIPER_PROVIDER="snap" ;;
+          esac
+        fi
+      fi
       TTS_PIPER_VOICE_ES="$(ask "Piper Spanish voice (male/female)" "$TTS_PIPER_VOICE_ES")"
       TTS_PIPER_VOICE_FR="$(ask "Piper French voice (male/female)" "$TTS_PIPER_VOICE_FR")"
     fi
