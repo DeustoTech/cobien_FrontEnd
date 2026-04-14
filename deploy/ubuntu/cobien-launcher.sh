@@ -1293,8 +1293,8 @@ configure_tts_runtime() {
       elif install_piper_runtime_binary; then
         :
       else
-        log "Piper could not be installed automatically. Leaving TTS_ENGINE unchanged (user preference preserved)."
-        return 0
+        log "ERROR: Piper could not be installed automatically."
+        return 1
       fi
     fi
   fi
@@ -1322,8 +1322,25 @@ configure_tts_runtime() {
   esac
 
   if [[ "$ok_models" != "1" ]]; then
-    log "Piper models are incomplete. Leaving TTS_ENGINE unchanged (user preference preserved)."
+    log "ERROR: Piper models are incomplete."
+    return 1
   fi
+
+  if [[ -z "$TTS_PIPER_BIN" || ! -x "$TTS_PIPER_BIN" ]]; then
+    log "ERROR: Piper binary is not executable after setup: ${TTS_PIPER_BIN:-unset}"
+    return 1
+  fi
+
+  for required_model in \
+    "$TTS_PIPER_MODEL_ES_MALE" \
+    "$TTS_PIPER_MODEL_ES_FEMALE" \
+    "$TTS_PIPER_MODEL_FR_MALE" \
+    "$TTS_PIPER_MODEL_FR_FEMALE"; do
+    if [[ -z "$required_model" || ! -f "$required_model" || ! -f "${required_model}.json" ]]; then
+      log "ERROR: Piper model assets incomplete: ${required_model:-unset}"
+      return 1
+    fi
+  done
 }
 
 ensure_device_identity_config() {
@@ -1595,7 +1612,7 @@ write_env_file() {
   if [[ -n "${COBIEN_SETTINGS_PIN:-}" ]]; then
     settings_pin_line="COBIEN_SETTINGS_PIN=${COBIEN_SETTINGS_PIN}"
   fi
-  # Merge with existing env file to preserve user overrides (e.g., COBIEN_APP_LANGUAGE)
+  # Keep only sensitive values that are not part of the normal launcher flow.
   declare -A existing_env
   if [[ -f "$ENV_FILE" ]]; then
     while IFS='=' read -r k v; do
@@ -1606,50 +1623,50 @@ write_env_file() {
 
   mkdir -p "$(dirname "$ENV_FILE")"
   {
-    echo "COBIEN_FRONTEND_REPO=${existing_env[COBIEN_FRONTEND_REPO]:-$FRONTEND_REPO}"
-    echo "COBIEN_MQTT_REPO=${existing_env[COBIEN_MQTT_REPO]:-$MQTT_REPO}"
-    echo "COBIEN_WORKSPACE_ROOT=${existing_env[COBIEN_WORKSPACE_ROOT]:-$WORKSPACE_ROOT}"
-    echo "COBIEN_UPDATE_REMOTE=${existing_env[COBIEN_UPDATE_REMOTE]:-$REMOTE_NAME}"
-    echo "COBIEN_UPDATE_BRANCH=${existing_env[COBIEN_UPDATE_BRANCH]:-$BRANCH_NAME}"
-    echo "COBIEN_UPDATE_INTERVAL_SEC=${existing_env[COBIEN_UPDATE_INTERVAL_SEC]:-$POLL_INTERVAL_SEC}"
-    echo "COBIEN_APP_LANGUAGE=${existing_env[COBIEN_APP_LANGUAGE]:-$APP_LANGUAGE}"
-    echo "COBIEN_DEVICE_ID=${existing_env[COBIEN_DEVICE_ID]:-$DEVICE_ID}"
-    echo "COBIEN_VIDEOCALL_ROOM=${existing_env[COBIEN_VIDEOCALL_ROOM]:-$VIDEOCALL_ROOM}"
-    echo "COBIEN_DEVICE_LOCATION=${existing_env[COBIEN_DEVICE_LOCATION]:-$DEVICE_LOCATION}"
-    echo "COBIEN_HARDWARE_MODE=${existing_env[COBIEN_HARDWARE_MODE]:-$HARDWARE_MODE}"
-    echo "COBIEN_TTS_ENGINE=${existing_env[COBIEN_TTS_ENGINE]:-$TTS_ENGINE}"
-    echo "COBIEN_TTS_PIPER_BIN=${existing_env[COBIEN_TTS_PIPER_BIN]:-$TTS_PIPER_BIN}"
-    echo "COBIEN_TTS_PIPER_MODEL_ES=${existing_env[COBIEN_TTS_PIPER_MODEL_ES]:-$TTS_PIPER_MODEL_ES}"
-    echo "COBIEN_TTS_PIPER_MODEL_FR=${existing_env[COBIEN_TTS_PIPER_MODEL_FR]:-$TTS_PIPER_MODEL_FR}"
-    echo "COBIEN_TTS_PIPER_MODEL_ES_MALE=${existing_env[COBIEN_TTS_PIPER_MODEL_ES_MALE]:-$TTS_PIPER_MODEL_ES_MALE}"
-    echo "COBIEN_TTS_PIPER_MODEL_ES_FEMALE=${existing_env[COBIEN_TTS_PIPER_MODEL_ES_FEMALE]:-$TTS_PIPER_MODEL_ES_FEMALE}"
-    echo "COBIEN_TTS_PIPER_MODEL_FR_MALE=${existing_env[COBIEN_TTS_PIPER_MODEL_FR_MALE]:-$TTS_PIPER_MODEL_FR_MALE}"
-    echo "COBIEN_TTS_PIPER_MODEL_FR_FEMALE=${existing_env[COBIEN_TTS_PIPER_MODEL_FR_FEMALE]:-$TTS_PIPER_MODEL_FR_FEMALE}"
-    echo "COBIEN_TTS_PIPER_MODEL_ES_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_ES_URL]:-$TTS_PIPER_MODEL_ES_URL}"
-    echo "COBIEN_TTS_PIPER_MODEL_FR_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_FR_URL]:-$TTS_PIPER_MODEL_FR_URL}"
-    echo "COBIEN_TTS_PIPER_MODEL_ES_MALE_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_ES_MALE_URL]:-$TTS_PIPER_MODEL_ES_MALE_URL}"
-    echo "COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL]:-$TTS_PIPER_MODEL_ES_FEMALE_URL}"
-    echo "COBIEN_TTS_PIPER_MODEL_FR_MALE_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_FR_MALE_URL]:-$TTS_PIPER_MODEL_FR_MALE_URL}"
-    echo "COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=${existing_env[COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL]:-$TTS_PIPER_MODEL_FR_FEMALE_URL}"
-    echo "COBIEN_TTS_PIPER_VOICE_ES=${existing_env[COBIEN_TTS_PIPER_VOICE_ES]:-$TTS_PIPER_VOICE_ES}"
-    echo "COBIEN_TTS_PIPER_VOICE_FR=${existing_env[COBIEN_TTS_PIPER_VOICE_FR]:-$TTS_PIPER_VOICE_FR}"
-    echo "COBIEN_INSTALL_SYSTEMD_USER=${existing_env[COBIEN_INSTALL_SYSTEMD_USER]:-$INSTALL_SYSTEMD_USER}"
-    echo "COBIEN_INSTALL_CRON=${existing_env[COBIEN_INSTALL_CRON]:-$INSTALL_CRON}"
-    echo "COBIEN_CRON_SCHEDULE=${existing_env[COBIEN_CRON_SCHEDULE]:-$CRON_SCHEDULE}"
-    echo "COBIEN_ENABLE_WATCH=${existing_env[COBIEN_ENABLE_WATCH]:-$ENABLE_WATCH}"
-    echo "COBIEN_RECREATE_VENV=${existing_env[COBIEN_RECREATE_VENV]:-$RECREATE_VENV}"
-    echo "COBIEN_INSTALL_SYSTEM_DEPS=${existing_env[COBIEN_INSTALL_SYSTEM_DEPS]:-$INSTALL_SYSTEM_DEPS}"
-    echo "COBIEN_TTS_PIPER_PROVIDER=${existing_env[COBIEN_TTS_PIPER_PROVIDER]:-$TTS_PIPER_PROVIDER}"
-    echo "COBIEN_TTS_PIPER_VERSION=${existing_env[COBIEN_TTS_PIPER_VERSION]:-$TTS_PIPER_VERSION}"
-    echo "COBIEN_NON_INTERACTIVE=${existing_env[COBIEN_NON_INTERACTIVE]:-$NON_INTERACTIVE}"
-    echo "COBIEN_AUTO_CONFIRM=${existing_env[COBIEN_AUTO_CONFIRM]:-$AUTO_CONFIRM}"
-    echo "COBIEN_VENV_ACTIVATE=${existing_env[COBIEN_VENV_ACTIVATE]:-$VENV_DIR/bin/activate}"
-    echo "COBIEN_PYTHON_BIN=${existing_env[COBIEN_PYTHON_BIN]:-$PYTHON_BIN}"
-    echo "COBIEN_UV_BIN=${existing_env[COBIEN_UV_BIN]:-$UV_BIN}"
-    echo "COBIEN_UV_PYTHON=${existing_env[COBIEN_UV_PYTHON]:-$PYTHON_REQUEST}"
-    echo "COBIEN_FRONTEND_APP_DIR=${existing_env[COBIEN_FRONTEND_APP_DIR]:-$FRONTEND_APP_DIR}"
-    echo "COBIEN_BRIDGE_DIR=${existing_env[COBIEN_BRIDGE_DIR]:-$BRIDGE_DIR}"
-    echo "COBIEN_CAN_CONFIG=${existing_env[COBIEN_CAN_CONFIG]:-$CAN_CONFIG}"
+    echo "COBIEN_FRONTEND_REPO=$FRONTEND_REPO"
+    echo "COBIEN_MQTT_REPO=$MQTT_REPO"
+    echo "COBIEN_WORKSPACE_ROOT=$WORKSPACE_ROOT"
+    echo "COBIEN_UPDATE_REMOTE=$REMOTE_NAME"
+    echo "COBIEN_UPDATE_BRANCH=$BRANCH_NAME"
+    echo "COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC"
+    echo "COBIEN_APP_LANGUAGE=$APP_LANGUAGE"
+    echo "COBIEN_DEVICE_ID=$DEVICE_ID"
+    echo "COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM"
+    echo "COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION"
+    echo "COBIEN_HARDWARE_MODE=$HARDWARE_MODE"
+    echo "COBIEN_TTS_ENGINE=$TTS_ENGINE"
+    echo "COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN"
+    echo "COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES"
+    echo "COBIEN_TTS_PIPER_MODEL_FR=$TTS_PIPER_MODEL_FR"
+    echo "COBIEN_TTS_PIPER_MODEL_ES_MALE=$TTS_PIPER_MODEL_ES_MALE"
+    echo "COBIEN_TTS_PIPER_MODEL_ES_FEMALE=$TTS_PIPER_MODEL_ES_FEMALE"
+    echo "COBIEN_TTS_PIPER_MODEL_FR_MALE=$TTS_PIPER_MODEL_FR_MALE"
+    echo "COBIEN_TTS_PIPER_MODEL_FR_FEMALE=$TTS_PIPER_MODEL_FR_FEMALE"
+    echo "COBIEN_TTS_PIPER_MODEL_ES_URL=$TTS_PIPER_MODEL_ES_URL"
+    echo "COBIEN_TTS_PIPER_MODEL_FR_URL=$TTS_PIPER_MODEL_FR_URL"
+    echo "COBIEN_TTS_PIPER_MODEL_ES_MALE_URL=$TTS_PIPER_MODEL_ES_MALE_URL"
+    echo "COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL=$TTS_PIPER_MODEL_ES_FEMALE_URL"
+    echo "COBIEN_TTS_PIPER_MODEL_FR_MALE_URL=$TTS_PIPER_MODEL_FR_MALE_URL"
+    echo "COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=$TTS_PIPER_MODEL_FR_FEMALE_URL"
+    echo "COBIEN_TTS_PIPER_VOICE_ES=$TTS_PIPER_VOICE_ES"
+    echo "COBIEN_TTS_PIPER_VOICE_FR=$TTS_PIPER_VOICE_FR"
+    echo "COBIEN_INSTALL_SYSTEMD_USER=$INSTALL_SYSTEMD_USER"
+    echo "COBIEN_INSTALL_CRON=$INSTALL_CRON"
+    echo "COBIEN_CRON_SCHEDULE=$CRON_SCHEDULE"
+    echo "COBIEN_ENABLE_WATCH=$ENABLE_WATCH"
+    echo "COBIEN_RECREATE_VENV=$RECREATE_VENV"
+    echo "COBIEN_INSTALL_SYSTEM_DEPS=$INSTALL_SYSTEM_DEPS"
+    echo "COBIEN_TTS_PIPER_PROVIDER=$TTS_PIPER_PROVIDER"
+    echo "COBIEN_TTS_PIPER_VERSION=$TTS_PIPER_VERSION"
+    echo "COBIEN_NON_INTERACTIVE=$NON_INTERACTIVE"
+    echo "COBIEN_AUTO_CONFIRM=$AUTO_CONFIRM"
+    echo "COBIEN_VENV_ACTIVATE=$VENV_DIR/bin/activate"
+    echo "COBIEN_PYTHON_BIN=$PYTHON_BIN"
+    echo "COBIEN_UV_BIN=$UV_BIN"
+    echo "COBIEN_UV_PYTHON=$PYTHON_REQUEST"
+    echo "COBIEN_FRONTEND_APP_DIR=$FRONTEND_APP_DIR"
+    echo "COBIEN_BRIDGE_DIR=$BRIDGE_DIR"
+    echo "COBIEN_CAN_CONFIG=$CAN_CONFIG"
     if [[ -n "${existing_env[COBIEN_SETTINGS_PIN]:-}" ]]; then
       echo "COBIEN_SETTINGS_PIN=${existing_env[COBIEN_SETTINGS_PIN]}"
     else
@@ -1658,7 +1675,7 @@ write_env_file() {
       fi
     fi
   } > "$ENV_FILE"
-  log "Environment file generated/merged: $ENV_FILE"
+  log "Environment file generated: $ENV_FILE"
 }
 
 load_env_file() {
@@ -1689,7 +1706,7 @@ setup_environment() {
   checkout_branch "$MQTT_REPO"
   prepare_venv
   # Ensure Piper runtime and models are installed so ENV_FILE contains correct paths
-  configure_tts_runtime || true
+  configure_tts_runtime
   write_env_file
 }
 
@@ -2570,9 +2587,7 @@ main() {
       print_dry_run
       ;;
     diagnose)
-      log "Diagnose: attempting to stop active systemd user services to avoid interference"
-      stop_systemd_user_launcher_supervision || log "Could not stop systemd user services or none active"
-      sleep 1
+      log "Diagnose mode is read-only; active services are left untouched."
       print_diagnostics
       ;;
     *)

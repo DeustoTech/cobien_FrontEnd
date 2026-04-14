@@ -28,9 +28,6 @@ from kivy.graphics import Color, RoundedRectangle
 from vosk import Model, KaldiRecognizer  # noqa
 import pyaudio  # noqa
 import paho.mqtt.client as mqtt
-import signal
-import traceback
-import atexit
 
 # Pantallas // Ecrans
 from weather.weatherScreen import WeatherScreenWidget
@@ -2028,13 +2025,9 @@ class MyApp(App):
         self._idle_event = Clock.schedule_once(self._show_black_overlay, timeout)
 
     def _on_first_user_input(self, *args):
-        if self._handle_escape_request(*args):
-            return True
-
         Window.unbind(
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
-            on_key_down=self._on_first_user_input,
             on_mouse_move=self._on_first_user_input
         )
 
@@ -2205,26 +2198,9 @@ class MyApp(App):
         self._show_exit_pin_popup()
         return True
 
-    def _on_window_keyboard(self, *args):
-        return self._handle_escape_request(*args)
-
     def _on_window_request_close(self, *args):
         self._show_exit_pin_popup()
         return True
-
-    def stop(self, *args, **kwargs):
-        """Intercept App.stop() to prevent immediate shutdown from external signals
-        unless `_force_exit` is set. This ensures Escape/window-close shows the
-        PIN confirmation popup instead of terminating the app immediately.
-        """
-        if not getattr(self, "_force_exit", False):
-            print("[APP] stop() intercepted: showing exit PIN popup")
-            try:
-                self._show_exit_pin_popup()
-            except Exception as exc:
-                print(f"[APP] Error showing exit PIN popup: {exc}")
-            return
-        return super().stop(*args, **kwargs)
 
 
     def _show_black_overlay(self, *args):
@@ -2273,33 +2249,10 @@ class MyApp(App):
         Window.bind(
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
-            on_key_down=self._on_first_user_input,
-            on_keyboard=self._on_window_keyboard,
+            on_key_down=self._handle_escape_request,
             on_mouse_move=self._on_first_user_input,
             on_request_close=self._on_window_request_close,
         )
-        # Global safety: intercept termination signals to show PIN popup instead
-        def _signal_handler(sig, frame):
-            print(f"[APP] Signal received: {sig}; scheduling exit PIN popup")
-            try:
-                Clock.schedule_once(lambda dt: App.get_running_app()._show_exit_pin_popup(), 0)
-            except Exception as ex:
-                print(f"[APP] Error scheduling exit PIN popup from signal: {ex}")
-
-        for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-            try:
-                signal.signal(s, _signal_handler)
-            except Exception:
-                pass
-
-        # Log unhandled exceptions and atexit
-        def _excepthook(exc_type, exc_value, exc_tb):
-            print("[APP] Unhandled exception:")
-            traceback.print_exception(exc_type, exc_value, exc_tb)
-            sys.__excepthook__(exc_type, exc_value, exc_tb)
-
-        sys.excepthook = _excepthook
-        atexit.register(lambda: print("[APP] atexit: application exiting"))
         # Charger config et traduction
         self.cfg = AppConfig()
 
