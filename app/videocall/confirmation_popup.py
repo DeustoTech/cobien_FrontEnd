@@ -1,8 +1,4 @@
-"""Confirmation modal shown after sending a video-call request.
-
-This module provides a reusable Kivy popup used to acknowledge that a call
-request notification has been sent to a selected contact.
-"""
+"""Popups used by the outgoing video-call request flow."""
 
 from typing import Any
 
@@ -14,6 +10,230 @@ from kivy.clock import Clock
 from kivy.metrics import dp, sp
 from kivy.graphics import Color, RoundedRectangle, Line
 from translation import _
+
+
+class CallRequestProgressPopup(ModalView):
+    """Blocking progress popup shown while the call request is being sent."""
+
+    def __init__(self, contact_name: str = "", **kwargs: Any) -> None:
+        super().__init__(
+            size_hint=(None, None),
+            size=(dp(900), dp(430)),
+            auto_dismiss=False,
+            background='',
+            background_color=(0, 0, 0, 0.5),
+            **kwargs
+        )
+        self.contact_name = contact_name
+        self._pulse_event = None
+        self._pulse_step = 0
+        self._build_content()
+        self.bind(on_open=self._start_pulse, on_dismiss=self._stop_pulse)
+
+    def _build_content(self) -> None:
+        container = BoxLayout(
+            orientation='vertical',
+            padding=dp(40),
+            spacing=dp(24)
+        )
+
+        with container.canvas.before:
+            Color(1, 1, 1, 1)
+            self.bg_rect = RoundedRectangle(
+                pos=container.pos,
+                size=container.size,
+                radius=[dp(24)]
+            )
+            Color(0, 0, 0, 0.2)
+            self.border_line = Line(
+                rounded_rectangle=(
+                    container.x, container.y,
+                    container.width, container.height,
+                    dp(24)
+                ),
+                width=3
+            )
+
+        container.bind(pos=self._update_bg, size=self._update_bg)
+        container.add_widget(BoxLayout(size_hint_y=0.15))
+
+        title = Label(
+            text=_("Solicitando videollamada"),
+            font_size=sp(40),
+            bold=True,
+            color=(0, 0, 0, 1),
+            size_hint_y=None,
+            height=dp(54)
+        )
+        container.add_widget(title)
+
+        subtitle = _("Espera un momento…")
+        if self.contact_name:
+            subtitle = f"{_('Solicitando llamada con')} {self.contact_name}"
+
+        self.message_label = Label(
+            text=subtitle,
+            font_size=sp(28),
+            color=(0.3, 0.3, 0.3, 1),
+            size_hint_y=None,
+            height=dp(44)
+        )
+        container.add_widget(self.message_label)
+
+        self.status_label = Label(
+            text=_("Enviando solicitud"),
+            font_size=sp(34),
+            color=(0.1, 0.1, 0.1, 1),
+            size_hint_y=None,
+            height=dp(52)
+        )
+        container.add_widget(self.status_label)
+
+        container.add_widget(BoxLayout(size_hint_y=0.35))
+
+        cancel_hint = Label(
+            text=_("La pantalla se actualizará cuando haya respuesta"),
+            font_size=sp(22),
+            color=(0.4, 0.4, 0.4, 1),
+            size_hint_y=None,
+            height=dp(36)
+        )
+        container.add_widget(cancel_hint)
+        self.add_widget(container)
+
+    def _update_bg(self, instance: Any, value: Any) -> None:
+        self.bg_rect.pos = instance.pos
+        self.bg_rect.size = instance.size
+        self.border_line.rounded_rectangle = (
+            instance.x, instance.y,
+            instance.width, instance.height,
+            dp(24)
+        )
+
+    def _tick_pulse(self, _dt: float) -> None:
+        dots = "." * ((self._pulse_step % 3) + 1)
+        self.status_label.text = f"{_('Enviando solicitud')}{dots}"
+        self._pulse_step += 1
+
+    def _start_pulse(self, *_args: Any) -> None:
+        self._pulse_step = 0
+        self._tick_pulse(0)
+        self._pulse_event = Clock.schedule_interval(self._tick_pulse, 0.55)
+
+    def _stop_pulse(self, *_args: Any) -> None:
+        if self._pulse_event is not None:
+            self._pulse_event.cancel()
+            self._pulse_event = None
+
+
+class CallResultPopup(ModalView):
+    """Result popup shown after the outbound request finishes."""
+
+    def __init__(self, title_text: str, message_text: str = "", accent_color=(0.15, 0.55, 0.95, 1), **kwargs: Any) -> None:
+        super().__init__(
+            size_hint=(None, None),
+            size=(dp(820), dp(420)),
+            auto_dismiss=True,
+            background='',
+            background_color=(0, 0, 0, 0.5),
+            **kwargs
+        )
+        self.title_text = title_text
+        self.message_text = message_text
+        self.accent_color = accent_color
+        self.auto_close_timer = None
+        self._build_content()
+        self.bind(on_open=self._start_timer)
+        self.bind(on_dismiss=self._cancel_timer)
+
+    def _build_content(self) -> None:
+        container = BoxLayout(
+            orientation='vertical',
+            padding=dp(40),
+            spacing=dp(30)
+        )
+
+        with container.canvas.before:
+            Color(1, 1, 1, 1)
+            self.bg_rect = RoundedRectangle(
+                pos=container.pos,
+                size=container.size,
+                radius=[dp(24)]
+            )
+            Color(0, 0, 0, 0.2)
+            self.border_line = Line(
+                rounded_rectangle=(
+                    container.x, container.y,
+                    container.width, container.height,
+                    dp(24)
+                ),
+                width=3
+            )
+
+        container.bind(pos=self._update_bg, size=self._update_bg)
+        container.add_widget(BoxLayout(size_hint_y=0.18))
+        container.add_widget(Label(
+            text=self.title_text,
+            font_size=sp(40),
+            bold=True,
+            color=(0, 0, 0, 1),
+            size_hint_y=None,
+            height=dp(50)
+        ))
+
+        if self.message_text:
+            container.add_widget(Label(
+                text=self.message_text,
+                font_size=sp(28),
+                color=(0.3, 0.3, 0.3, 1),
+                size_hint_y=None,
+                height=dp(70)
+            ))
+
+        container.add_widget(BoxLayout(size_hint_y=0.3))
+
+        btn_ok = Button(
+            text="OK",
+            size_hint=(None, None),
+            size=(dp(220), dp(72)),
+            pos_hint={'center_x': 0.5},
+            background_normal='',
+            background_color=self.accent_color,
+            color=(1, 1, 1, 1),
+            font_size=sp(32),
+            bold=True
+        )
+        btn_ok.bind(on_release=self._close)
+
+        btn_wrapper = BoxLayout(size_hint_y=None, height=dp(72))
+        btn_wrapper.add_widget(BoxLayout())
+        btn_wrapper.add_widget(btn_ok)
+        btn_wrapper.add_widget(BoxLayout())
+        container.add_widget(btn_wrapper)
+        self.add_widget(container)
+
+    def _update_bg(self, instance: Any, value: Any) -> None:
+        self.bg_rect.pos = instance.pos
+        self.bg_rect.size = instance.size
+        self.border_line.rounded_rectangle = (
+            instance.x, instance.y,
+            instance.width, instance.height,
+            dp(24)
+        )
+
+    def _start_timer(self, *args: Any) -> None:
+        self.auto_close_timer = Clock.schedule_once(self._auto_close, 5)
+
+    def _cancel_timer(self, *args: Any) -> None:
+        if self.auto_close_timer:
+            self.auto_close_timer.cancel()
+            self.auto_close_timer = None
+
+    def _auto_close(self, dt: float) -> None:
+        self.dismiss()
+
+    def _close(self, *args: Any) -> None:
+        self.dismiss()
 
 
 class CallConfirmationPopup(ModalView):
@@ -201,5 +421,24 @@ def show_call_sent_popup(contact_name: str = "") -> CallConfirmationPopup:
         >>> show_call_sent_popup("Mamie")
     """
     popup = CallConfirmationPopup(contact_name=contact_name)
+    popup.open()
+    return popup
+
+
+def show_call_request_progress_popup(contact_name: str = "") -> CallRequestProgressPopup:
+    popup = CallRequestProgressPopup(contact_name=contact_name)
+    popup.open()
+    return popup
+
+
+def show_call_failed_popup(contact_name: str = "") -> CallResultPopup:
+    message = _("No se ha podido enviar la solicitud de videollamada.")
+    if contact_name:
+        message = f"{message}\n{contact_name}"
+    popup = CallResultPopup(
+        title_text=_("Solicitud no enviada"),
+        message_text=message,
+        accent_color=(0.85, 0.18, 0.18, 1),
+    )
     popup.open()
     return popup
