@@ -129,10 +129,17 @@ class CallRequestProgressPopup(ModalView):
 class CallResultPopup(ModalView):
     """Result popup shown after the outbound request finishes."""
 
-    def __init__(self, title_text: str, message_text: str = "", accent_color=(0.15, 0.55, 0.95, 1), **kwargs: Any) -> None:
+    def __init__(
+        self,
+        title_text: str,
+        message_text: str = "",
+        detail_text: str = "",
+        accent_color=(0.15, 0.55, 0.95, 1),
+        **kwargs: Any
+    ) -> None:
         super().__init__(
             size_hint=(None, None),
-            size=(dp(820), dp(420)),
+            size=(dp(860), dp(520)),
             auto_dismiss=True,
             background='',
             background_color=(0, 0, 0, 0.5),
@@ -140,8 +147,10 @@ class CallResultPopup(ModalView):
         )
         self.title_text = title_text
         self.message_text = message_text
+        self.detail_text = detail_text
         self.accent_color = accent_color
         self.auto_close_timer = None
+        self._details_visible = False
         self._build_content()
         self.bind(on_open=self._start_timer)
         self.bind(on_dismiss=self._cancel_timer)
@@ -190,6 +199,36 @@ class CallResultPopup(ModalView):
                 height=dp(70)
             ))
 
+        if self.detail_text:
+            self.details_toggle_btn = Button(
+                text=_("Mostrar detalles"),
+                size_hint=(None, None),
+                size=(dp(320), dp(64)),
+                pos_hint={'center_x': 0.5},
+                background_normal='',
+                background_color=(0.65, 0.65, 0.65, 1),
+                color=(1, 1, 1, 1),
+                font_size=sp(26),
+                bold=True
+            )
+            self.details_toggle_btn.bind(on_release=self._toggle_details)
+            toggle_wrapper = BoxLayout(size_hint_y=None, height=dp(64))
+            toggle_wrapper.add_widget(BoxLayout())
+            toggle_wrapper.add_widget(self.details_toggle_btn)
+            toggle_wrapper.add_widget(BoxLayout())
+            container.add_widget(toggle_wrapper)
+
+            self.details_label = Label(
+                text="",
+                font_size=sp(22),
+                color=(0.35, 0.35, 0.35, 1),
+                size_hint_y=None,
+                height=0,
+                opacity=0,
+            )
+            self.details_label.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+            container.add_widget(self.details_label)
+
         container.add_widget(BoxLayout(size_hint_y=0.3))
 
         btn_ok = Button(
@@ -234,6 +273,20 @@ class CallResultPopup(ModalView):
 
     def _close(self, *args: Any) -> None:
         self.dismiss()
+
+    def _toggle_details(self, *_args: Any) -> None:
+        self._details_visible = not self._details_visible
+        if self._details_visible:
+            self.details_toggle_btn.text = _("Ocultar detalles")
+            self.details_label.text = self.detail_text
+            self.details_label.height = dp(120)
+            self.details_label.opacity = 1
+            return
+
+        self.details_toggle_btn.text = _("Mostrar detalles")
+        self.details_label.text = ""
+        self.details_label.height = 0
+        self.details_label.opacity = 0
 
 
 class CallConfirmationPopup(ModalView):
@@ -435,13 +488,15 @@ def show_call_failed_popup(contact_name: str = "", error_code: str = "", detail:
     message = _("No se ha podido enviar la solicitud de videollamada.")
     if contact_name:
         message = f"{message}\n{contact_name}"
+    detail_lines = []
     if error_code:
-        message = f"{message}\n{_('Código')}: {error_code}"
+        detail_lines.append(f"{_('Código')}: {error_code}")
     if detail:
-        message = f"{message}\n{detail}"
+        detail_lines.append(detail)
     popup = CallResultPopup(
         title_text=_("Solicitud no enviada"),
         message_text=message,
+        detail_text="\n".join(detail_lines),
         accent_color=(0.85, 0.18, 0.18, 1),
     )
     popup.open()
