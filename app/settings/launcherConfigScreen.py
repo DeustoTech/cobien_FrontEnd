@@ -16,6 +16,7 @@ from kivy.app import App
 from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.metrics import dp, sp
+from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
@@ -118,9 +119,19 @@ class LauncherConfigScreen(Screen):
 
     def _build_ui(self) -> None:
         root = BoxLayout(orientation="vertical", padding=dp(24), spacing=dp(18))
+        with root.canvas.before:
+            Color(0.96, 0.97, 0.98, 1)
+            self._root_bg = RoundedRectangle(pos=root.pos, size=root.size, radius=[dp(24)])
+        root.bind(pos=lambda instance, _value: setattr(self._root_bg, "pos", instance.pos))
+        root.bind(size=lambda instance, _value: setattr(self._root_bg, "size", instance.size))
         self.add_widget(root)
 
         header = BoxLayout(size_hint_y=None, height=dp(92), spacing=dp(14))
+        with header.canvas.before:
+            Color(1, 1, 1, 0.98)
+            self._header_bg = RoundedRectangle(pos=header.pos, size=header.size, radius=[dp(20)])
+        header.bind(pos=lambda instance, _value: setattr(self._header_bg, "pos", instance.pos))
+        header.bind(size=lambda instance, _value: setattr(self._header_bg, "size", instance.size))
         title = Label(
             text=_("Administración del mueble"),
             font_size=sp(34),
@@ -135,8 +146,9 @@ class LauncherConfigScreen(Screen):
             size_hint=(None, None),
             size=(dp(140), dp(74)),
             background_normal="",
-            background_color=(0.2, 0.2, 0.2, 1),
+            background_color=(0.88, 0.9, 0.94, 1),
             font_size=sp(24),
+            color=(0.08, 0.1, 0.14, 1),
         )
         back_btn.bind(on_release=lambda *_args: self.go_back())
         header.add_widget(title)
@@ -144,11 +156,20 @@ class LauncherConfigScreen(Screen):
         root.add_widget(header)
 
         self.tabs = TabbedPanel(do_default_tab=False, tab_width=dp(220))
+        self.tabs.background_color = (0.94, 0.95, 0.97, 1)
+        self.tabs.tab_height = dp(58)
         root.add_widget(self.tabs)
 
         form_tab = TabbedPanelItem(text=_("Campos"))
         raw_config_tab = TabbedPanelItem(text=_("JSON completo"))
         raw_env_tab = TabbedPanelItem(text=_("Parámetros texto"))
+        for tab in (form_tab, raw_config_tab, raw_env_tab):
+            tab.background_normal = ""
+            tab.background_down = ""
+            tab.background_disabled_normal = ""
+            tab.background_disabled_down = ""
+            tab.background_color = (0.9, 0.93, 0.97, 1)
+            tab.color = (0.1, 0.12, 0.16, 1)
         self.tabs.add_widget(form_tab)
         self.tabs.add_widget(raw_config_tab)
         self.tabs.add_widget(raw_env_tab)
@@ -163,6 +184,11 @@ class LauncherConfigScreen(Screen):
             size_hint_y=None,
             padding=(dp(8), dp(8), dp(8), dp(24)),
         )
+        with self.form.canvas.before:
+            Color(1, 1, 1, 0.98)
+            self._form_bg = RoundedRectangle(pos=self.form.pos, size=self.form.size, radius=[dp(20)])
+        self.form.bind(pos=lambda instance, _value: setattr(self._form_bg, "pos", instance.pos))
+        self.form.bind(size=lambda instance, _value: setattr(self._form_bg, "size", instance.size))
         self.form.bind(minimum_height=self.form.setter("height"))
         scroll.add_widget(self.form)
 
@@ -186,14 +212,16 @@ class LauncherConfigScreen(Screen):
         save_btn = Button(
             text=_("Guardar configuración"),
             background_normal="",
-            background_color=(0.15, 0.58, 0.22, 1),
+            background_color=(0.23, 0.67, 0.33, 1),
             font_size=sp(24),
+            color=(1, 1, 1, 1),
         )
         reload_btn = Button(
             text=_("Actualizar y recargar ahora"),
             background_normal="",
-            background_color=(0.12, 0.32, 0.78, 1),
+            background_color=(0.24, 0.48, 0.86, 1),
             font_size=sp(22),
+            color=(1, 1, 1, 1),
         )
         save_btn.bind(on_release=lambda *_args: self.save_changes())
         reload_btn.bind(on_release=lambda *_args: self.run_full_update_reload())
@@ -234,7 +262,17 @@ class LauncherConfigScreen(Screen):
     def _build_input(self, kind: str, value: str):
         if kind.startswith("choice:"):
             values = tuple(item.strip() for item in kind.split(":", 1)[1].split(",") if item.strip())
-            widget = Spinner(text=value or (values[0] if values else ""), values=values, size_hint_y=None, height=self._field_height(kind), font_size=sp(18))
+            widget = Spinner(
+                text=value or (values[0] if values else ""),
+                values=values,
+                size_hint_y=None,
+                height=self._field_height(kind),
+                font_size=sp(18),
+                background_normal="",
+                background_color=(0.97, 0.98, 0.99, 1),
+                color=(0.08, 0.1, 0.14, 1),
+                sync_height=True,
+            )
             return widget
         widget = TextInput(
             text=value,
@@ -244,6 +282,12 @@ class LauncherConfigScreen(Screen):
             height=self._field_height(kind),
             font_size=sp(18),
             hint_text="JSON" if kind in {"json", "list", "dict"} else "",
+            background_normal="",
+            background_active="",
+            background_color=(0.98, 0.99, 1, 1),
+            foreground_color=(0.08, 0.1, 0.14, 1),
+            hint_text_color=(0.45, 0.49, 0.56, 1),
+            cursor_color=(0.16, 0.35, 0.78, 1),
         )
         return widget
 
@@ -287,6 +331,11 @@ class LauncherConfigScreen(Screen):
 
     def _build_raw_tabs(self, raw_config_tab: TabbedPanelItem, raw_env_tab: TabbedPanelItem) -> None:
         raw_config_box = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(12))
+        with raw_config_box.canvas.before:
+            Color(1, 1, 1, 0.98)
+            self._raw_config_bg = RoundedRectangle(pos=raw_config_box.pos, size=raw_config_box.size, radius=[dp(20)])
+        raw_config_box.bind(pos=lambda instance, _value: setattr(self._raw_config_bg, "pos", instance.pos))
+        raw_config_box.bind(size=lambda instance, _value: setattr(self._raw_config_bg, "size", instance.size))
         raw_config_tab.add_widget(raw_config_box)
         raw_config_box.add_widget(self._field_label(_("JSON completo de configuración local")))
         self.raw_config_input = TextInput(
@@ -294,10 +343,21 @@ class LauncherConfigScreen(Screen):
             multiline=True,
             font_size=sp(18),
             hint_text="{ ... }",
+            background_normal="",
+            background_active="",
+            background_color=(0.98, 0.99, 1, 1),
+            foreground_color=(0.08, 0.1, 0.14, 1),
+            hint_text_color=(0.45, 0.49, 0.56, 1),
+            cursor_color=(0.16, 0.35, 0.78, 1),
         )
         raw_config_box.add_widget(self.raw_config_input)
 
         raw_env_box = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(12))
+        with raw_env_box.canvas.before:
+            Color(1, 1, 1, 0.98)
+            self._raw_env_bg = RoundedRectangle(pos=raw_env_box.pos, size=raw_env_box.size, radius=[dp(20)])
+        raw_env_box.bind(pos=lambda instance, _value: setattr(self._raw_env_bg, "pos", instance.pos))
+        raw_env_box.bind(size=lambda instance, _value: setattr(self._raw_env_bg, "size", instance.size))
         raw_env_tab.add_widget(raw_env_box)
         raw_env_box.add_widget(self._field_label(_("Parámetros completos del launcher en texto plano")))
         self.raw_env_input = TextInput(
@@ -305,6 +365,12 @@ class LauncherConfigScreen(Screen):
             multiline=True,
             font_size=sp(18),
             hint_text="KEY=value",
+            background_normal="",
+            background_active="",
+            background_color=(0.98, 0.99, 1, 1),
+            foreground_color=(0.08, 0.1, 0.14, 1),
+            hint_text_color=(0.45, 0.49, 0.56, 1),
+            cursor_color=(0.16, 0.35, 0.78, 1),
         )
         raw_env_box.add_widget(self.raw_env_input)
 
