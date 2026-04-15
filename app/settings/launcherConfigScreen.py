@@ -37,22 +37,68 @@ KV = """
 """
 
 
-LAUNCHER_FIELDS = [
-    ("COBIEN_WORKSPACE_ROOT", "Workspace", "path", os.path.join(os.path.expanduser("~"), "cobien")),
-    ("COBIEN_FRONTEND_REPO_NAME", "Frontend repo", "text", "cobien_FrontEnd"),
-    ("COBIEN_MQTT_REPO_NAME", "MQTT/CAN repo", "text", "cobien_MQTT_Dictionnary"),
-    ("COBIEN_UPDATE_BRANCH", "Git branch", "text", "development_fix"),
-    ("COBIEN_UPDATE_REMOTE", "Git remote", "text", "origin"),
-    ("COBIEN_APP_LANGUAGE", "Idioma app", "choice:es,fr", "es"),
-    ("COBIEN_DEVICE_ID", "Device ID", "text", "CoBien1"),
-    ("COBIEN_VIDEOCALL_ROOM", "Videocall room", "text", "CoBien1"),
-    ("COBIEN_DEVICE_LOCATION", "Ubicación del mueble", "text", "Bilbao"),
-    ("COBIEN_UPDATE_INTERVAL_SEC", "Intervalo de update/watch (seg)", "int", "60"),
-    ("COBIEN_TTS_ENGINE", "Motor TTS", "choice:pyttsx3,piper", "pyttsx3"),
-    ("COBIEN_HARDWARE_MODE", "Hardware mode", "choice:auto,real,mock", "auto"),
-    ("COBIEN_NOTIFY_API_KEY", "Notify API key", "secret", ""),
-    ("COBIEN_DEVICE_HEARTBEAT_URL", "Heartbeat URL", "text", "https://portal.co-bien.eu/pizarra/api/devices/heartbeat/"),
+DEFAULT_PIPER_MODEL_ES_MALE = "es_ES-davefx-medium"
+DEFAULT_PIPER_MODEL_ES_FEMALE = "es_ES-mls_10246-low"
+DEFAULT_PIPER_MODEL_FR_MALE = "fr_FR-mls_1840-low"
+DEFAULT_PIPER_MODEL_FR_FEMALE = "fr_FR-siwis-medium"
+DEFAULT_PIPER_MODEL_ES_MALE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
+DEFAULT_PIPER_MODEL_ES_FEMALE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/mls_10246/low/es_ES-mls_10246-low.onnx"
+DEFAULT_PIPER_MODEL_FR_MALE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls_1840/low/fr_FR-mls_1840-low.onnx"
+DEFAULT_PIPER_MODEL_FR_FEMALE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
+
+LAUNCHER_GROUPS = [
+    (
+        "Identidad del mueble",
+        [
+            ("COBIEN_APP_LANGUAGE", "Idioma app", "choice:es,fr", "es"),
+            ("COBIEN_DEVICE_ID", "Device ID", "text", "CoBien1"),
+            ("COBIEN_VIDEOCALL_ROOM", "Videocall room", "text", "CoBien1"),
+            ("COBIEN_DEVICE_LOCATION", "Ubicación del mueble", "text", "Bilbao"),
+        ],
+    ),
+    (
+        "Runtime y actualizaciones",
+        [
+            ("COBIEN_WORKSPACE_ROOT", "Workspace", "path", os.path.join(os.path.expanduser("~"), "cobien")),
+            ("COBIEN_FRONTEND_REPO_NAME", "Frontend repo", "text", "cobien_FrontEnd"),
+            ("COBIEN_MQTT_REPO_NAME", "MQTT/CAN repo", "text", "cobien_MQTT_Dictionnary"),
+            ("COBIEN_UPDATE_BRANCH", "Git branch", "text", "development_fix"),
+            ("COBIEN_UPDATE_REMOTE", "Git remote", "text", "origin"),
+            ("COBIEN_UPDATE_INTERVAL_SEC", "Intervalo de update/watch (seg)", "int", "60"),
+            ("COBIEN_HARDWARE_MODE", "Hardware mode", "choice:auto,real,mock", "auto"),
+        ],
+    ),
+    (
+        "Conectividad backend",
+        [
+            ("COBIEN_NOTIFY_API_KEY", "Notify API key", "secret", ""),
+            ("COBIEN_DEVICE_HEARTBEAT_URL", "Heartbeat URL", "text", "https://portal.co-bien.eu/pizarra/api/devices/heartbeat/"),
+        ],
+    ),
+    (
+        "Texto a voz",
+        [
+            ("COBIEN_TTS_ENGINE", "Motor TTS activo", "choice:pyttsx3,piper", "pyttsx3"),
+        ],
+    ),
 ]
+
+LAUNCHER_FIELDS = [field for _group_name, fields in LAUNCHER_GROUPS for field in fields]
+CONFIG_SECTION_TITLES = {
+    "settings": "Ajustes de usuario y dispositivo",
+    "notifications": "Notificaciones",
+    "security": "Seguridad",
+    "services": "Servicios y APIs",
+    "software": "Software",
+}
+SKIP_CONFIG_FIELDS = {
+    ("settings", "language"),
+    ("settings", "device_id"),
+    ("settings", "videocall_room"),
+    ("settings", "device_location"),
+    ("services", "notify_api_key"),
+    ("services", "device_heartbeat_url"),
+}
 
 
 class LauncherConfigScreen(Screen):
@@ -203,11 +249,13 @@ class LauncherConfigScreen(Screen):
 
     def _build_launcher_section(self) -> None:
         self.form.add_widget(self._section_title(_("Parámetros del launcher")))
-        for key, label_text, kind, default in LAUNCHER_FIELDS:
-            self.form.add_widget(self._field_label(label_text))
-            widget = self._build_input(kind, "")
-            self._launcher_inputs[key] = widget
-            self.form.add_widget(widget)
+        for group_name, fields in LAUNCHER_GROUPS:
+            self.form.add_widget(self._section_title(_(group_name)))
+            for key, label_text, kind, default in fields:
+                self.form.add_widget(self._field_label(label_text))
+                widget = self._build_input(kind, "")
+                self._launcher_inputs[key] = widget
+                self.form.add_widget(widget)
 
         self.extra_env_title = self._section_title(_("Variables extra del launcher"))
         self.form.add_widget(self.extra_env_title)
@@ -224,9 +272,11 @@ class LauncherConfigScreen(Screen):
     def _build_config_section(self) -> None:
         self.form.add_widget(self._section_title(_("Configuración local del mueble")))
         for section_name in ("settings", "notifications", "security", "services", "software"):
-            self.form.add_widget(self._section_title(section_name))
+            self.form.add_widget(self._section_title(_(CONFIG_SECTION_TITLES.get(section_name, section_name))))
             section = load_section(section_name, {}) or {}
             for key in sorted(section.keys()):
+                if (section_name, key) in SKIP_CONFIG_FIELDS:
+                    continue
                 value = section.get(key)
                 kind, text_value = self._serialize_config_value(section_name, key, value)
                 self.form.add_widget(self._field_label(f"{section_name}.{key}"))
@@ -272,6 +322,54 @@ class LauncherConfigScreen(Screen):
         if section_name == "security" or key.endswith("_key") or "password" in key.lower() or "token" in key.lower():
             return "secret", str(value or "")
         return "text", str(value or "")
+
+    def _normalized_runtime_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = json.loads(json.dumps(config))
+        services = normalized.setdefault("services", {})
+        settings = normalized.setdefault("settings", {})
+
+        if not settings.get("videocall_room"):
+            settings["videocall_room"] = settings.get("device_id", "CoBien1")
+        if not settings.get("device_id"):
+            settings["device_id"] = "CoBien1"
+        if not settings.get("language"):
+            settings["language"] = "es"
+
+        models_dir = os.path.join(os.path.dirname(__file__), "..", "models", "piper")
+        models_dir = os.path.abspath(models_dir)
+        default_paths = {
+            "tts_piper_model_es_male": os.path.join(models_dir, f"{DEFAULT_PIPER_MODEL_ES_MALE}.onnx"),
+            "tts_piper_model_es_female": os.path.join(models_dir, f"{DEFAULT_PIPER_MODEL_ES_FEMALE}.onnx"),
+            "tts_piper_model_fr_male": os.path.join(models_dir, f"{DEFAULT_PIPER_MODEL_FR_MALE}.onnx"),
+            "tts_piper_model_fr_female": os.path.join(models_dir, f"{DEFAULT_PIPER_MODEL_FR_FEMALE}.onnx"),
+        }
+        default_urls = {
+            "tts_piper_model_es_male_url": DEFAULT_PIPER_MODEL_ES_MALE_URL,
+            "tts_piper_model_es_female_url": DEFAULT_PIPER_MODEL_ES_FEMALE_URL,
+            "tts_piper_model_fr_male_url": DEFAULT_PIPER_MODEL_FR_MALE_URL,
+            "tts_piper_model_fr_female_url": DEFAULT_PIPER_MODEL_FR_FEMALE_URL,
+        }
+
+        for key, value in default_paths.items():
+            if not services.get(key):
+                services[key] = value
+        for key, value in default_urls.items():
+            if not services.get(key):
+                services[key] = value
+
+        if not services.get("tts_piper_voice_es"):
+            services["tts_piper_voice_es"] = "male"
+        if not services.get("tts_piper_voice_fr"):
+            services["tts_piper_voice_fr"] = "male"
+        if not services.get("tts_piper_model_es"):
+            services["tts_piper_model_es"] = services["tts_piper_model_es_male"]
+        if not services.get("tts_piper_model_fr"):
+            services["tts_piper_model_fr"] = services["tts_piper_model_fr_male"]
+        if not services.get("tts_piper_model_es_url"):
+            services["tts_piper_model_es_url"] = services["tts_piper_model_es_male_url"]
+        if not services.get("tts_piper_model_fr_url"):
+            services["tts_piper_model_fr_url"] = services["tts_piper_model_fr_male_url"]
+        return normalized
 
     def _parse_value(self, kind: str, raw_value: str):
         text = str(raw_value or "").strip()
@@ -355,7 +453,7 @@ class LauncherConfigScreen(Screen):
 
     def load_values(self) -> None:
         env = self._read_env()
-        runtime_cfg = load_config()
+        runtime_cfg = self._normalized_runtime_config(load_config())
 
         for key, _label, _kind, default in LAUNCHER_FIELDS:
             widget = self._launcher_inputs[key]
@@ -407,13 +505,14 @@ class LauncherConfigScreen(Screen):
             if not isinstance(config, dict):
                 raise ValueError(_("El JSON completo debe ser un objeto"))
         else:
-            config = load_config()
+            config = self._normalized_runtime_config(load_config())
 
         for (section_name, key), widget in self._config_inputs.items():
             kind = self._config_types[(section_name, key)]
             config.setdefault(section_name, {})
             config[section_name][key] = self._parse_value(kind, widget.text)
 
+        config = self._normalized_runtime_config(config)
         save_config(config)
 
         self.cfg.data["language"] = config.get("settings", {}).get("language", self.cfg.data.get("language", "es"))
@@ -429,7 +528,7 @@ class LauncherConfigScreen(Screen):
             app.main_ref.DEVICE_LOCATION = self.cfg.get_device_location()
 
         self.lbl_status.text = f"{_('Configuración guardada en')}: {self._env_path()}"
-        self.raw_config_input.text = json.dumps(load_config(), ensure_ascii=False, indent=4)
+        self.raw_config_input.text = json.dumps(self._normalized_runtime_config(load_config()), ensure_ascii=False, indent=4)
         saved_env = self._read_env()
         self.raw_env_input.text = "\n".join(f"{key}={saved_env[key]}" for key in sorted(saved_env.keys()))
 
