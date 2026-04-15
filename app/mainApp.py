@@ -2252,6 +2252,7 @@ class MyApp(App):
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
             on_key_down=self._handle_escape_request,
+            on_keyboard=self._handle_escape_request,
             on_mouse_move=self._on_first_user_input,
             on_request_close=self._on_window_request_close,
         )

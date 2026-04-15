@@ -412,6 +412,7 @@ class WeatherScreenWidget(BoxLayout):
         self.lat = 0
         self.lon = 0
         self.tz_name = "UTC"
+        self._refresh_seq = 0
 
         # API language; synchronized with app language.
         self.api_lang = "es"
@@ -619,7 +620,20 @@ class WeatherScreenWidget(BoxLayout):
         """Run weather fetch in a background thread."""
         if not self.city:
             return
-        threading.Thread(target=self._fetch_all_and_render, daemon=True).start()
+        self._refresh_seq += 1
+        request_seq = self._refresh_seq
+        city_snapshot = {
+            "city": self.city,
+            "lat": self.lat,
+            "lon": self.lon,
+            "tz_name": self.tz_name,
+            "api_lang": self.api_lang,
+        }
+        threading.Thread(
+            target=self._fetch_all_and_render,
+            args=(request_seq, city_snapshot),
+            daemon=True,
+        ).start()
 
     def _recalc_heights(self, *args):
         """Recompute card heights from current widget size."""
@@ -642,16 +656,16 @@ class WeatherScreenWidget(BoxLayout):
             if hasattr(app, "speak"):
                 app.speak(texto)
 
-    def _fetch_all_and_render(self):
+    def _fetch_all_and_render(self, request_seq, city_snapshot):
         """Fetch weather bundle and schedule UI rendering on main thread."""
         try:
-            print(f"[WEATHER] 🌐 Fetching weather with lang={self.api_lang}")
+            print(f"[WEATHER] 🌐 Fetching weather for {city_snapshot['city']} with lang={city_snapshot['api_lang']}")
             bundle = fetch_weather_bundle(
-                city_name=self.city,
-                lat=self.lat,
-                lon=self.lon,
-                tz_name=self.tz_name,
-                api_lang=self.api_lang,
+                city_name=city_snapshot["city"],
+                lat=city_snapshot["lat"],
+                lon=city_snapshot["lon"],
+                tz_name=city_snapshot["tz_name"],
+                api_lang=city_snapshot["api_lang"],
                 owm_api_key=self.owm_api_key,
                 forecast_days=7,
             )
@@ -672,6 +686,9 @@ class WeatherScreenWidget(BoxLayout):
                 )
 
             def _apply(_dt):
+                if request_seq != self._refresh_seq:
+                    print(f"[WEATHER] Ignoring stale weather response for {city_snapshot['city']}")
+                    return
                 self.current_temp = f"{bundle['temp']}°"
                 self.current_desc = bundle["description"]
                 self.today_minmax_left = f"{_('Min')} {bundle['temp_min']}°"
