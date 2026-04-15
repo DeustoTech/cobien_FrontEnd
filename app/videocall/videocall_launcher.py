@@ -241,11 +241,11 @@ class MainWindow(QMainWindow):
         self._load_videocall()
 
     def keyPressEvent(self, event: Any) -> None:
-        """Handle keyboard shortcuts (Escape exits the call window)."""
+        """Ignore Escape so the embedded call remains in kiosk flow."""
         if event.key() == Qt.Key_Escape:
-            self._quit_app()
-        else:
-            super().keyPressEvent(event)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def closeEvent(self, event: Any) -> None:
         """Handle native close event by performing graceful quit."""

@@ -175,6 +175,25 @@ KV = """
                 IconBadge:
                     icon_source: "data/images/back.png"
                     on_release: app.root.current = "main"
+                Button:
+                    id: btn_exit
+                    text: "Salir"
+                    size_hint: None, None
+                    size: dp(140), dp(80)
+                    background_normal: ""
+                    background_down: ""
+                    background_color: 0.85, 0.18, 0.18, 1
+                    color: 1, 1, 1, 1
+                    bold: True
+                    font_size: sp(26)
+                    on_release: app.request_admin_exit()
+                    canvas.before:
+                        Color:
+                            rgba: self.background_color
+                        RoundedRectangle:
+                            size: self.size
+                            pos: self.pos
+                            radius: [R_BTN,]
 
         # ---------- MAIN CONTENT ----------
         AnchorLayout:
@@ -328,6 +347,7 @@ class SettingsScreen(Screen):
         self.root_view.ids.btn_rfid.text = _("Tarjetas RFID")
         self.root_view.ids.btn_logs.text = _("Logs del sistema")
         self.root_view.ids.btn_launcher.text = _("Parámetros Launcher")
+        self.root_view.ids.btn_exit.text = _("Salir")
         
         # ✅ Bouton blagues selon langue
         if lang == "fr":

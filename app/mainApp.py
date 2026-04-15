@@ -86,6 +86,7 @@ Builder.load_string(PINBACK_BUTTON_KV)
 
 RUNTIME_STATE_DIR = os.path.join(os.path.dirname(__file__), "runtime_state")
 UPDATE_MARKER_FILE = os.path.join(RUNTIME_STATE_DIR, "system_updated.json")
+LAUNCHER_STOP_REQUEST_FILE = os.path.join(RUNTIME_STATE_DIR, "launcher_stop_requested.flag")
 
 # Prevent Kivy from closing the app directly when Escape is pressed.
 Config.set("kivy", "exit_on_escape", "0")
@@ -2099,12 +2100,11 @@ class MyApp(App):
         self._exit_pin_popup = None
 
     def _show_exit_pin_popup(self):
+        print("[APP] Exit request blocked outside administration")
+
+    def request_admin_exit(self):
         if getattr(self, "_exit_pin_popup", None):
             return
-
-        expected_pin = self._load_settings_pin()
-        print(f"[APP] Exit PIN requested, expected_pin_length={len(expected_pin)}")
-        entered_pin = {"value": ""}
 
         root = BoxLayout(orientation="vertical", spacing=dp(18))
         title = Label(
@@ -2116,17 +2116,15 @@ class MyApp(App):
             height=dp(44),
         )
         info = Label(
-            text=_("Introduce el PIN de administración para cerrar la aplicación."),
+            text=_("La aplicación se cerrará y quedará detenida hasta que el launcher la vuelva a iniciar."),
             font_size=sp(20),
             color=(0.2, 0.2, 0.2, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(70),
+            height=dp(84),
         )
         info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
-
-        pin_display = PinDisplay(max_length=max(len(expected_pin), 4))
 
         feedback = Label(
             text="",
@@ -2139,57 +2137,23 @@ class MyApp(App):
         def _cancel(*_args):
             self._close_exit_pin_popup()
 
-        def _append_digit(digit, *_args):
-            if len(entered_pin["value"]) >= len(expected_pin):
-                return
-            entered_pin["value"] += digit
-            pin_display.pin_value = entered_pin["value"]
-            feedback.text = ""
-            if len(entered_pin["value"]) == len(expected_pin):
-                _confirm()
-
-        def _delete_digit(*_args):
-            entered_pin["value"] = entered_pin["value"][:-1]
-            pin_display.pin_value = entered_pin["value"]
-            feedback.text = ""
-
         def _confirm(*_args):
-            if expected_pin.strip() == "":
-                print("[APP] Warning: expected PIN is empty — ignoring close request")
-                feedback.text = _("PIN not configured")
-                entered_pin["value"] = ""
-                pin_display.pin_value = ""
+            try:
+                os.makedirs(RUNTIME_STATE_DIR, exist_ok=True)
+                with open(LAUNCHER_STOP_REQUEST_FILE, "w", encoding="utf-8") as flag_file:
+                    flag_file.write(f"{datetime.now().isoformat()}\n")
+            except Exception as exc:
+                print(f"[APP] Failed to write launcher stop request flag: {exc}")
+                feedback.text = _("No se ha podido preparar la salida")
                 return
 
-            if entered_pin["value"].strip() == expected_pin:
-                self._close_exit_pin_popup()
-                app = App.get_running_app()
-                try:
-                    setattr(app, "_force_exit", True)
-                except Exception:
-                    pass
-                app.stop()
-                return
-            feedback.text = _("PIN incorrecto")
-            entered_pin["value"] = ""
-            pin_display.pin_value = ""
-            pin_display.shake_animation()
-
-        keyboard = BoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, height=dp(300))
-        for row in (("1", "2", "3"), ("4", "5", "6"), ("7", "8", "9"), ("Cancelar", "0", "⌫")):
-            row_box = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(66))
-            for key in row:
-                btn = PinButton(text=key)
-                if key == "Cancelar":
-                    btn.font_size = sp(22)
-                row_box.add_widget(btn)
-                if key.isdigit():
-                    btn.bind(on_release=lambda _btn, num=key: _append_digit(num))
-                elif key == "⌫":
-                    btn.bind(on_release=_delete_digit)
-                else:
-                    btn.bind(on_release=_cancel)
-            keyboard.add_widget(row_box)
+            self._close_exit_pin_popup()
+            app = App.get_running_app()
+            try:
+                setattr(app, "_force_exit", True)
+            except Exception:
+                pass
+            app.stop()
 
         btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
         cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
@@ -2200,15 +2164,13 @@ class MyApp(App):
 
         root.add_widget(title)
         root.add_widget(info)
-        root.add_widget(pin_display)
         root.add_widget(feedback)
-        root.add_widget(keyboard)
         root.add_widget(btn_row)
 
         popup = Popup(
             title="",
             content=wrap_popup_content(root),
-            size_hint=(0.62, 0.78),
+            size_hint=(0.58, 0.42),
             auto_dismiss=False,
             **popup_theme_kwargs(),
         )
@@ -2224,12 +2186,11 @@ class MyApp(App):
         keycode = self._extract_window_keycode(*args)
         if keycode != 27:
             return False
-        self._show_exit_pin_popup()
+        print("[APP] Escape ignored in kiosk mode")
         return True
 
     def _on_window_request_close(self, *args):
-        self._show_exit_pin_popup()
-        return True
+        return not bool(getattr(self, "_force_exit", False))
 
 
     def _show_black_overlay(self, *args):

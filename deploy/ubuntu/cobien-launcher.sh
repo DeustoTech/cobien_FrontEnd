@@ -547,6 +547,7 @@ resolve_paths() {
   LOG_DIR="${COBIEN_LOG_DIR:-$FRONTEND_REPO_ROOT/logs}"
   RUNTIME_STATE_DIR="$FRONTEND_APP_DIR/runtime_state"
   UPDATE_MARKER_FILE="$RUNTIME_STATE_DIR/system_updated.json"
+  LAUNCHER_STOP_REQUEST_FILE="$RUNTIME_STATE_DIR/launcher_stop_requested.flag"
 }
 
 derive_default_device_id() {
@@ -743,6 +744,20 @@ perform_preflight_runtime_cleanup() {
   sleep 1
 }
 
+clear_launcher_stop_request() {
+  if [[ -n "${LAUNCHER_STOP_REQUEST_FILE:-}" && -f "$LAUNCHER_STOP_REQUEST_FILE" ]]; then
+    rm -f "$LAUNCHER_STOP_REQUEST_FILE" >/dev/null 2>&1 || true
+  fi
+}
+
+is_launcher_stop_requested() {
+  [[ -n "${LAUNCHER_STOP_REQUEST_FILE:-}" && -f "$LAUNCHER_STOP_REQUEST_FILE" ]]
+}
+
+is_frontend_runtime_running() {
+  pgrep -f "mainApp.py|uv run --python .* mainApp.py|\\[APP\\] Launching frontend with uv" >/dev/null 2>&1
+}
+
 launch_runtime() {
   local relaunch_after_update="${1:-0}"
   check_paths
@@ -755,6 +770,7 @@ launch_runtime() {
   resolve_uv_bin
   mkdir -p "$LOG_DIR"
   ensure_mosquitto_running
+  clear_launcher_stop_request
 
   log_section "Launching CoBien System"
   log "PATHS: FRONTEND_REPO_ROOT=$FRONTEND_REPO_ROOT"
@@ -793,6 +809,24 @@ launch_runtime() {
   sleep 2
 
   runtime_launch_background "cobien-app" "$(runtime_app_command)"
+}
+
+ensure_runtime_supervision() {
+  if is_launcher_stop_requested; then
+    if is_frontend_runtime_running; then
+      log "KIOSK: stop requested but runtime still active."
+    else
+      log "KIOSK: runtime intentionally stopped from administration; waiting for manual relaunch."
+    fi
+    return 0
+  fi
+
+  if is_frontend_runtime_running; then
+    return 0
+  fi
+
+  log "KIOSK: frontend runtime is not running; relaunching immediately."
+  launch_runtime 0
 }
 
 ask() {
@@ -1890,6 +1924,7 @@ run_update_once() {
 }
 
 run_watch_loop() {
+  local elapsed
   check_paths
   load_env_file
   normalize_device_identity
@@ -1898,7 +1933,12 @@ run_watch_loop() {
     if ! run_update_once watch; then
       log "Execution failed; retrying in ${POLL_INTERVAL_SEC}s"
     fi
-    sleep "$POLL_INTERVAL_SEC"
+    elapsed=0
+    while [[ "$elapsed" -lt "$POLL_INTERVAL_SEC" ]]; do
+      ensure_runtime_supervision
+      sleep 2
+      elapsed=$((elapsed + 2))
+    done
   done
 }
 
