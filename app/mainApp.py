@@ -52,6 +52,7 @@ from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
+from device_heartbeat_service import send_device_heartbeat_async
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from config_store import load_section
 
@@ -1945,11 +1946,16 @@ class MyApp(App):
         self._start_orchestrator()
         self._start_proximity_logger()
         schedule_icso_sync(force_snapshot=True)
+        self._schedule_device_heartbeat()
+        self._send_device_heartbeat()
         Clock.schedule_once(lambda dt: self._show_pending_system_update_notification(), 1.0)
 
     def on_stop(self):
         self._stop_orchestrator()
         self._stop_proximity_logger()
+        heartbeat_event = getattr(self, "_heartbeat_event", None)
+        if heartbeat_event:
+            heartbeat_event.cancel()
 
     def _show_pending_system_update_notification(self):
         if not os.path.exists(UPDATE_MARKER_FILE):
@@ -1998,6 +2004,27 @@ class MyApp(App):
                 )
         except Exception as exc:
             print(f"[APP] Failed to show update notification: {exc}")
+
+    def _schedule_device_heartbeat(self):
+        services_cfg = load_section("services", {}) or {}
+        interval_sec = int(services_cfg.get("device_heartbeat_interval_sec", 60) or 60)
+        if getattr(self, "_heartbeat_event", None):
+            self._heartbeat_event.cancel()
+        self._heartbeat_event = Clock.schedule_interval(lambda dt: self._send_device_heartbeat(), interval_sec)
+
+    def _send_device_heartbeat(self):
+        current_screen = ""
+        try:
+            current_screen = getattr(self.root, "current", "") or ""
+        except Exception:
+            current_screen = ""
+        send_device_heartbeat_async(
+            screen_name=current_screen,
+            extra_payload={
+                "videocall_room": self.cfg.get_videocall_room(),
+                "device_location": self.cfg.get_device_location(),
+            },
+        )
 
     def _reset_idle_timer(self, *args, **kwargs):
         """

@@ -89,6 +89,11 @@ DEFAULT_UNIFIED_CONFIG = {
             "http://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/",
         ),
         "contacts_api_url": os.getenv("COBIEN_CONTACTS_API_URL", "http://portal.co-bien.eu/pizarra/api/contacts/"),
+        "device_heartbeat_url": os.getenv(
+            "COBIEN_DEVICE_HEARTBEAT_URL",
+            "http://portal.co-bien.eu/pizarra/api/devices/heartbeat/",
+        ),
+        "device_heartbeat_interval_sec": int(os.getenv("COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC", "60")),
         "icso_telemetry_url": os.getenv(
             "COBIEN_ICSO_TELEMETRY_URL",
             "http://portal.co-bien.eu/pizarra/api/icso/telemetry/",
