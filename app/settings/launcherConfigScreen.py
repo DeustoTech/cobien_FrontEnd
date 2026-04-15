@@ -482,11 +482,16 @@ class LauncherConfigScreen(Screen):
         return values
 
     def _write_env(self, data: Dict[str, str]) -> None:
+        def _quote_env(value: str) -> str:
+            text = str(value or "")
+            text = text.replace("\\", "\\\\").replace('"', '\\"')
+            return f'"{text}"'
+
         path = self._env_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as file_obj:
             for key in sorted(data.keys()):
-                file_obj.write(f"{key}={data[key]}\n")
+                file_obj.write(f"{key}={_quote_env(data[key])}\n")
 
     def _load_extra_env_text(self, env: Dict[str, str]) -> str:
         known_keys = {key for key, *_rest in LAUNCHER_FIELDS}
