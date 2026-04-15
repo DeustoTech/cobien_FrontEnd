@@ -603,6 +603,18 @@ class LauncherConfigScreen(Screen):
         frontend_name = (self._launcher_inputs["COBIEN_FRONTEND_REPO_NAME"].text or "").strip() or "cobien_FrontEnd"
         return os.path.join(workspace, frontend_name, "deploy", "ubuntu", "cobien-launcher.sh")
 
+    def _systemd_launcher_active(self) -> bool:
+        try:
+            result = subprocess.run(
+                ["systemctl", "--user", "is-active", "--quiet", "cobien-launcher.service"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
     def run_full_update_reload(self) -> None:
         self.save_changes()
         launcher_script = self._launcher_script_path()
@@ -611,27 +623,34 @@ class LauncherConfigScreen(Screen):
             return
 
         env = self._read_env()
-        cmd = [
-            "/bin/bash", launcher_script,
-            "--non-interactive",
-            "--yes",
-            "--force-restart",
-            "--run-update-once",
-            "--mode", "run",
-            "--workspace", env.get("COBIEN_WORKSPACE_ROOT", os.path.join(os.path.expanduser("~"), "cobien")),
-            "--frontend-name", env.get("COBIEN_FRONTEND_REPO_NAME", "cobien_FrontEnd"),
-            "--mqtt-name", env.get("COBIEN_MQTT_REPO_NAME", "cobien_MQTT_Dictionnary"),
-            "--branch", env.get("COBIEN_UPDATE_BRANCH", "development_fix"),
-            "--app-language", env.get("COBIEN_APP_LANGUAGE", "es"),
-            "--device-id", env.get("COBIEN_DEVICE_ID", self.cfg.get_device_id()),
-            "--videocall-room", env.get("COBIEN_VIDEOCALL_ROOM", self.cfg.get_videocall_room()),
-            "--device-location", env.get("COBIEN_DEVICE_LOCATION", self.cfg.get_device_location()),
-            "--tts-engine", env.get("COBIEN_TTS_ENGINE", "pyttsx3"),
-        ]
+        use_systemd_restart = self._systemd_launcher_active()
+        cmd = (
+            ["systemctl", "--user", "restart", "cobien-launcher.service"]
+            if use_systemd_restart
+            else [
+                "/bin/bash", launcher_script,
+                "--non-interactive",
+                "--yes",
+                "--force-restart",
+                "--run-update-once",
+                "--mode", "run",
+                "--workspace", env.get("COBIEN_WORKSPACE_ROOT", os.path.join(os.path.expanduser("~"), "cobien")),
+                "--frontend-name", env.get("COBIEN_FRONTEND_REPO_NAME", "cobien_FrontEnd"),
+                "--mqtt-name", env.get("COBIEN_MQTT_REPO_NAME", "cobien_MQTT_Dictionnary"),
+                "--branch", env.get("COBIEN_UPDATE_BRANCH", "development_fix"),
+                "--app-language", env.get("COBIEN_APP_LANGUAGE", "es"),
+                "--device-id", env.get("COBIEN_DEVICE_ID", self.cfg.get_device_id()),
+                "--videocall-room", env.get("COBIEN_VIDEOCALL_ROOM", self.cfg.get_videocall_room()),
+                "--device-location", env.get("COBIEN_DEVICE_LOCATION", self.cfg.get_device_location()),
+                "--tts-engine", env.get("COBIEN_TTS_ENGINE", "pyttsx3"),
+            ]
+        )
 
         piper_bin = shutil.which("piper")
         if env.get("COBIEN_TTS_ENGINE", "pyttsx3") == "piper" and not piper_bin:
             self.lbl_status.text = _("Piper no detectado. El launcher intentará configurarlo durante la recarga...")
+        elif use_systemd_restart:
+            self.lbl_status.text = _("Guardado completado. Reiniciando servicio del mueble...")
         else:
             self.lbl_status.text = _("Guardando y relanzando runtime...")
 
