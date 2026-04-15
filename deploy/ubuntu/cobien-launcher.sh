@@ -1409,31 +1409,52 @@ if not isinstance(settings, dict):
     settings = {}
 data["settings"] = settings
 
-settings["language"] = app_language or "es"
-settings["device_id"] = device_id
-settings["videocall_room"] = videocall_room
-settings["device_location"] = device_location
+if app_language:
+    settings["language"] = app_language
+elif not settings.get("language"):
+    settings["language"] = "es"
+
+if device_id:
+    settings["device_id"] = device_id
+elif not settings.get("device_id"):
+    settings["device_id"] = "CoBien1"
+
+if videocall_room:
+    settings["videocall_room"] = videocall_room
+elif not settings.get("videocall_room"):
+    settings["videocall_room"] = settings.get("device_id", "CoBien1")
+
+if device_location:
+    settings["device_location"] = device_location
 
 services = data.get("services")
 if not isinstance(services, dict):
     services = {}
 data["services"] = services
-services["tts_engine"] = tts_engine or "piper"
-services["tts_piper_bin"] = tts_piper_bin
-services["tts_piper_model_es"] = tts_piper_model_es
-services["tts_piper_model_fr"] = tts_piper_model_fr
-services["tts_piper_model_es_male"] = tts_piper_model_es_male
-services["tts_piper_model_es_female"] = tts_piper_model_es_female
-services["tts_piper_model_fr_male"] = tts_piper_model_fr_male
-services["tts_piper_model_fr_female"] = tts_piper_model_fr_female
-services["tts_piper_model_es_url"] = tts_piper_model_es_url
-services["tts_piper_model_fr_url"] = tts_piper_model_fr_url
-services["tts_piper_model_es_male_url"] = tts_piper_model_es_male_url
-services["tts_piper_model_es_female_url"] = tts_piper_model_es_female_url
-services["tts_piper_model_fr_male_url"] = tts_piper_model_fr_male_url
-services["tts_piper_model_fr_female_url"] = tts_piper_model_fr_female_url
-services["tts_piper_voice_es"] = tts_piper_voice_es
-services["tts_piper_voice_fr"] = tts_piper_voice_fr
+if tts_engine:
+    services["tts_engine"] = tts_engine
+elif not services.get("tts_engine"):
+    services["tts_engine"] = "piper"
+
+for key, value in (
+    ("tts_piper_bin", tts_piper_bin),
+    ("tts_piper_model_es", tts_piper_model_es),
+    ("tts_piper_model_fr", tts_piper_model_fr),
+    ("tts_piper_model_es_male", tts_piper_model_es_male),
+    ("tts_piper_model_es_female", tts_piper_model_es_female),
+    ("tts_piper_model_fr_male", tts_piper_model_fr_male),
+    ("tts_piper_model_fr_female", tts_piper_model_fr_female),
+    ("tts_piper_model_es_url", tts_piper_model_es_url),
+    ("tts_piper_model_fr_url", tts_piper_model_fr_url),
+    ("tts_piper_model_es_male_url", tts_piper_model_es_male_url),
+    ("tts_piper_model_es_female_url", tts_piper_model_es_female_url),
+    ("tts_piper_model_fr_male_url", tts_piper_model_fr_male_url),
+    ("tts_piper_model_fr_female_url", tts_piper_model_fr_female_url),
+    ("tts_piper_voice_es", tts_piper_voice_es),
+    ("tts_piper_voice_fr", tts_piper_voice_fr),
+):
+    if value:
+        services[key] = value
 
 with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)

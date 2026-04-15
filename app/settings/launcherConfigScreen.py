@@ -22,6 +22,7 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.spinner import Spinner
+from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.uix.textinput import TextInput
 
 from config_store import load_config, load_section, save_config
@@ -96,8 +97,19 @@ class LauncherConfigScreen(Screen):
         header.add_widget(back_btn)
         root.add_widget(header)
 
+        self.tabs = TabbedPanel(do_default_tab=False, tab_width=dp(220))
+        root.add_widget(self.tabs)
+
+        form_tab = TabbedPanelItem(text=_("Campos"))
+        raw_config_tab = TabbedPanelItem(text=_("JSON completo"))
+        raw_env_tab = TabbedPanelItem(text=_("Parámetros texto"))
+        self.tabs.add_widget(form_tab)
+        self.tabs.add_widget(raw_config_tab)
+        self.tabs.add_widget(raw_env_tab)
+        self.tabs.default_tab = form_tab
+
         scroll = ScrollView(do_scroll_x=False, do_scroll_y=True, bar_width=dp(12))
-        root.add_widget(scroll)
+        form_tab.add_widget(scroll)
 
         self.form = BoxLayout(
             orientation="vertical",
@@ -110,6 +122,7 @@ class LauncherConfigScreen(Screen):
 
         self._build_launcher_section()
         self._build_config_section()
+        self._build_raw_tabs(raw_config_tab, raw_env_tab)
 
         self.lbl_status = Label(
             text="",
@@ -221,6 +234,29 @@ class LauncherConfigScreen(Screen):
                 self._config_inputs[(section_name, key)] = widget
                 self._config_types[(section_name, key)] = kind
                 self.form.add_widget(widget)
+
+    def _build_raw_tabs(self, raw_config_tab: TabbedPanelItem, raw_env_tab: TabbedPanelItem) -> None:
+        raw_config_box = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(12))
+        raw_config_tab.add_widget(raw_config_box)
+        raw_config_box.add_widget(self._field_label(_("JSON completo de configuración local")))
+        self.raw_config_input = TextInput(
+            text="",
+            multiline=True,
+            font_size=sp(18),
+            hint_text="{ ... }",
+        )
+        raw_config_box.add_widget(self.raw_config_input)
+
+        raw_env_box = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(12))
+        raw_env_tab.add_widget(raw_env_box)
+        raw_env_box.add_widget(self._field_label(_("Parámetros completos del launcher en texto plano")))
+        self.raw_env_input = TextInput(
+            text="",
+            multiline=True,
+            font_size=sp(18),
+            hint_text="KEY=value",
+        )
+        raw_env_box.add_widget(self.raw_env_input)
 
     def _serialize_config_value(self, section_name: str, key: str, value: Any):
         if isinstance(value, bool):
@@ -334,10 +370,26 @@ class LauncherConfigScreen(Screen):
             self._config_types[(section_name, key)] = kind
             widget.text = text_value
 
+        self.raw_config_input.text = json.dumps(runtime_cfg, ensure_ascii=False, indent=4)
+        self.raw_env_input.text = "\n".join(f"{key}={env[key]}" for key in sorted(env.keys()))
+
         self.lbl_status.text = f"{_('Configuración cargada desde')}: {self._env_path()}"
 
     def save_changes(self) -> None:
         env = self._read_env()
+        raw_env_text = str(self.raw_env_input.text or "").strip()
+        if raw_env_text:
+            raw_env: Dict[str, str] = {}
+            for line in raw_env_text.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    raise ValueError(_("Cada línea del texto plano debe tener formato KEY=value"))
+                key, value = line.split("=", 1)
+                raw_env[key.strip()] = value.strip()
+            env = raw_env
+
         for key, _label, _kind, default in LAUNCHER_FIELDS:
             widget = self._launcher_inputs[key]
             env[key] = (widget.text or default or "").strip()
@@ -349,7 +401,14 @@ class LauncherConfigScreen(Screen):
         env.update(self._parse_extra_env_text())
         self._write_env(env)
 
-        config = load_config()
+        raw_config_text = str(self.raw_config_input.text or "").strip()
+        if raw_config_text:
+            config = json.loads(raw_config_text)
+            if not isinstance(config, dict):
+                raise ValueError(_("El JSON completo debe ser un objeto"))
+        else:
+            config = load_config()
+
         for (section_name, key), widget in self._config_inputs.items():
             kind = self._config_types[(section_name, key)]
             config.setdefault(section_name, {})
@@ -370,6 +429,9 @@ class LauncherConfigScreen(Screen):
             app.main_ref.DEVICE_LOCATION = self.cfg.get_device_location()
 
         self.lbl_status.text = f"{_('Configuración guardada en')}: {self._env_path()}"
+        self.raw_config_input.text = json.dumps(load_config(), ensure_ascii=False, indent=4)
+        saved_env = self._read_env()
+        self.raw_env_input.text = "\n".join(f"{key}={saved_env[key]}" for key in sorted(saved_env.keys()))
 
     def _launcher_script_path(self) -> str:
         workspace = (self._launcher_inputs["COBIEN_WORKSPACE_ROOT"].text or "").strip() or os.path.join(os.path.expanduser("~"), "cobien")
