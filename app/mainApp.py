@@ -21,6 +21,7 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
+from kivy.uix.widget import Widget
 from kivy.graphics import Color, RoundedRectangle
 
 
@@ -2101,6 +2102,98 @@ class MyApp(App):
 
     def _show_exit_pin_popup(self):
         print("[APP] Exit request blocked outside administration")
+
+    def _close_reboot_popup(self):
+        popup = getattr(self, "_reboot_popup", None)
+        if popup:
+            try:
+                popup.dismiss()
+            except Exception:
+                pass
+        self._reboot_popup = None
+
+    def request_admin_reboot(self):
+        if getattr(self, "_reboot_popup", None):
+            return
+
+        root = BoxLayout(orientation="vertical", spacing=dp(18))
+        title = Label(
+            text=_("Confirmar reinicio"),
+            font_size=sp(28),
+            bold=True,
+            color=(0.1, 0.1, 0.1, 1),
+            size_hint_y=None,
+            height=dp(44),
+        )
+        info = Label(
+            text=_("Ubuntu se reiniciará inmediatamente y la aplicación se cerrará durante el proceso."),
+            font_size=sp(20),
+            color=(0.2, 0.2, 0.2, 1),
+            halign="center",
+            valign="middle",
+            size_hint_y=None,
+            height=dp(84),
+        )
+        info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
+
+        feedback = Label(
+            text="",
+            font_size=sp(18),
+            color=(0.85, 0.1, 0.1, 1),
+            halign="center",
+            valign="middle",
+            size_hint_y=None,
+            height=dp(56),
+        )
+        feedback.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
+
+        def _cancel(*_args):
+            self._close_reboot_popup()
+
+        def _confirm(*_args):
+            commands = [
+                ["systemctl", "reboot"],
+                ["loginctl", "reboot"],
+                ["reboot"],
+            ]
+
+            for cmd in commands:
+                try:
+                    subprocess.Popen(cmd)
+                    print(f"[APP] Reboot command launched: {' '.join(cmd)}")
+                    self._close_reboot_popup()
+                    return
+                except Exception as exc:
+                    print(f"[APP] Reboot command failed ({' '.join(cmd)}): {exc}")
+
+            feedback.text = _("No se ha podido reiniciar Ubuntu. Revisa los permisos del sistema.")
+
+        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
+        cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
+        confirm_btn = Button(text=_("Reiniciar"), font_size=sp(22), background_color=(0.89, 0.57, 0.12, 1))
+        btn_row.add_widget(Widget())
+        btn_row.add_widget(cancel_btn)
+        btn_row.add_widget(confirm_btn)
+
+        root.add_widget(title)
+        root.add_widget(info)
+        root.add_widget(feedback)
+        root.add_widget(btn_row)
+
+        popup = Popup(
+            title="",
+            content=wrap_popup_content(root),
+            size_hint=(0.58, 0.42),
+            auto_dismiss=False,
+            **popup_theme_kwargs(),
+        )
+
+        cancel_btn.bind(on_release=_cancel)
+        confirm_btn.bind(on_release=_confirm)
+        popup.bind(on_dismiss=lambda *_: setattr(self, "_reboot_popup", None))
+
+        self._reboot_popup = popup
+        popup.open()
 
     def request_admin_exit(self):
         if getattr(self, "_exit_pin_popup", None):
