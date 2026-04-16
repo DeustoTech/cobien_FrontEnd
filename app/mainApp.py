@@ -1302,6 +1302,38 @@ class MainScreen(Screen):
             return "data/images/nubes.png"
         return "data/images/nubes.png"
 
+    def _apply_home_weather_city_list(self, cities):
+        """Refresh home-screen weather city from a runtime city list payload."""
+        if not cities:
+            print("[MAIN] Weather list update ignored: empty list")
+            return
+
+        configured_primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
+        selected_city = None
+
+        if configured_primary_city:
+            selected_city = next(
+                (city for city in cities if city.get("name") == configured_primary_city),
+                None,
+            )
+            if selected_city:
+                print(f"[MAIN] Weather list update matched primary city: {configured_primary_city}")
+            else:
+                print(
+                    f"[MAIN] Primary city '{configured_primary_city}' missing from refreshed list, "
+                    "falling back to first active city."
+                )
+
+        if selected_city is None:
+            selected_city = cities[0]
+
+        self.weather_city = selected_city["name"]
+        self.weather_lat = selected_city["lat"]
+        self.weather_lon = selected_city["lon"]
+        self.weather_tz = selected_city.get("tz", "UTC")
+        print(f"[MAIN] Home weather city refreshed: {self.weather_city}")
+        self._update_weather_async()
+
     # ---------------- MQTT / navegación ----------------
     def process_mqtt_message(self, message, topic):
         """Traite les messages MQTT des capteurs locaux"""
@@ -1390,6 +1422,13 @@ class MainScreen(Screen):
                         w.set_city_dynamic(name, lat, lon, tz)
                     else:
                         print("[MQTT] Données météo invalides :", extra)
+
+                elif target == "weather_list":
+                    cities = extra.get("cities", [])
+                    if isinstance(cities, list):
+                        self._apply_home_weather_city_list(cities)
+                    else:
+                        print("[MQTT] Weather list payload invalid:", extra)
 
                 print(f"[MQTT] Navigation vers {target}")
                 return
