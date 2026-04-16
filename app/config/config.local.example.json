@@ -3,11 +3,13 @@
     "language": "es",
     "weather_cities": [
       "Bilbao",
-      "Toulouse"
+      "Toulouse",
+      "Logroño"
     ],
     "weather_city_catalog": [
       "Bilbao",
-      "Toulouse"
+      "Toulouse",
+      "Logroño"
     ],
     "weather_primary_city": "Bilbao",
     "device_id": "CoBien1",

@@ -35,8 +35,8 @@ DEFAULT_UNIFIED_CONFIG = {
     },
     "settings": {
         "language": "es",
-        "weather_cities": ["Bilbao", "Toulouse"],
-        "weather_city_catalog": ["Bilbao", "Toulouse"],
+        "weather_cities": ["Bilbao", "Toulouse", "Logroño"],
+        "weather_city_catalog": ["Bilbao", "Toulouse", "Logroño"],
         "weather_primary_city": "Bilbao",
         "button_colors": {},
         "rfid_actions": {},
@@ -120,7 +120,7 @@ DEFAULT_UNIFIED_CONFIG = {
     },
 }
 
-DEFAULT_WEATHER_CITIES = ["Bilbao", "Toulouse"]
+DEFAULT_WEATHER_CITIES = ["Bilbao", "Toulouse", "Logroño"]
 _INVALID_CITY_PATTERNS = (
     "section",
     "ville par ligne",

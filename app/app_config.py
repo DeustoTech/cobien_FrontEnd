@@ -17,8 +17,8 @@ DEFAULT_VIDEOCALL_ROOM = os.getenv("COBIEN_VIDEOCALL_ROOM", DEFAULT_DEVICE_ID)
 DEFAULT_DEVICE_LOCATION = os.getenv("COBIEN_DEVICE_LOCATION", "Bilbao")
 DEFAULT_CONFIG = {
     "language": "es",
-    "weather_cities": ["Bilbao", "Toulouse"],
-    "weather_city_catalog": ["Bilbao", "Toulouse"],
+    "weather_cities": ["Bilbao", "Toulouse", "Logroño"],
+    "weather_city_catalog": ["Bilbao", "Toulouse", "Logroño"],
     "weather_primary_city": "Bilbao",
     "button_colors": {},
     "rfid_actions": {},
