@@ -25,6 +25,7 @@ SENSITIVE_CONFIG = {
         "spoonacular_api_key": {"env": "SPOONACULAR_API_KEY"},
         "mongo_uri": {"env": "MONGO_URI"},
         "notify_api_key": {"env": "COBIEN_NOTIFY_API_KEY"},
+        "videocall_device_api_key": {"env": "COBIEN_VIDEOCALL_DEVICE_API_KEY"},
     },
 }
 
@@ -82,6 +83,7 @@ DEFAULT_UNIFIED_CONFIG = {
         "tts_piper_model_fr_female_url": os.getenv("COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL", ""),
         "disable_system_sleep": os.getenv("COBIEN_DISABLE_SYSTEM_SLEEP", "0"),
         "notify_api_key": "",
+        "videocall_device_api_key": "",
         "pizarra_notify_url": os.getenv("COBIEN_PIZARRA_NOTIFY_URL", "http://portal.co-bien.eu/pizarra/api/notify/"),
         "pizarra_messages_url": os.getenv("COBIEN_PIZARRA_API_URL", "http://portal.co-bien.eu/pizarra/api/messages/"),
         "pizarra_delete_url_template": os.getenv(
@@ -103,9 +105,14 @@ DEFAULT_UNIFIED_CONFIG = {
             "http://portal.co-bien.eu/pizarra/api/icso/events/",
         ),
         "portal_videocall_url": os.getenv("COBIEN_PORTAL_VIDEOCALL_URL", "https://portal.co-bien.eu/videocall/"),
+        "portal_videocall_device_url": os.getenv("COBIEN_PORTAL_VIDEOCALL_DEVICE_URL", "https://portal.co-bien.eu/videocall/device/"),
+        "device_videocall_session_url": os.getenv(
+            "COBIEN_DEVICE_VIDEOCALL_SESSION_URL",
+            "https://portal.co-bien.eu/api/device-videocall-session/",
+        ),
         "portal_call_answered_url": os.getenv(
             "COBIEN_PORTAL_CALL_ANSWERED_URL",
-            "https://portal.co-bien.eu/videocall/call-answered/",
+            "https://portal.co-bien.eu/api/call-answered/",
         ),
         "openweather_current_url": "https://api.openweathermap.org/data/2.5/weather",
         "openweather_forecast_url": "https://api.openweathermap.org/data/2.5/forecast",

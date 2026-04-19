@@ -35,6 +35,7 @@ FORCE_RESTART="${COBIEN_FORCE_RESTART:-0}"
 APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-es}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
+VIDEOCALL_DEVICE_API_KEY="${COBIEN_VIDEOCALL_DEVICE_API_KEY:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
 TTS_ENGINE="${COBIEN_TTS_ENGINE:-piper}"
@@ -117,6 +118,7 @@ Options:
   --device-location LOCATION
   --app-language es|fr
   --hardware-mode real|mock|auto
+  --videocall-device-api-key KEY
   --tts-engine ENGINE
   --tts-piper-bin PATH
   --tts-piper-model-es PATH
@@ -434,6 +436,7 @@ COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
 COBIEN_APP_LANGUAGE=$APP_LANGUAGE
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
+COBIEN_VIDEOCALL_DEVICE_API_KEY=$VIDEOCALL_DEVICE_API_KEY
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
 COBIEN_HARDWARE_MODE=$HARDWARE_MODE
 COBIEN_TTS_ENGINE=$TTS_ENGINE
@@ -484,6 +487,7 @@ load_last_run_config() {
   APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-$APP_LANGUAGE}"
   DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
   VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
+  VIDEOCALL_DEVICE_API_KEY="${COBIEN_VIDEOCALL_DEVICE_API_KEY:-$VIDEOCALL_DEVICE_API_KEY}"
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
   HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
   TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
@@ -526,6 +530,11 @@ print_last_run_config_summary() {
   echo "  App language:     $APP_LANGUAGE"
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
+  if [[ -n "$VIDEOCALL_DEVICE_API_KEY" ]]; then
+    echo "  Videocall key:    configured"
+  else
+    echo "  Videocall key:    missing"
+  fi
   echo "  Device location:  $DEVICE_LOCATION"
   echo "  Hardware mode:    $HARDWARE_MODE"
   echo "  TTS engine:       $TTS_ENGINE"
@@ -844,6 +853,24 @@ ask() {
     read -r -p "$prompt: " answer
     echo "$answer"
   fi
+}
+
+ask_secret_required() {
+  local prompt="$1"
+  local answer=""
+  if [[ "$NON_INTERACTIVE" == "1" ]]; then
+    echo "$VIDEOCALL_DEVICE_API_KEY"
+    return
+  fi
+  while true; do
+    read -r -s -p "$prompt: " answer
+    echo
+    if [[ -n "${answer//[[:space:]]/}" ]]; then
+      echo "$answer"
+      return
+    fi
+    echo "This value is required."
+  done
 }
 
 ask_yes_no() {
@@ -1387,12 +1414,12 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$APP_LANGUAGE" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" "$TTS_PIPER_MODEL_ES_MALE" "$TTS_PIPER_MODEL_ES_FEMALE" "$TTS_PIPER_MODEL_FR_MALE" "$TTS_PIPER_MODEL_FR_FEMALE" "$TTS_PIPER_MODEL_ES_MALE_URL" "$TTS_PIPER_MODEL_ES_FEMALE_URL" "$TTS_PIPER_MODEL_FR_MALE_URL" "$TTS_PIPER_MODEL_FR_FEMALE_URL" <<'PY'
+  python3 - "$unified_config_file" "$APP_LANGUAGE" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$VIDEOCALL_DEVICE_API_KEY" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" "$TTS_PIPER_MODEL_ES_MALE" "$TTS_PIPER_MODEL_ES_FEMALE" "$TTS_PIPER_MODEL_FR_MALE" "$TTS_PIPER_MODEL_FR_FEMALE" "$TTS_PIPER_MODEL_ES_MALE_URL" "$TTS_PIPER_MODEL_ES_FEMALE_URL" "$TTS_PIPER_MODEL_FR_MALE_URL" "$TTS_PIPER_MODEL_FR_FEMALE_URL" <<'PY'
 import json
 import os
 import sys
 
-config_file, app_language, device_id, videocall_room, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr, tts_piper_model_es_male, tts_piper_model_es_female, tts_piper_model_fr_male, tts_piper_model_fr_female, tts_piper_model_es_male_url, tts_piper_model_es_female_url, tts_piper_model_fr_male_url, tts_piper_model_fr_female_url = sys.argv[1:22]
+config_file, app_language, device_id, videocall_room, videocall_device_api_key, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr, tts_piper_model_es_male, tts_piper_model_es_female, tts_piper_model_fr_male, tts_piper_model_fr_female, tts_piper_model_es_male_url, tts_piper_model_es_female_url, tts_piper_model_fr_male_url, tts_piper_model_fr_female_url = sys.argv[1:23]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -1436,6 +1463,9 @@ if tts_engine:
 elif not services.get("tts_engine"):
     services["tts_engine"] = "piper"
 
+if videocall_device_api_key:
+    services["videocall_device_api_key"] = videocall_device_api_key
+
 for key, value in (
     ("tts_piper_bin", tts_piper_bin),
     ("tts_piper_model_es", tts_piper_model_es),
@@ -1460,7 +1490,7 @@ with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
 PY
 
-  log "Device identity synced: language='$APP_LANGUAGE', device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', location='$DEVICE_LOCATION', tts_engine='$TTS_ENGINE'"
+  log "Device identity synced: language='$APP_LANGUAGE', device_id='$DEVICE_ID', videocall_room='$VIDEOCALL_ROOM', videocall_key='configured', location='$DEVICE_LOCATION', tts_engine='$TTS_ENGINE'"
 }
 
 configure_audio_input_defaults() {
@@ -1694,6 +1724,7 @@ write_env_file() {
     echo "COBIEN_APP_LANGUAGE=$(shell_quote_env_value "$APP_LANGUAGE")"
     echo "COBIEN_DEVICE_ID=$(shell_quote_env_value "$DEVICE_ID")"
     echo "COBIEN_VIDEOCALL_ROOM=$(shell_quote_env_value "$VIDEOCALL_ROOM")"
+    echo "COBIEN_VIDEOCALL_DEVICE_API_KEY=$(shell_quote_env_value "$VIDEOCALL_DEVICE_API_KEY")"
     echo "COBIEN_DEVICE_LOCATION=$(shell_quote_env_value "$DEVICE_LOCATION")"
     echo "COBIEN_HARDWARE_MODE=$(shell_quote_env_value "$HARDWARE_MODE")"
     echo "COBIEN_TTS_ENGINE=$(shell_quote_env_value "$TTS_ENGINE")"
@@ -2049,6 +2080,11 @@ print_dry_run() {
   log "APP_LANGUAGE=$APP_LANGUAGE"
   log "DEVICE_ID=$DEVICE_ID"
   log "VIDEOCALL_ROOM=$VIDEOCALL_ROOM"
+  if [[ -n "$VIDEOCALL_DEVICE_API_KEY" ]]; then
+    log "VIDEOCALL_DEVICE_API_KEY=configured"
+  else
+    log "VIDEOCALL_DEVICE_API_KEY=missing"
+  fi
   log "DEVICE_LOCATION=$DEVICE_LOCATION"
   log "HARDWARE_MODE=$HARDWARE_MODE"
   log "TTS_ENGINE=$TTS_ENGINE"
@@ -2203,6 +2239,7 @@ run_full_flow() {
     normalize_device_identity
     DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
     VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
+    VIDEOCALL_DEVICE_API_KEY="$(ask_secret_required "Videocall device API key for $DEVICE_ID")"
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
     HARDWARE_MODE="$(ask "Hardware mode (auto/real/mock)" "$HARDWARE_MODE")"
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
@@ -2329,6 +2366,7 @@ run_full_flow() {
   echo "  App language:     $APP_LANGUAGE"
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
+  echo "  Videocall key:    configured"
   echo "  Device location:  $DEVICE_LOCATION"
   echo "  Hardware mode:    $HARDWARE_MODE"
   echo "  TTS engine:       $TTS_ENGINE"
@@ -2338,6 +2376,11 @@ run_full_flow() {
   fi
   echo "  Install systemd:  $INSTALL_SYSTEMD_USER"
   echo
+
+  if [[ -z "$VIDEOCALL_DEVICE_API_KEY" ]]; then
+    echo "Videocall device API key is required."
+    exit 1
+  fi
 
   if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue" "y"; then
     log "WARN: Cancelled."
@@ -2441,6 +2484,10 @@ parse_args() {
         ;;
       --videocall-room)
         VIDEOCALL_ROOM="$2"
+        shift 2
+        ;;
+      --videocall-device-api-key)
+        VIDEOCALL_DEVICE_API_KEY="$2"
         shift 2
         ;;
       --device-location)

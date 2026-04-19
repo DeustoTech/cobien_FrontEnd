@@ -8,6 +8,7 @@ import sys
 import os
 import json
 import datetime
+from urllib.parse import urlencode
 from typing import Any, Dict, Optional, Tuple
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,7 +31,10 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--use-fake-ui-for-media-stream"
 
 _services_cfg = load_section("services", {})
 PORTAL_URL = _services_cfg.get("portal_videocall_url", "https://portal.co-bien.eu/videocall/")
-BACKEND_URL = _services_cfg.get("portal_call_answered_url", "https://portal.co-bien.eu/videocall/call-answered/")
+DEVICE_PORTAL_URL = _services_cfg.get("portal_videocall_device_url", "https://portal.co-bien.eu/videocall/device/")
+DEVICE_SESSION_URL = _services_cfg.get("device_videocall_session_url", "https://portal.co-bien.eu/api/device-videocall-session/")
+BACKEND_URL = _services_cfg.get("portal_call_answered_url", "https://portal.co-bien.eu/api/call-answered/")
+DEVICE_API_KEY = (_services_cfg.get("videocall_device_api_key", "") or "").strip()
 
 
 def _default_config_path() -> str:
@@ -141,6 +145,52 @@ def notify_backend_call_answered(room_name: str, device_name: str) -> None:
     except Exception as e:
         print(f"[VIDEOCALL] ❌ Erreur notification backend: {e}")
 
+
+def request_device_session(room_name: str, device_name: str) -> Optional[Dict[str, Any]]:
+    """Request a trusted device bootstrap session from backend."""
+    import urllib.request
+    import urllib.error
+
+    if not DEVICE_API_KEY:
+        print("[VIDEOCALL] ℹ️ No device API key configured; using standard portal flow.")
+        return None
+
+    payload = json.dumps(
+        {
+            "device_id": device_name,
+            "room": room_name,
+        }
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        DEVICE_SESSION_URL,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-DEVICE-ID": device_name,
+            "X-DEVICE-KEY": DEVICE_API_KEY,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            call_answered_url = str(data.get("call_answered_url") or "").strip()
+            if call_answered_url:
+                global BACKEND_URL
+                BACKEND_URL = call_answered_url
+            print(f"[VIDEOCALL] ✅ Device session created for room '{data.get('room_name', room_name)}'")
+            return data
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "ignore")
+        print(f"[VIDEOCALL] ❌ Device session rejected: HTTP {e.code} {detail}")
+    except urllib.error.URLError as e:
+        print(f"[VIDEOCALL] ❌ Device session network error: {e}")
+    except Exception as e:
+        print(f"[VIDEOCALL] ❌ Device session error: {e}")
+    return None
+
 # ================================================================
 class CustomWebEnginePage(QWebEnginePage):
     """QWebEngine page overriding prompts for room/device auto-fill."""
@@ -174,10 +224,11 @@ class CustomWebEnginePage(QWebEnginePage):
 class MainWindow(QMainWindow):
     """Main full-screen window embedding web-based video-call UI."""
 
-    def __init__(self, room_name: str, device_name: str) -> None:
+    def __init__(self, room_name: str, device_name: str, session_data: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
         self.room_name = room_name
         self.device_name = device_name
+        self.session_data = session_data or {}
         
         self.setWindowTitle("VIDEOLLAMADA")
         self._call_start_time = datetime.datetime.now()
@@ -263,12 +314,24 @@ class MainWindow(QMainWindow):
     def _load_videocall(self) -> None:
         """Load portal video-call URL into embedded browser."""
         self.page.prompt_counter = 0
-        self.web_view.setUrl(QUrl(PORTAL_URL))
-        print(f"[VIDEOCALL] 🌐 Chargement: {PORTAL_URL}")
+        if self.session_data.get("token"):
+            fragment = urlencode(
+                {
+                    "token": self.session_data.get("token", ""),
+                    "room": self.session_data.get("room_name", self.room_name),
+                    "identity": self.session_data.get("identity", self.device_name),
+                }
+            )
+            target_url = f"{DEVICE_PORTAL_URL}#{fragment}"
+        else:
+            target_url = PORTAL_URL
+        self.web_view.setUrl(QUrl(target_url))
+        print(f"[VIDEOCALL] 🌐 Chargement: {target_url}")
 
 def main() -> None:
     """Entrypoint for launching full-screen video-call runtime window."""
     config, room_name, device_name = resolve_runtime_config()
+    session_data = request_device_session(room_name, device_name)
     print(f"[VIDEOCALL] ========================================")
     print(f"[VIDEOCALL] Configuration:")
     print(f"[VIDEOCALL]    Room: {room_name}")
@@ -277,7 +340,7 @@ def main() -> None:
     app = QApplication(sys.argv)
     # Escala HiDPI correcta en Mac
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    window = MainWindow(room_name, device_name)
+    window = MainWindow(room_name, device_name, session_data=session_data)
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
