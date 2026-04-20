@@ -74,6 +74,7 @@ from black_overlay import BlackOverlay
 
 # HTTP
 import requests
+from requests import HTTPError
 import threading
 
 # ✅ ÉTAPE 7 : Translation
@@ -624,6 +625,10 @@ class MainScreen(Screen):
                 f"[BACKEND POLL] Configured endpoint {self.backend_poll_url} "
                 f"(interval={self.backend_poll_interval_sec}s)"
             )
+            if self.backend_poll_api_key:
+                print("[BACKEND POLL] Notify API key configured")
+            else:
+                print("[BACKEND POLL] Notify API key missing; polling may fail if backend auth is enabled")
         else:
             self.backend_poll_last_error = "device poll URL not configured"
             print("[BACKEND POLL] No poll URL configured; backend notifications disabled")
@@ -908,6 +913,21 @@ class MainScreen(Screen):
                 Clock.schedule_once(
                     lambda dt, items=list(notifications): self._process_polled_backend_notifications(items)
                 )
+        except HTTPError as exc:
+            status_code = getattr(exc.response, "status_code", -1)
+            response_text = ""
+            try:
+                response_text = (exc.response.text or "").strip()
+            except Exception:
+                response_text = ""
+            self.backend_poll_connected = False
+            self.backend_poll_last_failure_at = datetime.now().isoformat()
+            self.backend_poll_last_status = status_code
+            self.backend_poll_last_error = response_text[:300] or str(exc)
+            print(
+                f"[BACKEND POLL] Poll failed with HTTP {status_code}: "
+                f"{self.backend_poll_last_error}"
+            )
         except Exception as exc:
             self.backend_poll_connected = False
             self.backend_poll_last_failure_at = datetime.now().isoformat()
