@@ -1394,7 +1394,7 @@ install_system_deps_fn() {
   sudo apt install -y \
     git curl wget build-essential cmake pkg-config \
     python3 python3-venv python3-pip \
-    wmctrl gnome-terminal can-utils iproute2 \
+    wmctrl gnome-terminal can-utils iproute2 xclip xsel \
     alsa-utils \
     pulseaudio-utils pipewire-pulse wireplumber pavucontrol \
     mosquitto mosquitto-clients \
@@ -1425,6 +1425,8 @@ ensure_runtime_dependencies() {
   command -v cmake >/dev/null 2>&1 || missing_packages+=("cmake")
   command -v candump >/dev/null 2>&1 || missing_packages+=("can-utils")
   command -v ip >/dev/null 2>&1 || missing_packages+=("iproute2")
+  command -v xclip >/dev/null 2>&1 || missing_packages+=("xclip")
+  command -v xsel >/dev/null 2>&1 || missing_packages+=("xsel")
   command -v aplay >/dev/null 2>&1 || missing_packages+=("alsa-utils")
   command -v pactl >/dev/null 2>&1 || missing_packages+=("pulseaudio-utils")
   dpkg -s pipewire-pulse >/dev/null 2>&1 || missing_packages+=("pipewire-pulse")
