@@ -35,9 +35,29 @@ FORCE_RESTART="${COBIEN_FORCE_RESTART:-0}"
 APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-es}"
 DEVICE_ID="${COBIEN_DEVICE_ID:-}"
 VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-}"
+NOTIFY_API_KEY="${COBIEN_NOTIFY_API_KEY:-}"
 VIDEOCALL_DEVICE_API_KEY="${COBIEN_VIDEOCALL_DEVICE_API_KEY:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
+SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-}"
+BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-https://portal.co-bien.eu}"
+DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-}"
+DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-5}"
+DEVICE_HEARTBEAT_URL="${COBIEN_DEVICE_HEARTBEAT_URL:-}"
+DEVICE_HEARTBEAT_INTERVAL_SEC="${COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC:-60}"
+PIZARRA_NOTIFY_URL="${COBIEN_PIZARRA_NOTIFY_URL:-}"
+PIZARRA_API_URL="${COBIEN_PIZARRA_API_URL:-}"
+PIZARRA_DELETE_URL_TEMPLATE="${COBIEN_PIZARRA_DELETE_URL_TEMPLATE:-}"
+CONTACTS_API_URL="${COBIEN_CONTACTS_API_URL:-}"
+ICSO_TELEMETRY_URL="${COBIEN_ICSO_TELEMETRY_URL:-}"
+ICSO_EVENTS_URL="${COBIEN_ICSO_EVENTS_URL:-}"
+DEVICE_VIDEOCALL_SESSION_URL="${COBIEN_DEVICE_VIDEOCALL_SESSION_URL:-}"
+PORTAL_VIDEOCALL_URL="${COBIEN_PORTAL_VIDEOCALL_URL:-}"
+PORTAL_VIDEOCALL_DEVICE_URL="${COBIEN_PORTAL_VIDEOCALL_DEVICE_URL:-}"
+PORTAL_CALL_ANSWERED_URL="${COBIEN_PORTAL_CALL_ANSWERED_URL:-}"
+MQTT_LOCAL_BROKER="${COBIEN_MQTT_LOCAL_BROKER:-localhost}"
+MQTT_LOCAL_PORT="${COBIEN_MQTT_LOCAL_PORT:-1883}"
+HTTP_TIMEOUT_SEC="${COBIEN_HTTP_TIMEOUT:-8}"
 TTS_ENGINE="${COBIEN_TTS_ENGINE:-piper}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
 TTS_PIPER_PROVIDER="${COBIEN_TTS_PIPER_PROVIDER:-}"
@@ -76,6 +96,7 @@ PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
 ARGS_PROVIDED="0"
 GLOBAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cobien"
 LAST_RUN_CONFIG_FILE="$GLOBAL_CONFIG_DIR/launcher-last.env"
+MASTER_ENV_FILE=""
 LOCK_FILE="${COBIEN_LAUNCHER_LOCK_FILE:-/tmp/cobien-launcher.lock}"
 LOCK_DIR="${LOCK_FILE}.d"
 LOCK_PID_FILE="$LOCK_DIR/pid"
@@ -430,15 +451,36 @@ save_last_run_config() {
 COBIEN_WORKSPACE_ROOT=$WORKSPACE_ROOT
 COBIEN_FRONTEND_REPO_NAME=$FRONTEND_REPO_NAME
 COBIEN_MQTT_REPO_NAME=$MQTT_REPO_NAME
+COBIEN_MASTER_ENV_FILE=$MASTER_ENV_FILE
 COBIEN_UPDATE_BRANCH=$BRANCH_NAME
 COBIEN_UPDATE_REMOTE=$REMOTE_NAME
 COBIEN_UPDATE_INTERVAL_SEC=$POLL_INTERVAL_SEC
 COBIEN_APP_LANGUAGE=$APP_LANGUAGE
 COBIEN_DEVICE_ID=$DEVICE_ID
 COBIEN_VIDEOCALL_ROOM=$VIDEOCALL_ROOM
+COBIEN_NOTIFY_API_KEY=$NOTIFY_API_KEY
 COBIEN_VIDEOCALL_DEVICE_API_KEY=$VIDEOCALL_DEVICE_API_KEY
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
 COBIEN_HARDWARE_MODE=$HARDWARE_MODE
+COBIEN_SETTINGS_PIN=$SETTINGS_PIN
+COBIEN_BACKEND_BASE_URL=$BACKEND_BASE_URL
+COBIEN_DEVICE_POLL_URL=$DEVICE_POLL_URL
+COBIEN_DEVICE_POLL_INTERVAL_SEC=$DEVICE_POLL_INTERVAL_SEC
+COBIEN_DEVICE_HEARTBEAT_URL=$DEVICE_HEARTBEAT_URL
+COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC=$DEVICE_HEARTBEAT_INTERVAL_SEC
+COBIEN_PIZARRA_NOTIFY_URL=$PIZARRA_NOTIFY_URL
+COBIEN_PIZARRA_API_URL=$PIZARRA_API_URL
+COBIEN_PIZARRA_DELETE_URL_TEMPLATE=$PIZARRA_DELETE_URL_TEMPLATE
+COBIEN_CONTACTS_API_URL=$CONTACTS_API_URL
+COBIEN_ICSO_TELEMETRY_URL=$ICSO_TELEMETRY_URL
+COBIEN_ICSO_EVENTS_URL=$ICSO_EVENTS_URL
+COBIEN_DEVICE_VIDEOCALL_SESSION_URL=$DEVICE_VIDEOCALL_SESSION_URL
+COBIEN_PORTAL_VIDEOCALL_URL=$PORTAL_VIDEOCALL_URL
+COBIEN_PORTAL_VIDEOCALL_DEVICE_URL=$PORTAL_VIDEOCALL_DEVICE_URL
+COBIEN_PORTAL_CALL_ANSWERED_URL=$PORTAL_CALL_ANSWERED_URL
+COBIEN_MQTT_LOCAL_BROKER=$MQTT_LOCAL_BROKER
+COBIEN_MQTT_LOCAL_PORT=$MQTT_LOCAL_PORT
+COBIEN_HTTP_TIMEOUT=$HTTP_TIMEOUT_SEC
 COBIEN_TTS_ENGINE=$TTS_ENGINE
 COBIEN_TTS_PIPER_BIN=$TTS_PIPER_BIN
 COBIEN_TTS_PIPER_MODEL_ES=$TTS_PIPER_MODEL_ES
@@ -481,15 +523,36 @@ load_last_run_config() {
   WORKSPACE_ROOT="${COBIEN_WORKSPACE_ROOT:-$WORKSPACE_ROOT}"
   FRONTEND_REPO_NAME="${COBIEN_FRONTEND_REPO_NAME:-$FRONTEND_REPO_NAME}"
   MQTT_REPO_NAME="${COBIEN_MQTT_REPO_NAME:-$MQTT_REPO_NAME}"
+  MASTER_ENV_FILE="${COBIEN_MASTER_ENV_FILE:-$MASTER_ENV_FILE}"
   BRANCH_NAME="${COBIEN_UPDATE_BRANCH:-$BRANCH_NAME}"
   REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-$REMOTE_NAME}"
   POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_SEC}"
   APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-$APP_LANGUAGE}"
   DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
   VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
+  NOTIFY_API_KEY="${COBIEN_NOTIFY_API_KEY:-$NOTIFY_API_KEY}"
   VIDEOCALL_DEVICE_API_KEY="${COBIEN_VIDEOCALL_DEVICE_API_KEY:-$VIDEOCALL_DEVICE_API_KEY}"
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
   HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
+  SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-$SETTINGS_PIN}"
+  BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-$BACKEND_BASE_URL}"
+  DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-$DEVICE_POLL_URL}"
+  DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-$DEVICE_POLL_INTERVAL_SEC}"
+  DEVICE_HEARTBEAT_URL="${COBIEN_DEVICE_HEARTBEAT_URL:-$DEVICE_HEARTBEAT_URL}"
+  DEVICE_HEARTBEAT_INTERVAL_SEC="${COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC:-$DEVICE_HEARTBEAT_INTERVAL_SEC}"
+  PIZARRA_NOTIFY_URL="${COBIEN_PIZARRA_NOTIFY_URL:-$PIZARRA_NOTIFY_URL}"
+  PIZARRA_API_URL="${COBIEN_PIZARRA_API_URL:-$PIZARRA_API_URL}"
+  PIZARRA_DELETE_URL_TEMPLATE="${COBIEN_PIZARRA_DELETE_URL_TEMPLATE:-$PIZARRA_DELETE_URL_TEMPLATE}"
+  CONTACTS_API_URL="${COBIEN_CONTACTS_API_URL:-$CONTACTS_API_URL}"
+  ICSO_TELEMETRY_URL="${COBIEN_ICSO_TELEMETRY_URL:-$ICSO_TELEMETRY_URL}"
+  ICSO_EVENTS_URL="${COBIEN_ICSO_EVENTS_URL:-$ICSO_EVENTS_URL}"
+  DEVICE_VIDEOCALL_SESSION_URL="${COBIEN_DEVICE_VIDEOCALL_SESSION_URL:-$DEVICE_VIDEOCALL_SESSION_URL}"
+  PORTAL_VIDEOCALL_URL="${COBIEN_PORTAL_VIDEOCALL_URL:-$PORTAL_VIDEOCALL_URL}"
+  PORTAL_VIDEOCALL_DEVICE_URL="${COBIEN_PORTAL_VIDEOCALL_DEVICE_URL:-$PORTAL_VIDEOCALL_DEVICE_URL}"
+  PORTAL_CALL_ANSWERED_URL="${COBIEN_PORTAL_CALL_ANSWERED_URL:-$PORTAL_CALL_ANSWERED_URL}"
+  MQTT_LOCAL_BROKER="${COBIEN_MQTT_LOCAL_BROKER:-$MQTT_LOCAL_BROKER}"
+  MQTT_LOCAL_PORT="${COBIEN_MQTT_LOCAL_PORT:-$MQTT_LOCAL_PORT}"
+  HTTP_TIMEOUT_SEC="${COBIEN_HTTP_TIMEOUT:-$HTTP_TIMEOUT_SEC}"
   TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
   TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
   TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
@@ -517,6 +580,8 @@ load_last_run_config() {
   NON_INTERACTIVE="${COBIEN_NON_INTERACTIVE:-$NON_INTERACTIVE}"
   AUTO_CONFIRM="${COBIEN_AUTO_CONFIRM:-$AUTO_CONFIRM}"
   PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-$PYTHON_REQUEST}"
+  normalize_device_identity
+  set_service_defaults
   return 0
 }
 
@@ -530,6 +595,14 @@ print_last_run_config_summary() {
   echo "  App language:     $APP_LANGUAGE"
   echo "  Device ID:        $DEVICE_ID"
   echo "  Videocall room:   $VIDEOCALL_ROOM"
+  echo "  Backend base URL: $BACKEND_BASE_URL"
+  echo "  Device poll URL:  $DEVICE_POLL_URL"
+  echo "  Heartbeat URL:    $DEVICE_HEARTBEAT_URL"
+  if [[ -n "$NOTIFY_API_KEY" ]]; then
+    echo "  Notify key:       configured"
+  else
+    echo "  Notify key:       missing"
+  fi
   if [[ -n "$VIDEOCALL_DEVICE_API_KEY" ]]; then
     echo "  Videocall key:    configured"
   else
@@ -549,6 +622,7 @@ resolve_paths() {
   FRONTEND_APP_DIR="$FRONTEND_REPO/app"
   VENV_DIR="$FRONTEND_APP_DIR/.venv"
   ENV_FILE="$FRONTEND_REPO/deploy/ubuntu/cobien-update.env"
+  MASTER_ENV_FILE="${COBIEN_MASTER_ENV_FILE:-$FRONTEND_REPO/deploy/ubuntu/cobien.env}"
   BRIDGE_DIR="$MQTT_REPO/Interface_MQTT_CAN_c"
   CAN_CONFIG="$BRIDGE_DIR/conversion.json"
   SELF_SCRIPT="$FRONTEND_REPO/deploy/ubuntu/cobien-launcher.sh"
@@ -588,6 +662,119 @@ normalize_device_identity() {
     mock|test|vm|virtual) HARDWARE_MODE="mock" ;;
     *) HARDWARE_MODE="auto" ;;
   esac
+}
+
+set_service_defaults() {
+  [[ -z "$DEVICE_POLL_URL" ]] && DEVICE_POLL_URL="${BACKEND_BASE_URL%/}/pizarra/api/device/poll/"
+  [[ -z "$DEVICE_HEARTBEAT_URL" ]] && DEVICE_HEARTBEAT_URL="${BACKEND_BASE_URL%/}/pizarra/api/devices/heartbeat/"
+  [[ -z "$PIZARRA_NOTIFY_URL" ]] && PIZARRA_NOTIFY_URL="${BACKEND_BASE_URL%/}/pizarra/api/notify/"
+  [[ -z "$PIZARRA_API_URL" ]] && PIZARRA_API_URL="${BACKEND_BASE_URL%/}/pizarra/api/messages/"
+  [[ -z "$PIZARRA_DELETE_URL_TEMPLATE" ]] && PIZARRA_DELETE_URL_TEMPLATE="${BACKEND_BASE_URL%/}/pizarra/api/messages/{post_id}/delete/"
+  [[ -z "$CONTACTS_API_URL" ]] && CONTACTS_API_URL="${BACKEND_BASE_URL%/}/pizarra/api/contacts/"
+  [[ -z "$ICSO_TELEMETRY_URL" ]] && ICSO_TELEMETRY_URL="${BACKEND_BASE_URL%/}/pizarra/api/icso/telemetry/"
+  [[ -z "$ICSO_EVENTS_URL" ]] && ICSO_EVENTS_URL="${BACKEND_BASE_URL%/}/pizarra/api/icso/events/"
+  [[ -z "$PORTAL_VIDEOCALL_URL" ]] && PORTAL_VIDEOCALL_URL="${BACKEND_BASE_URL%/}/videocall/"
+  [[ -z "$PORTAL_VIDEOCALL_DEVICE_URL" ]] && PORTAL_VIDEOCALL_DEVICE_URL="${BACKEND_BASE_URL%/}/videocall/device/"
+  [[ -z "$DEVICE_VIDEOCALL_SESSION_URL" ]] && DEVICE_VIDEOCALL_SESSION_URL="${BACKEND_BASE_URL%/}/api/device-videocall-session/"
+  [[ -z "$PORTAL_CALL_ANSWERED_URL" ]] && PORTAL_CALL_ANSWERED_URL="${BACKEND_BASE_URL%/}/api/call-answered/"
+}
+
+load_master_env_if_present() {
+  resolve_paths
+  if [[ ! -f "$MASTER_ENV_FILE" ]]; then
+    return 1
+  fi
+
+  log "Loading deployment env: $MASTER_ENV_FILE"
+  set -a
+  source "$MASTER_ENV_FILE"
+  set +a
+
+  WORKSPACE_ROOT="${COBIEN_WORKSPACE_ROOT:-$WORKSPACE_ROOT}"
+  FRONTEND_REPO_NAME="${COBIEN_FRONTEND_REPO_NAME:-$FRONTEND_REPO_NAME}"
+  MQTT_REPO_NAME="${COBIEN_MQTT_REPO_NAME:-$MQTT_REPO_NAME}"
+  BRANCH_NAME="${COBIEN_UPDATE_BRANCH:-$BRANCH_NAME}"
+  REMOTE_NAME="${COBIEN_UPDATE_REMOTE:-$REMOTE_NAME}"
+  POLL_INTERVAL_SEC="${COBIEN_UPDATE_INTERVAL_SEC:-$POLL_INTERVAL_SEC}"
+  APP_LANGUAGE="${COBIEN_APP_LANGUAGE:-$APP_LANGUAGE}"
+  DEVICE_ID="${COBIEN_DEVICE_ID:-$DEVICE_ID}"
+  VIDEOCALL_ROOM="${COBIEN_VIDEOCALL_ROOM:-$VIDEOCALL_ROOM}"
+  NOTIFY_API_KEY="${COBIEN_NOTIFY_API_KEY:-$NOTIFY_API_KEY}"
+  VIDEOCALL_DEVICE_API_KEY="${COBIEN_VIDEOCALL_DEVICE_API_KEY:-$VIDEOCALL_DEVICE_API_KEY}"
+  DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
+  HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
+  SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-$SETTINGS_PIN}"
+  BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-$BACKEND_BASE_URL}"
+  DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-$DEVICE_POLL_URL}"
+  DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-$DEVICE_POLL_INTERVAL_SEC}"
+  DEVICE_HEARTBEAT_URL="${COBIEN_DEVICE_HEARTBEAT_URL:-$DEVICE_HEARTBEAT_URL}"
+  DEVICE_HEARTBEAT_INTERVAL_SEC="${COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC:-$DEVICE_HEARTBEAT_INTERVAL_SEC}"
+  PIZARRA_NOTIFY_URL="${COBIEN_PIZARRA_NOTIFY_URL:-$PIZARRA_NOTIFY_URL}"
+  PIZARRA_API_URL="${COBIEN_PIZARRA_API_URL:-$PIZARRA_API_URL}"
+  PIZARRA_DELETE_URL_TEMPLATE="${COBIEN_PIZARRA_DELETE_URL_TEMPLATE:-$PIZARRA_DELETE_URL_TEMPLATE}"
+  CONTACTS_API_URL="${COBIEN_CONTACTS_API_URL:-$CONTACTS_API_URL}"
+  ICSO_TELEMETRY_URL="${COBIEN_ICSO_TELEMETRY_URL:-$ICSO_TELEMETRY_URL}"
+  ICSO_EVENTS_URL="${COBIEN_ICSO_EVENTS_URL:-$ICSO_EVENTS_URL}"
+  DEVICE_VIDEOCALL_SESSION_URL="${COBIEN_DEVICE_VIDEOCALL_SESSION_URL:-$DEVICE_VIDEOCALL_SESSION_URL}"
+  PORTAL_VIDEOCALL_URL="${COBIEN_PORTAL_VIDEOCALL_URL:-$PORTAL_VIDEOCALL_URL}"
+  PORTAL_VIDEOCALL_DEVICE_URL="${COBIEN_PORTAL_VIDEOCALL_DEVICE_URL:-$PORTAL_VIDEOCALL_DEVICE_URL}"
+  PORTAL_CALL_ANSWERED_URL="${COBIEN_PORTAL_CALL_ANSWERED_URL:-$PORTAL_CALL_ANSWERED_URL}"
+  MQTT_LOCAL_BROKER="${COBIEN_MQTT_LOCAL_BROKER:-$MQTT_LOCAL_BROKER}"
+  MQTT_LOCAL_PORT="${COBIEN_MQTT_LOCAL_PORT:-$MQTT_LOCAL_PORT}"
+  HTTP_TIMEOUT_SEC="${COBIEN_HTTP_TIMEOUT:-$HTTP_TIMEOUT_SEC}"
+  TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
+  normalize_device_identity
+  set_service_defaults
+  resolve_paths
+  return 0
+}
+
+master_env_is_complete() {
+  [[ -n "${DEVICE_ID:-}" ]] &&
+  [[ -n "${VIDEOCALL_ROOM:-}" ]] &&
+  [[ -n "${NOTIFY_API_KEY:-}" ]] &&
+  [[ -n "${VIDEOCALL_DEVICE_API_KEY:-}" ]] &&
+  [[ -n "${BACKEND_BASE_URL:-}" ]] &&
+  [[ -n "${DEVICE_POLL_URL:-}" ]] &&
+  [[ -n "${DEVICE_HEARTBEAT_URL:-}" ]] &&
+  [[ -n "${PIZARRA_NOTIFY_URL:-}" ]] &&
+  [[ -n "${PIZARRA_API_URL:-}" ]] &&
+  [[ -n "${CONTACTS_API_URL:-}" ]] &&
+  [[ -n "${ICSO_TELEMETRY_URL:-}" ]] &&
+  [[ -n "${ICSO_EVENTS_URL:-}" ]] &&
+  [[ -n "${DEVICE_VIDEOCALL_SESSION_URL:-}" ]] &&
+  [[ -n "${PORTAL_VIDEOCALL_DEVICE_URL:-}" ]] &&
+  [[ -n "${PORTAL_CALL_ANSWERED_URL:-}" ]]
+}
+
+validate_current_runtime_config() {
+  local missing=()
+  [[ -z "${DEVICE_ID:-}" ]] && missing+=("COBIEN_DEVICE_ID")
+  [[ -z "${VIDEOCALL_ROOM:-}" ]] && missing+=("COBIEN_VIDEOCALL_ROOM")
+  [[ -z "${NOTIFY_API_KEY:-}" ]] && missing+=("COBIEN_NOTIFY_API_KEY")
+  [[ -z "${VIDEOCALL_DEVICE_API_KEY:-}" ]] && missing+=("COBIEN_VIDEOCALL_DEVICE_API_KEY")
+  [[ -z "${BACKEND_BASE_URL:-}" ]] && missing+=("COBIEN_BACKEND_BASE_URL")
+  [[ -z "${DEVICE_POLL_URL:-}" ]] && missing+=("COBIEN_DEVICE_POLL_URL")
+  [[ -z "${DEVICE_HEARTBEAT_URL:-}" ]] && missing+=("COBIEN_DEVICE_HEARTBEAT_URL")
+  [[ -z "${PIZARRA_NOTIFY_URL:-}" ]] && missing+=("COBIEN_PIZARRA_NOTIFY_URL")
+  [[ -z "${PIZARRA_API_URL:-}" ]] && missing+=("COBIEN_PIZARRA_API_URL")
+  [[ -z "${CONTACTS_API_URL:-}" ]] && missing+=("COBIEN_CONTACTS_API_URL")
+  [[ -z "${ICSO_TELEMETRY_URL:-}" ]] && missing+=("COBIEN_ICSO_TELEMETRY_URL")
+  [[ -z "${ICSO_EVENTS_URL:-}" ]] && missing+=("COBIEN_ICSO_EVENTS_URL")
+  [[ -z "${DEVICE_VIDEOCALL_SESSION_URL:-}" ]] && missing+=("COBIEN_DEVICE_VIDEOCALL_SESSION_URL")
+  [[ -z "${PORTAL_VIDEOCALL_DEVICE_URL:-}" ]] && missing+=("COBIEN_PORTAL_VIDEOCALL_DEVICE_URL")
+  [[ -z "${PORTAL_CALL_ANSWERED_URL:-}" ]] && missing+=("COBIEN_PORTAL_CALL_ANSWERED_URL")
+
+  if (( ${#missing[@]} > 0 )); then
+    log "ERROR: Missing required CoBien configuration:"
+    local key
+    for key in "${missing[@]}"; do
+      log "  - $key"
+    done
+    log "Provide the missing values in deploy/ubuntu/cobien.env or pass them explicitly to the launcher."
+    return 1
+  fi
+  return 0
 }
 
 setup_can_bus() {
@@ -1437,12 +1624,97 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - "$unified_config_file" "$APP_LANGUAGE" "$DEVICE_ID" "$VIDEOCALL_ROOM" "$VIDEOCALL_DEVICE_API_KEY" "$DEVICE_LOCATION" "$TTS_ENGINE" "$TTS_PIPER_BIN" "$TTS_PIPER_MODEL_ES" "$TTS_PIPER_MODEL_FR" "$TTS_PIPER_MODEL_ES_URL" "$TTS_PIPER_MODEL_FR_URL" "$TTS_PIPER_VOICE_ES" "$TTS_PIPER_VOICE_FR" "$TTS_PIPER_MODEL_ES_MALE" "$TTS_PIPER_MODEL_ES_FEMALE" "$TTS_PIPER_MODEL_FR_MALE" "$TTS_PIPER_MODEL_FR_FEMALE" "$TTS_PIPER_MODEL_ES_MALE_URL" "$TTS_PIPER_MODEL_ES_FEMALE_URL" "$TTS_PIPER_MODEL_FR_MALE_URL" "$TTS_PIPER_MODEL_FR_FEMALE_URL" <<'PY'
+  python3 - \
+    "$unified_config_file" \
+    "$APP_LANGUAGE" \
+    "$DEVICE_ID" \
+    "$VIDEOCALL_ROOM" \
+    "$VIDEOCALL_DEVICE_API_KEY" \
+    "$DEVICE_LOCATION" \
+    "$TTS_ENGINE" \
+    "$TTS_PIPER_BIN" \
+    "$TTS_PIPER_MODEL_ES" \
+    "$TTS_PIPER_MODEL_FR" \
+    "$TTS_PIPER_MODEL_ES_URL" \
+    "$TTS_PIPER_MODEL_FR_URL" \
+    "$TTS_PIPER_VOICE_ES" \
+    "$TTS_PIPER_VOICE_FR" \
+    "$TTS_PIPER_MODEL_ES_MALE" \
+    "$TTS_PIPER_MODEL_ES_FEMALE" \
+    "$TTS_PIPER_MODEL_FR_MALE" \
+    "$TTS_PIPER_MODEL_FR_FEMALE" \
+    "$TTS_PIPER_MODEL_ES_MALE_URL" \
+    "$TTS_PIPER_MODEL_ES_FEMALE_URL" \
+    "$TTS_PIPER_MODEL_FR_MALE_URL" \
+    "$TTS_PIPER_MODEL_FR_FEMALE_URL" \
+    "$NOTIFY_API_KEY" \
+    "$SETTINGS_PIN" \
+    "$BACKEND_BASE_URL" \
+    "$DEVICE_POLL_URL" \
+    "$DEVICE_POLL_INTERVAL_SEC" \
+    "$DEVICE_HEARTBEAT_URL" \
+    "$DEVICE_HEARTBEAT_INTERVAL_SEC" \
+    "$PIZARRA_NOTIFY_URL" \
+    "$PIZARRA_API_URL" \
+    "$PIZARRA_DELETE_URL_TEMPLATE" \
+    "$CONTACTS_API_URL" \
+    "$ICSO_TELEMETRY_URL" \
+    "$ICSO_EVENTS_URL" \
+    "$DEVICE_VIDEOCALL_SESSION_URL" \
+    "$PORTAL_VIDEOCALL_URL" \
+    "$PORTAL_VIDEOCALL_DEVICE_URL" \
+    "$PORTAL_CALL_ANSWERED_URL" \
+    "$MQTT_LOCAL_BROKER" \
+    "$MQTT_LOCAL_PORT" \
+    "$HTTP_TIMEOUT_SEC" <<'PY'
 import json
 import os
 import sys
 
-config_file, app_language, device_id, videocall_room, videocall_device_api_key, device_location, tts_engine, tts_piper_bin, tts_piper_model_es, tts_piper_model_fr, tts_piper_model_es_url, tts_piper_model_fr_url, tts_piper_voice_es, tts_piper_voice_fr, tts_piper_model_es_male, tts_piper_model_es_female, tts_piper_model_fr_male, tts_piper_model_fr_female, tts_piper_model_es_male_url, tts_piper_model_es_female_url, tts_piper_model_fr_male_url, tts_piper_model_fr_female_url = sys.argv[1:23]
+(
+    config_file,
+    app_language,
+    device_id,
+    videocall_room,
+    videocall_device_api_key,
+    device_location,
+    tts_engine,
+    tts_piper_bin,
+    tts_piper_model_es,
+    tts_piper_model_fr,
+    tts_piper_model_es_url,
+    tts_piper_model_fr_url,
+    tts_piper_voice_es,
+    tts_piper_voice_fr,
+    tts_piper_model_es_male,
+    tts_piper_model_es_female,
+    tts_piper_model_fr_male,
+    tts_piper_model_fr_female,
+    tts_piper_model_es_male_url,
+    tts_piper_model_es_female_url,
+    tts_piper_model_fr_male_url,
+    tts_piper_model_fr_female_url,
+    notify_api_key,
+    settings_pin,
+    backend_base_url,
+    device_poll_url,
+    device_poll_interval_sec,
+    device_heartbeat_url,
+    device_heartbeat_interval_sec,
+    pizarra_notify_url,
+    pizarra_api_url,
+    pizarra_delete_url_template,
+    contacts_api_url,
+    icso_telemetry_url,
+    icso_events_url,
+    device_videocall_session_url,
+    portal_videocall_url,
+    portal_videocall_device_url,
+    portal_call_answered_url,
+    mqtt_local_broker,
+    mqtt_local_port,
+    http_timeout_sec,
+) = sys.argv[1:43]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -1481,13 +1753,56 @@ services = data.get("services")
 if not isinstance(services, dict):
     services = {}
 data["services"] = services
+security = data.get("security")
+if not isinstance(security, dict):
+    security = {}
+data["security"] = security
 if tts_engine:
     services["tts_engine"] = tts_engine
 elif not services.get("tts_engine"):
     services["tts_engine"] = "piper"
 
+if notify_api_key:
+    services["notify_api_key"] = notify_api_key
 if videocall_device_api_key:
     services["videocall_device_api_key"] = videocall_device_api_key
+if settings_pin:
+    security["settings_pin"] = settings_pin
+
+service_values = {
+    "backend_base_url": backend_base_url,
+    "device_poll_url": device_poll_url,
+    "device_poll_interval_sec": device_poll_interval_sec,
+    "device_heartbeat_url": device_heartbeat_url,
+    "device_heartbeat_interval_sec": device_heartbeat_interval_sec,
+    "pizarra_notify_url": pizarra_notify_url,
+    "pizarra_messages_url": pizarra_api_url,
+    "pizarra_delete_url_template": pizarra_delete_url_template,
+    "contacts_api_url": contacts_api_url,
+    "icso_telemetry_url": icso_telemetry_url,
+    "icso_events_url": icso_events_url,
+    "device_videocall_session_url": device_videocall_session_url,
+    "portal_videocall_url": portal_videocall_url,
+    "portal_videocall_device_url": portal_videocall_device_url,
+    "portal_call_answered_url": portal_call_answered_url,
+    "mqtt_local_broker": mqtt_local_broker,
+    "mqtt_local_port": mqtt_local_port,
+    "http_timeout_sec": http_timeout_sec,
+}
+for key, value in service_values.items():
+    if value not in ("", None):
+        if key in {"device_poll_interval_sec", "device_heartbeat_interval_sec", "mqtt_local_port"}:
+            try:
+                services[key] = int(float(value))
+            except Exception:
+                services[key] = value
+        elif key == "http_timeout_sec":
+            try:
+                services[key] = float(value)
+            except Exception:
+                services[key] = value
+        else:
+            services[key] = value
 
 for key, value in (
     ("tts_piper_bin", tts_piper_bin),
@@ -1741,15 +2056,35 @@ write_env_file() {
     echo "COBIEN_FRONTEND_REPO=$(shell_quote_env_value "$FRONTEND_REPO")"
     echo "COBIEN_MQTT_REPO=$(shell_quote_env_value "$MQTT_REPO")"
     echo "COBIEN_WORKSPACE_ROOT=$(shell_quote_env_value "$WORKSPACE_ROOT")"
+    echo "COBIEN_MASTER_ENV_FILE=$(shell_quote_env_value "$MASTER_ENV_FILE")"
     echo "COBIEN_UPDATE_REMOTE=$(shell_quote_env_value "$REMOTE_NAME")"
     echo "COBIEN_UPDATE_BRANCH=$(shell_quote_env_value "$BRANCH_NAME")"
     echo "COBIEN_UPDATE_INTERVAL_SEC=$(shell_quote_env_value "$POLL_INTERVAL_SEC")"
     echo "COBIEN_APP_LANGUAGE=$(shell_quote_env_value "$APP_LANGUAGE")"
     echo "COBIEN_DEVICE_ID=$(shell_quote_env_value "$DEVICE_ID")"
     echo "COBIEN_VIDEOCALL_ROOM=$(shell_quote_env_value "$VIDEOCALL_ROOM")"
+    echo "COBIEN_NOTIFY_API_KEY=$(shell_quote_env_value "$NOTIFY_API_KEY")"
     echo "COBIEN_VIDEOCALL_DEVICE_API_KEY=$(shell_quote_env_value "$VIDEOCALL_DEVICE_API_KEY")"
     echo "COBIEN_DEVICE_LOCATION=$(shell_quote_env_value "$DEVICE_LOCATION")"
     echo "COBIEN_HARDWARE_MODE=$(shell_quote_env_value "$HARDWARE_MODE")"
+    echo "COBIEN_BACKEND_BASE_URL=$(shell_quote_env_value "$BACKEND_BASE_URL")"
+    echo "COBIEN_DEVICE_POLL_URL=$(shell_quote_env_value "$DEVICE_POLL_URL")"
+    echo "COBIEN_DEVICE_POLL_INTERVAL_SEC=$(shell_quote_env_value "$DEVICE_POLL_INTERVAL_SEC")"
+    echo "COBIEN_DEVICE_HEARTBEAT_URL=$(shell_quote_env_value "$DEVICE_HEARTBEAT_URL")"
+    echo "COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC=$(shell_quote_env_value "$DEVICE_HEARTBEAT_INTERVAL_SEC")"
+    echo "COBIEN_PIZARRA_NOTIFY_URL=$(shell_quote_env_value "$PIZARRA_NOTIFY_URL")"
+    echo "COBIEN_PIZARRA_API_URL=$(shell_quote_env_value "$PIZARRA_API_URL")"
+    echo "COBIEN_PIZARRA_DELETE_URL_TEMPLATE=$(shell_quote_env_value "$PIZARRA_DELETE_URL_TEMPLATE")"
+    echo "COBIEN_CONTACTS_API_URL=$(shell_quote_env_value "$CONTACTS_API_URL")"
+    echo "COBIEN_ICSO_TELEMETRY_URL=$(shell_quote_env_value "$ICSO_TELEMETRY_URL")"
+    echo "COBIEN_ICSO_EVENTS_URL=$(shell_quote_env_value "$ICSO_EVENTS_URL")"
+    echo "COBIEN_DEVICE_VIDEOCALL_SESSION_URL=$(shell_quote_env_value "$DEVICE_VIDEOCALL_SESSION_URL")"
+    echo "COBIEN_PORTAL_VIDEOCALL_URL=$(shell_quote_env_value "$PORTAL_VIDEOCALL_URL")"
+    echo "COBIEN_PORTAL_VIDEOCALL_DEVICE_URL=$(shell_quote_env_value "$PORTAL_VIDEOCALL_DEVICE_URL")"
+    echo "COBIEN_PORTAL_CALL_ANSWERED_URL=$(shell_quote_env_value "$PORTAL_CALL_ANSWERED_URL")"
+    echo "COBIEN_MQTT_LOCAL_BROKER=$(shell_quote_env_value "$MQTT_LOCAL_BROKER")"
+    echo "COBIEN_MQTT_LOCAL_PORT=$(shell_quote_env_value "$MQTT_LOCAL_PORT")"
+    echo "COBIEN_HTTP_TIMEOUT=$(shell_quote_env_value "$HTTP_TIMEOUT_SEC")"
     echo "COBIEN_TTS_ENGINE=$(shell_quote_env_value "$TTS_ENGINE")"
     echo "COBIEN_TTS_PIPER_BIN=$(shell_quote_env_value "$TTS_PIPER_BIN")"
     echo "COBIEN_TTS_PIPER_MODEL_ES=$(shell_quote_env_value "$TTS_PIPER_MODEL_ES")"
@@ -1795,11 +2130,14 @@ write_env_file() {
 }
 
 load_env_file() {
+  load_master_env_if_present || true
   if [[ -f "$ENV_FILE" ]]; then
     set -a
     source "$ENV_FILE"
     set +a
   fi
+  normalize_device_identity
+  set_service_defaults
 }
 
 mark_update_applied() {
@@ -2198,6 +2536,8 @@ run_full_flow() {
   local use_last_config="0"
   local first_run_without_systemd="0"
   local launcher_action="1"
+  local master_env_loaded="0"
+  local master_env_complete="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     log_section "CoBien Ubuntu Setup Assistant"
     if [[ "$ARGS_PROVIDED" == "0" ]]; then
@@ -2205,6 +2545,18 @@ run_full_flow() {
         NON_INTERACTIVE="1"
         AUTO_CONFIRM="1"
       fi
+    fi
+  fi
+
+  if load_master_env_if_present; then
+    master_env_loaded="1"
+    if master_env_is_complete; then
+      master_env_complete="1"
+      log "Deployment env is complete. The launcher will use it as the source of truth."
+      NON_INTERACTIVE="1"
+      AUTO_CONFIRM="1"
+    else
+      log "Deployment env found but incomplete. The assistant will only ask for the missing values."
     fi
   fi
 
@@ -2242,7 +2594,7 @@ run_full_flow() {
     esac
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" ]] && load_last_run_config; then
+  if [[ "$master_env_complete" != "1" && "$NON_INTERACTIVE" != "1" ]] && load_last_run_config; then
     normalize_device_identity
     print_last_run_config_summary
     if ask_yes_no "Do you want to reuse this previous configuration and run a full reinstall" "y"; then
@@ -2254,17 +2606,35 @@ run_full_flow() {
   fi
 
   if [[ "$use_last_config" != "1" ]]; then
-    WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
-    FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
-    MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
+    if [[ "$master_env_complete" != "1" ]]; then
+      WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
+      FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
+      MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
+    fi
     normalize_device_identity
-    APP_LANGUAGE="$(ask "Application language (es/fr)" "$APP_LANGUAGE")"
+    if [[ "$master_env_complete" != "1" || "$master_env_loaded" == "0" ]]; then
+      APP_LANGUAGE="$(ask "Application language (es/fr)" "$APP_LANGUAGE")"
+    fi
     normalize_device_identity
     DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
     VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
+    NOTIFY_API_KEY="$(ask_secret_required "Notify API key for backend polling and sync")"
     VIDEOCALL_DEVICE_API_KEY="$(ask_secret_required "Videocall device API key for $DEVICE_ID")"
+    BACKEND_BASE_URL="$(ask "Backend base URL" "$BACKEND_BASE_URL")"
+    set_service_defaults
+    DEVICE_POLL_URL="$(ask "Device poll URL" "$DEVICE_POLL_URL")"
+    DEVICE_HEARTBEAT_URL="$(ask "Device heartbeat URL" "$DEVICE_HEARTBEAT_URL")"
+    CONTACTS_API_URL="$(ask "Contacts API URL" "$CONTACTS_API_URL")"
+    PIZARRA_NOTIFY_URL="$(ask "Pizarra notify URL" "$PIZARRA_NOTIFY_URL")"
+    PIZARRA_API_URL="$(ask "Pizarra messages URL" "$PIZARRA_API_URL")"
+    DEVICE_VIDEOCALL_SESSION_URL="$(ask "Videocall session URL" "$DEVICE_VIDEOCALL_SESSION_URL")"
+    PORTAL_VIDEOCALL_DEVICE_URL="$(ask "Portal videocall device URL" "$PORTAL_VIDEOCALL_DEVICE_URL")"
+    PORTAL_CALL_ANSWERED_URL="$(ask "Portal call answered URL" "$PORTAL_CALL_ANSWERED_URL")"
+    ICSO_TELEMETRY_URL="$(ask "ICSO telemetry URL" "$ICSO_TELEMETRY_URL")"
+    ICSO_EVENTS_URL="$(ask "ICSO events URL" "$ICSO_EVENTS_URL")"
     DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
     HARDWARE_MODE="$(ask "Hardware mode (auto/real/mock)" "$HARDWARE_MODE")"
+    SETTINGS_PIN="$(ask "Admin PIN (optional)" "$SETTINGS_PIN")"
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
     if [[ "$TTS_ENGINE" == "piper" ]]; then
       TTS_PIPER_BIN="$(ask "Piper binary path (empty=auto detect)" "$TTS_PIPER_BIN")"
@@ -2299,6 +2669,8 @@ run_full_flow() {
       TTS_PIPER_VOICE_FR="$(ask "Piper French voice (male/female)" "$TTS_PIPER_VOICE_FR")"
     fi
   fi
+  set_service_defaults
+  validate_current_runtime_config
   resolve_paths
   if ! has_systemd_user_launcher_service; then
     first_run_without_systemd="1"

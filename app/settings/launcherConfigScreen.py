@@ -703,6 +703,17 @@ class LauncherConfigScreen(Screen):
         return raw_value
 
     def _env_path(self) -> str:
+        master_from_var = os.getenv("COBIEN_MASTER_ENV_FILE", "").strip()
+        if master_from_var:
+            return master_from_var
+        default_master = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "deploy", "ubuntu", "cobien.env")
+        )
+        if os.path.exists(default_master):
+            return default_master
+        return default_master
+
+    def _derived_env_path(self) -> str:
         env_from_var = os.getenv("COBIEN_UPDATE_ENV_FILE", "").strip()
         if env_from_var:
             return env_from_var
@@ -712,19 +723,19 @@ class LauncherConfigScreen(Screen):
 
     def _read_env(self) -> Dict[str, str]:
         values = {}
-        path = self._env_path()
-        if not os.path.exists(path):
-            return values
-        try:
-            with open(path, "r", encoding="utf-8", errors="replace") as file_obj:
-                for line in file_obj:
-                    line = line.strip()
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-                    key, value = line.split("=", 1)
-                    values[key.strip()] = value.strip().strip('"').strip("'")
-        except Exception:
-            pass
+        for path in (self._env_path(), self._derived_env_path()):
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as file_obj:
+                    for line in file_obj:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, value = line.split("=", 1)
+                        values[key.strip()] = value.strip().strip('"').strip("'")
+            except Exception:
+                continue
         return values
 
     def _write_env(self, data: Dict[str, str]) -> None:
@@ -733,11 +744,16 @@ class LauncherConfigScreen(Screen):
             text = text.replace("\\", "\\\\").replace('"', '\\"')
             return f'"{text}"'
 
-        path = self._env_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as file_obj:
-            for key in sorted(data.keys()):
-                file_obj.write(f"{key}={_quote_env(data[key])}\n")
+        paths = [self._env_path(), self._derived_env_path()]
+        seen = set()
+        for path in paths:
+            if path in seen:
+                continue
+            seen.add(path)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as file_obj:
+                for key in sorted(data.keys()):
+                    file_obj.write(f"{key}={_quote_env(data[key])}\n")
 
     def _load_extra_env_text(self, env: Dict[str, str]) -> str:
         known_keys = {key for key, *_rest in LAUNCHER_FIELDS}
