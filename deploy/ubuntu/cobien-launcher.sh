@@ -311,6 +311,8 @@ run_full_install_plan() {
     log "First run detected: systemd user service missing, auto-install enabled."
   fi
 
+  reconcile_update_supervision_mode
+
   echo
   echo "Detected paths:"
   echo "  Frontend: $FRONTEND_REPO"
@@ -2367,6 +2369,7 @@ load_env_file() {
   fi
   normalize_device_identity
   set_service_defaults
+  reconcile_update_supervision_mode
 }
 
 mark_update_applied() {
@@ -2634,6 +2637,15 @@ install_systemd_user_services() {
 has_systemd_user_launcher_service() {
   local service_file="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/cobien-launcher.service"
   [[ -f "$service_file" ]]
+}
+
+reconcile_update_supervision_mode() {
+  if [[ "$INSTALL_SYSTEMD_USER" == "1" ]] || has_systemd_user_launcher_service; then
+    if [[ "$ENABLE_WATCH" == "1" ]]; then
+      log "UPDATE: systemd user supervision detected; disabling internal watch loop to keep a single update system."
+    fi
+    ENABLE_WATCH="0"
+  fi
 }
 
 restart_systemd_user_launcher_service() {
