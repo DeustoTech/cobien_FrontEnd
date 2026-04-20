@@ -2619,15 +2619,11 @@ run_full_flow() {
   local master_env_complete="0"
   local force_full_install_from_master_env="0"
   local use_master_env_config="0"
+  local offer_unattended_defaults="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     log_section "CoBien Ubuntu Setup Assistant"
     print_intro
-    if [[ "$ARGS_PROVIDED" == "0" ]]; then
-      if ask_yes_no "Do you want to run in unattended mode using the detected/default configuration" "n"; then
-        NON_INTERACTIVE="1"
-        AUTO_CONFIRM="1"
-      fi
-    fi
+    [[ "$ARGS_PROVIDED" == "0" ]] && offer_unattended_defaults="1"
   fi
 
   if load_master_env_if_present; then
@@ -2651,6 +2647,13 @@ run_full_flow() {
       fi
     else
       log "Deployment env found but incomplete. The assistant will only ask for the missing values."
+    fi
+  fi
+
+  if [[ "$NON_INTERACTIVE" != "1" && "$use_master_env_config" != "1" && "$offer_unattended_defaults" == "1" ]]; then
+    if ask_yes_no "Do you want to run in unattended mode using the detected/default configuration" "n"; then
+      NON_INTERACTIVE="1"
+      AUTO_CONFIRM="1"
     fi
   fi
 
