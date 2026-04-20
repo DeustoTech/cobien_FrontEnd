@@ -2512,6 +2512,13 @@ restart_software() {
   local relaunch_after_update="${1:-0}"
   log "Relaunching furniture software"
   if [[ "$relaunch_after_update" == "1" ]]; then
+    if ! is_running_inside_systemd_user_service && has_active_systemd_user_launcher_service; then
+      log "Update-triggered relaunch detected from auxiliary updater."
+      log "Delegating restart to cobien-launcher.service to avoid overlapping runtimes."
+      release_single_instance_lock
+      restart_systemd_user_launcher_service
+      exit 0
+    fi
     log "Update-triggered relaunch will use clean-launch mode."
     release_single_instance_lock
     exec /bin/bash "$SELF_SCRIPT" \
@@ -2627,6 +2634,16 @@ install_systemd_user_services() {
 has_systemd_user_launcher_service() {
   local service_file="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/cobien-launcher.service"
   [[ -f "$service_file" ]]
+}
+
+restart_systemd_user_launcher_service() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 1
+  fi
+
+  log "Restarting systemd user launcher service so the previous runtime is stopped before relaunch."
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
+  systemctl --user restart cobien-launcher.service
 }
 
 verify_systemd_user_services() {
