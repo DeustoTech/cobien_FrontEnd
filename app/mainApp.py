@@ -868,6 +868,17 @@ class MainScreen(Screen):
         self._backend_poll_in_flight = True
         threading.Thread(target=self._poll_backend_notifications, daemon=True).start()
 
+    # Backward-compatible aliases for older launcher/runtime integrations that
+    # still call the public method names without the leading underscore.
+    def start_backend_polling(self):
+        self._start_backend_polling()
+
+    def stop_backend_polling(self):
+        self._stop_backend_polling()
+
+    def trigger_backend_poll(self):
+        self._trigger_backend_poll()
+
     def _poll_backend_notifications(self):
         try:
             headers = {}
