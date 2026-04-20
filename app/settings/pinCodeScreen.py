@@ -1,5 +1,6 @@
 """PIN entry screen used to guard access to administration screens."""
 
+import os
 from typing import Any
 
 from kivy.uix.screenmanager import Screen
@@ -157,6 +158,16 @@ class PinCodeScreen(Screen):
         
         # ✅ Planifier update_labels après initialisation
         Clock.schedule_once(lambda dt: self.update_labels(), 0.1)
+
+    def on_pre_enter(self, *args: Any) -> None:
+        """Reload the active PIN every time the screen is opened."""
+        self.correct_pin = self.load_pin()
+        if self.pin_display is not None:
+            self.pin_display.max_length = len(self.correct_pin)
+            self.pin_display.pin_value = ""
+        if self.message_label is not None:
+            self.message_label.text = ""
+        Clock.schedule_once(lambda dt: self.update_labels(), 0)
     
     def load_pin(self) -> str:
         """Load the settings PIN from env first, then file fallback."""

@@ -170,11 +170,8 @@ KV = """
                 orientation: "horizontal"
                 size_hint_x: None
                 width: self.minimum_width
-                spacing: dp(6)
+                spacing: dp(18)
                 padding: [0, 0, dp(10), 0]
-                IconBadge:
-                    icon_source: "data/images/back.png"
-                    on_release: app.root.current = "main"
                 Button:
                     id: btn_reboot
                     text: "Reiniciar"
@@ -194,6 +191,11 @@ KV = """
                             size: self.size
                             pos: self.pos
                             radius: [R_BTN,]
+
+                Widget:
+                    size_hint_x: None
+                    width: dp(14)
+
                 Button:
                     id: btn_exit
                     text: "Salir"
@@ -213,6 +215,10 @@ KV = """
                             size: self.size
                             pos: self.pos
                             radius: [R_BTN,]
+                Widget:
+                IconBadge:
+                    icon_source: "data/images/back.png"
+                    on_release: app.root.current = "main"
 
         # ---------- MAIN CONTENT ----------
         AnchorLayout:
