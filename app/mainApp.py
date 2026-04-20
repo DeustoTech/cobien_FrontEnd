@@ -4,7 +4,6 @@ import random
 import importlib.util
 import subprocess
 import sys
-import ssl
 import unicodedata
 from glob import glob
 from datetime import date, datetime
@@ -603,52 +602,35 @@ class MainScreen(Screen):
         except Exception as e:
             print(f"[MQTT LOCAL] Connection error: {e}")
 
-        # Backend MQTT for web notifications
-        self.mqtt_client_backend = mqtt.Client(client_id="kivy_backend_client")
-        self.mqtt_broker_backend = services_cfg.get("mqtt_backend_broker", "broker.hivemq.com")
-        self.mqtt_port_backend = int(services_cfg.get("mqtt_backend_port", 1883))
-        self.mqtt_topic_general = services_cfg.get("mqtt_backend_topic", "tarjeta") or "tarjeta"
-        self.mqtt_backend_keepalive = int(services_cfg.get("mqtt_backend_keepalive_sec", 60) or 60)
-        self.mqtt_backend_username = (services_cfg.get("mqtt_backend_username", "") or "").strip()
-        self.mqtt_backend_password = (services_cfg.get("mqtt_backend_password", "") or "").strip()
-        self.mqtt_backend_use_tls = str(services_cfg.get("mqtt_backend_use_tls", "0") or "0").strip().lower() in {"1", "true", "yes", "on"}
-        self.mqtt_client_backend.on_connect = self.on_connect_backend
-        self.mqtt_client_backend.on_message = self.on_message_backend
-        self.mqtt_client_backend.on_disconnect = self.on_disconnect_backend
-        self._subscribed_backend = False
-        self.mqtt_backend_connected = False
-        self.mqtt_backend_last_connect_at = ""
-        self.mqtt_backend_last_disconnect_at = ""
-        self.mqtt_backend_last_disconnect_rc = None
-        self.mqtt_backend_last_error = ""
-
-        self.mqtt_client_backend.reconnect_delay_set(min_delay=2, max_delay=60)
-        if self.mqtt_backend_username:
-            self.mqtt_client_backend.username_pw_set(
-                self.mqtt_backend_username,
-                self.mqtt_backend_password or None,
-            )
-        if self.mqtt_backend_use_tls:
-            self.mqtt_client_backend.tls_set(cert_reqs=ssl.CERT_REQUIRED)
-
-        try:
-            self.mqtt_client_backend.connect_async(
-                self.mqtt_broker_backend,
-                self.mqtt_port_backend,
-                self.mqtt_backend_keepalive,
-            )
-            self.mqtt_client_backend.loop_start()
+        # Backend device-poll channel for web notifications
+        backend_base_url = (services_cfg.get("backend_base_url", "") or "").strip().rstrip("/")
+        self.backend_notification_client = None
+        self.backend_poll_url = (
+            services_cfg.get("device_poll_url")
+            or (f"{backend_base_url}/pizarra/api/device/poll/" if backend_base_url else "")
+        ).strip()
+        self.backend_poll_interval_sec = max(float(services_cfg.get("device_poll_interval_sec", 5) or 5), 1.0)
+        self.backend_poll_timeout_sec = float(services_cfg.get("http_timeout_sec", 8) or 8)
+        self.backend_poll_api_key = (services_cfg.get("notify_api_key", "") or "").strip()
+        self._backend_poll_event = None
+        self._backend_poll_in_flight = False
+        self.backend_poll_connected = False
+        self.backend_poll_last_success_at = ""
+        self.backend_poll_last_failure_at = ""
+        self.backend_poll_last_status = None
+        self.backend_poll_last_error = ""
+        if self.backend_poll_url:
             print(
-                f"[MQTT BACKEND] Connecting to {self.mqtt_broker_backend}:{self.mqtt_port_backend} "
-                f"(topic={self.mqtt_topic_general}, tls={'on' if self.mqtt_backend_use_tls else 'off'})"
+                f"[BACKEND POLL] Configured endpoint {self.backend_poll_url} "
+                f"(interval={self.backend_poll_interval_sec}s)"
             )
-        except Exception as e:
-            self.mqtt_backend_last_error = str(e)
-            print(f"[MQTT BACKEND] Connection error: {e}")
+        else:
+            self.backend_poll_last_error = "device poll URL not configured"
+            print("[BACKEND POLL] No poll URL configured; backend notifications disabled")
 
         # Gestionnaire de notifications
         self.notification_manager = NotificationManager(sm, self)
-        self.last_backend_mqtt_diagnostic = None
+        self.last_backend_delivery_diagnostic = None
 
         # Reloj
         Clock.schedule_interval(self._update_datetime, 1)
@@ -862,44 +844,74 @@ class MainScreen(Screen):
         self.process_mqtt_message(message, topic)
         self._processing_mqtt = False
 
-    # ========== Callbacks MQTT BACKEND (notifications du site web) ==========
-    def on_connect_backend(self, client, userdata, flags, rc):
-        """Connect to backend broker for notifications."""
-        if rc == 0:
-            if self._subscribed_backend:
-                self.mqtt_backend_connected = True
-                self.mqtt_backend_last_connect_at = datetime.now().isoformat()
-                return
-            self.mqtt_backend_connected = True
-            self.mqtt_backend_last_connect_at = datetime.now().isoformat()
-            self.mqtt_backend_last_disconnect_rc = 0
-            self.mqtt_backend_last_error = ""
-            print(f"[MQTT BACKEND] Subscribed to topic '{self.mqtt_topic_general}'")
-            client.subscribe(self.mqtt_topic_general)
-            self._subscribed_backend = True
-        else:
-            self.mqtt_backend_connected = False
-            self.mqtt_backend_last_disconnect_rc = rc
-            self.mqtt_backend_last_error = f"connect rc={rc}"
-            print(f"[MQTT BACKEND] Connection failed, code: {rc}")
-
-    def on_message_backend(self, client, userdata, msg):
-        """Handle backend notifications."""
-        message = msg.payload.decode()
-        topic = msg.topic
-        print(f"[MQTT BACKEND] Message received on {topic}: {message}")
-        Clock.schedule_once(lambda dt: self.process_backend_notification(message, topic))
-
-    def on_disconnect_backend(self, client, userdata, rc):
-        self.mqtt_backend_connected = False
-        self.mqtt_backend_last_disconnect_at = datetime.now().isoformat()
-        self.mqtt_backend_last_disconnect_rc = rc
-        if rc == 0:
-            print("[MQTT BACKEND] Disconnected cleanly")
+    # ========== Backend Polling (notifications du site web) ==========
+    def _start_backend_polling(self):
+        if not self.backend_poll_url:
             return
-        self.mqtt_backend_last_error = f"disconnect rc={rc}"
-        self._subscribed_backend = False
-        print(f"[MQTT BACKEND] Unexpected disconnect, code: {rc}. Auto-reconnect should retry.")
+        if getattr(self, "_backend_poll_event", None):
+            return
+        self._backend_poll_event = Clock.schedule_interval(
+            lambda dt: self._trigger_backend_poll(),
+            self.backend_poll_interval_sec,
+        )
+        self._trigger_backend_poll()
+
+    def _stop_backend_polling(self):
+        event = getattr(self, "_backend_poll_event", None)
+        if event:
+            event.cancel()
+            self._backend_poll_event = None
+
+    def _trigger_backend_poll(self):
+        if self._backend_poll_in_flight or not self.backend_poll_url:
+            return
+        self._backend_poll_in_flight = True
+        threading.Thread(target=self._poll_backend_notifications, daemon=True).start()
+
+    def _poll_backend_notifications(self):
+        try:
+            headers = {}
+            if self.backend_poll_api_key:
+                headers["X-API-KEY"] = self.backend_poll_api_key
+
+            response = requests.get(
+                self.backend_poll_url,
+                params={"device_id": self.DEVICE_ID},
+                headers=headers,
+                timeout=self.backend_poll_timeout_sec,
+            )
+            response.raise_for_status()
+            body = response.json()
+            notifications = body.get("notifications", []) if isinstance(body, dict) else []
+
+            self.backend_poll_connected = True
+            self.backend_poll_last_success_at = datetime.now().isoformat()
+            self.backend_poll_last_status = 0
+            self.backend_poll_last_error = ""
+
+            if notifications:
+                Clock.schedule_once(
+                    lambda dt, items=list(notifications): self._process_polled_backend_notifications(items)
+                )
+        except Exception as exc:
+            self.backend_poll_connected = False
+            self.backend_poll_last_failure_at = datetime.now().isoformat()
+            self.backend_poll_last_status = -1
+            self.backend_poll_last_error = str(exc)
+            print(f"[BACKEND POLL] Poll failed: {exc}")
+        finally:
+            self._backend_poll_in_flight = False
+
+    def _process_polled_backend_notifications(self, notifications):
+        for item in notifications:
+            if not isinstance(item, dict):
+                continue
+            try:
+                message = json.dumps(item)
+            except Exception:
+                continue
+            print(f"[BACKEND POLL] Notification received: {message}")
+            self.process_backend_notification(message, "device_poll")
 
     # ---------------- Fecha/Hora ----------------
     def on_pre_enter(self, *args):
@@ -1650,13 +1662,13 @@ class MainScreen(Screen):
             ).start()
             return
 
-        elif notif_type == "mqtt_diagnostic":
-            self.last_backend_mqtt_diagnostic = {
+        elif notif_type == "backend_delivery_diagnostic":
+            self.last_backend_delivery_diagnostic = {
                 "check_id": data.get("check_id", ""),
                 "from": data.get("from", ""),
                 "timestamp": data.get("timestamp", ""),
             }
-            print(f"[BACKEND_NOTIF] ✅ MQTT diagnostic received: {self.last_backend_mqtt_diagnostic}")
+            print(f"[BACKEND_NOTIF] ✅ Backend delivery diagnostic received: {self.last_backend_delivery_diagnostic}")
             return
         
         # ❌ TYPE INCONNU
@@ -2050,6 +2062,7 @@ class MyApp(App):
     def on_start(self):
         self._start_orchestrator()
         self._start_proximity_logger()
+        self._start_backend_polling()
         schedule_icso_sync(force_snapshot=True)
         self._schedule_device_heartbeat()
         self._send_device_heartbeat()
@@ -2058,6 +2071,7 @@ class MyApp(App):
     def on_stop(self):
         self._stop_orchestrator()
         self._stop_proximity_logger()
+        self._stop_backend_polling()
         heartbeat_event = getattr(self, "_heartbeat_event", None)
         if heartbeat_event:
             heartbeat_event.cancel()

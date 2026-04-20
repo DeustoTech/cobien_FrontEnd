@@ -104,7 +104,24 @@ SKIP_CONFIG_FIELDS = {
     ("settings", "device_location"),
     ("services", "notify_api_key"),
     ("services", "device_heartbeat_url"),
+    ("services", "mqtt_backend_broker"),
+    ("services", "mqtt_backend_port"),
+    ("services", "mqtt_backend_topic"),
+    ("services", "mqtt_backend_username"),
+    ("services", "mqtt_backend_password"),
+    ("services", "mqtt_backend_use_tls"),
+    ("services", "mqtt_backend_keepalive_sec"),
 }
+
+LEGACY_BACKEND_MQTT_KEYS = (
+    "mqtt_backend_broker",
+    "mqtt_backend_port",
+    "mqtt_backend_topic",
+    "mqtt_backend_username",
+    "mqtt_backend_password",
+    "mqtt_backend_use_tls",
+    "mqtt_backend_keepalive_sec",
+)
 
 CONFIG_FIELD_METADATA = {
     ("settings", "language"): {"label": "Idioma", "kind": "choice:es,fr", "help": "Idioma principal de la interfaz del mueble."},
@@ -130,19 +147,14 @@ CONFIG_FIELD_METADATA = {
     ("services", "pizarra_messages_url"): {"label": "Pizarra messages URL", "help": "Endpoint para cargar mensajes desde el backend."},
     ("services", "pizarra_delete_url_template"): {"label": "Pizarra delete URL", "help": "Plantilla de borrado de mensajes usando {post_id}."},
     ("services", "contacts_api_url"): {"label": "Contacts API URL", "help": "Endpoint para sincronización de contactos del mueble."},
+    ("services", "device_poll_url"): {"label": "Device poll URL", "help": "Endpoint que el mueble consulta periódicamente para recoger notificaciones pendientes."},
+    ("services", "device_poll_interval_sec"): {"label": "Device poll interval (seg)", "help": "Frecuencia de consulta del mueble al backend para notificaciones."},
     ("services", "device_heartbeat_url"): {"label": "Heartbeat URL", "help": "Endpoint donde el mueble publica su latido operativo."},
     ("services", "device_heartbeat_interval_sec"): {"label": "Heartbeat interval (seg)", "help": "Frecuencia con la que el mueble reporta que sigue vivo."},
     ("services", "icso_telemetry_url"): {"label": "ICSO telemetry URL", "help": "Endpoint de envío de telemetría ICSO."},
     ("services", "icso_events_url"): {"label": "ICSO events URL", "help": "Endpoint de eventos ICSO."},
     ("services", "mqtt_local_broker"): {"label": "MQTT local broker", "help": "Broker MQTT local usado dentro del mueble."},
     ("services", "mqtt_local_port"): {"label": "MQTT local port", "help": "Puerto del broker MQTT local."},
-    ("services", "mqtt_backend_broker"): {"label": "MQTT backend broker", "help": "Broker MQTT remoto/backend."},
-    ("services", "mqtt_backend_port"): {"label": "MQTT backend port", "help": "Puerto del broker MQTT backend."},
-    ("services", "mqtt_backend_topic"): {"label": "MQTT backend topic", "help": "Topic backend donde el mueble escucha notificaciones web."},
-    ("services", "mqtt_backend_username"): {"label": "MQTT backend username", "help": "Usuario opcional para el broker MQTT backend."},
-    ("services", "mqtt_backend_password"): {"label": "MQTT backend password", "help": "Contraseña opcional para el broker MQTT backend."},
-    ("services", "mqtt_backend_use_tls"): {"label": "MQTT backend TLS", "kind": "choice:0,1", "help": "Activa TLS para el broker MQTT backend si el broker lo soporta."},
-    ("services", "mqtt_backend_keepalive_sec"): {"label": "MQTT backend keepalive (seg)", "help": "Keepalive del cliente MQTT backend."},
     ("services", "http_timeout_sec"): {"label": "HTTP timeout (seg)", "help": "Timeout general de peticiones HTTP."},
     ("services", "tts_engine"): {"label": "Motor TTS", "kind": "choice:pyttsx3,piper", "help": "Motor de texto a voz activo."},
     ("services", "tts_rate"): {"label": "Velocidad TTS", "help": "Velocidad de lectura de voz."},
@@ -188,6 +200,8 @@ CONFIG_GROUPS = [
             ("services", "pizarra_messages_url"),
             ("services", "pizarra_delete_url_template"),
             ("services", "contacts_api_url"),
+            ("services", "device_poll_url"),
+            ("services", "device_poll_interval_sec"),
             ("services", "device_heartbeat_url"),
             ("services", "device_heartbeat_interval_sec"),
             ("services", "portal_videocall_url"),
@@ -204,13 +218,6 @@ CONFIG_GROUPS = [
         [
             ("services", "mqtt_local_broker"),
             ("services", "mqtt_local_port"),
-            ("services", "mqtt_backend_broker"),
-            ("services", "mqtt_backend_port"),
-            ("services", "mqtt_backend_topic"),
-            ("services", "mqtt_backend_username"),
-            ("services", "mqtt_backend_password"),
-            ("services", "mqtt_backend_use_tls"),
-            ("services", "mqtt_backend_keepalive_sec"),
             ("services", "http_timeout_sec"),
             ("services", "tts_engine"),
             ("services", "tts_rate"),
@@ -378,7 +385,7 @@ class LauncherConfigScreen(Screen):
             color=(1, 1, 1, 1),
         )
         mqtt_btn = Button(
-            text=_("Verificar MQTT"),
+            text=_("Verificar backend"),
             background_normal="",
             background_color=(0.45, 0.38, 0.8, 1),
             font_size=sp(22),
@@ -399,7 +406,7 @@ class LauncherConfigScreen(Screen):
             color=(1, 1, 1, 1),
         )
         sync_btn.bind(on_release=lambda *_args: self.force_contacts_sync())
-        mqtt_btn.bind(on_release=lambda *_args: self.verify_mqtt())
+        mqtt_btn.bind(on_release=lambda *_args: self.verify_backend_delivery())
         save_btn.bind(on_release=lambda *_args: self.save_changes())
         reload_btn.bind(on_release=lambda *_args: self.run_full_update_reload())
         actions.add_widget(sync_btn)
@@ -630,6 +637,9 @@ class LauncherConfigScreen(Screen):
         services = normalized.setdefault("services", {})
         settings = normalized.setdefault("settings", {})
 
+        for key in LEGACY_BACKEND_MQTT_KEYS:
+            services.pop(key, None)
+
         if not settings.get("videocall_room"):
             settings["videocall_room"] = settings.get("device_id", "CoBien1")
         if not settings.get("device_id"):
@@ -806,14 +816,14 @@ class LauncherConfigScreen(Screen):
             return f"{backend_base_url.rstrip('/')}/pizarra/api/contacts/sync/"
         return ""
 
-    def _backend_mqtt_check_url(self) -> str:
+    def _backend_delivery_check_url(self) -> str:
         backend_widget = self._config_inputs.get(("services", "backend_base_url"))
         backend_base_url = (backend_widget.text or "").strip() if backend_widget else ""
         if not backend_base_url:
             services_cfg = load_section("services", {})
             backend_base_url = str(services_cfg.get("backend_base_url", "") or "").strip()
         if backend_base_url:
-            return f"{backend_base_url.rstrip('/')}/pizarra/api/mqtt/diagnostic/"
+            return f"{backend_base_url.rstrip('/')}/pizarra/api/device/diagnostic/"
         return ""
 
     def _refresh_contacts_ui(self) -> None:
@@ -884,31 +894,28 @@ class LauncherConfigScreen(Screen):
 
         threading.Thread(target=_run, daemon=True).start()
 
-    def verify_mqtt(self) -> None:
+    def verify_backend_delivery(self) -> None:
         device_id = self._current_device_id()
         api_key = self._notify_api_key_value()
         app = App.get_running_app()
         main_ref = getattr(app, "main_ref", None) if app else None
 
-        self._append_log("[MQTT] Starting diagnostic")
+        self._append_log("[BACKEND CHECK] Starting backend-to-furniture diagnostic")
 
         local_client = getattr(main_ref, "mqtt_client_local", None)
-        backend_client = getattr(main_ref, "mqtt_client_backend", None)
         local_connected = bool(local_client and local_client.is_connected())
-        backend_connected = bool(backend_client and backend_client.is_connected())
 
-        self._append_log(f"[MQTT] Local broker connected: {'yes' if local_connected else 'no'}")
-        self._append_log(f"[MQTT] Backend broker connected: {'yes' if backend_connected else 'no'}")
+        self._append_log(f"[BACKEND CHECK] Local broker connected: {'yes' if local_connected else 'no'}")
         if main_ref:
             self._append_log(
-                f"[MQTT] Backend state: connected={getattr(main_ref, 'mqtt_backend_connected', False)} "
-                f"last_connect={getattr(main_ref, 'mqtt_backend_last_connect_at', '') or '-'} "
-                f"last_disconnect={getattr(main_ref, 'mqtt_backend_last_disconnect_at', '') or '-'} "
-                f"last_rc={getattr(main_ref, 'mqtt_backend_last_disconnect_rc', '-')}"
+                f"[BACKEND CHECK] Poll state: connected={getattr(main_ref, 'backend_poll_connected', False)} "
+                f"last_success={getattr(main_ref, 'backend_poll_last_success_at', '') or '-'} "
+                f"last_failure={getattr(main_ref, 'backend_poll_last_failure_at', '') or '-'} "
+                f"last_status={getattr(main_ref, 'backend_poll_last_status', '-')}"
             )
-            last_error = getattr(main_ref, "mqtt_backend_last_error", "") or ""
+            last_error = getattr(main_ref, "backend_poll_last_error", "") or ""
             if last_error:
-                self._append_log(f"[MQTT] Backend last error: {last_error}")
+                self._append_log(f"[BACKEND CHECK] Backend last error: {last_error}")
 
         if local_client:
             try:
@@ -917,25 +924,25 @@ class LauncherConfigScreen(Screen):
                     json.dumps({"type": "admin_mqtt_check", "source": "launcher_config"}),
                     qos=0,
                 )
-                self._append_log(f"[MQTT] Local publish rc: {getattr(info, 'rc', 'unknown')}")
+                self._append_log(f"[BACKEND CHECK] Local publish rc: {getattr(info, 'rc', 'unknown')}")
             except Exception as exc:
-                self._append_log(f"[MQTT] Local publish failed: {exc}")
+                self._append_log(f"[BACKEND CHECK] Local publish failed: {exc}")
 
         if not device_id:
-            self._set_status(_("Falta el Device ID para verificar MQTT."))
+            self._set_status(_("Falta el Device ID para verificar el backend."))
             return
         if not api_key:
-            self._set_status(_("Falta la Notify API key para verificar MQTT."))
+            self._set_status(_("Falta la Notify API key para verificar el backend."))
             return
 
-        check_url = self._backend_mqtt_check_url()
+        check_url = self._backend_delivery_check_url()
         if not check_url:
-            self._set_status(_("No se ha podido resolver la URL de diagnóstico MQTT."))
+            self._set_status(_("No se ha podido resolver la URL de diagnóstico del backend."))
             return
 
         check_id = uuid.uuid4().hex
-        self._set_status(_("Lanzando verificación MQTT extremo a extremo..."))
-        self._append_log(f"[MQTT] Backend diagnostic id: {check_id}")
+        self._set_status(_("Lanzando verificación backend extremo a extremo..."))
+        self._append_log(f"[BACKEND CHECK] Diagnostic id: {check_id}")
 
         def _run() -> None:
             try:
@@ -946,32 +953,32 @@ class LauncherConfigScreen(Screen):
                     timeout=10,
                 )
                 response.raise_for_status()
-                self._append_log("[MQTT] Backend accepted diagnostic publish request")
+                self._append_log("[BACKEND CHECK] Backend accepted diagnostic enqueue request")
             except Exception as exc:
                 error_text = str(exc)
-                self._append_log(f"[MQTT] Backend diagnostic request failed: {exc}")
+                self._append_log(f"[BACKEND CHECK] Backend diagnostic request failed: {exc}")
                 Clock.schedule_once(
                     lambda _dt, error_text=error_text: self._set_status(
-                        f"{_('Error verificando MQTT')}: {error_text}"
+                        f"{_('Error verificando backend')}: {error_text}"
                     ),
                     0,
                 )
                 return
 
             for _ in range(10):
-                diagnostic = getattr(main_ref, "last_backend_mqtt_diagnostic", None) if main_ref else None
+                diagnostic = getattr(main_ref, "last_backend_delivery_diagnostic", None) if main_ref else None
                 if diagnostic and diagnostic.get("check_id") == check_id:
-                    self._append_log("[MQTT] Backend->furniture diagnostic message received")
+                    self._append_log("[BACKEND CHECK] Backend->furniture diagnostic message received")
                     Clock.schedule_once(
-                        lambda _dt: self._set_status(_("MQTT verificado correctamente entre backend y mueble.")),
+                        lambda _dt: self._set_status(_("Backend verificado correctamente entre servidor y mueble.")),
                         0,
                     )
                     return
                 threading.Event().wait(0.5)
 
-            self._append_log("[MQTT] Timeout waiting for backend diagnostic message on furniture")
+            self._append_log("[BACKEND CHECK] Timeout waiting for backend diagnostic message on furniture")
             Clock.schedule_once(
-                lambda _dt: self._set_status(_("No se confirmó la recepción MQTT desde backend en el mueble.")),
+                lambda _dt: self._set_status(_("No se confirmó la recepción del backend en el mueble.")),
                 0,
             )
 
