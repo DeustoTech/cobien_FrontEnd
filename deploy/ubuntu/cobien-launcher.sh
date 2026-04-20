@@ -196,6 +196,66 @@ log_section() {
   printf '\n%b%s%b\n' "$COLOR_BOLD$COLOR_BLUE" "$*" "$COLOR_RESET"
 }
 
+print_banner() {
+  cat <<EOF
+${COLOR_BOLD}${COLOR_BLUE}
+  ____      ____  _           
+ / ___|___ | __ )(_) ___ _ __ 
+| |   / _ \|  _ \| |/ _ \ '_ \\
+| |__| (_) | |_) | |  __/ | | |
+ \____\___/|____/|_|\___|_| |_|
+${COLOR_RESET}
+CoBien Furniture Launcher
+EOF
+}
+
+print_intro() {
+  print_banner
+  echo
+  echo "This assistant prepares the furniture runtime, backend connectivity, videoconference access,"
+  echo "voice models, local config and the supervised launch flow."
+  echo
+}
+
+print_key_value() {
+  local label="$1"
+  local value="$2"
+  printf '  %-20s %s\n' "$label" "$value"
+}
+
+print_runtime_summary() {
+  echo
+  echo "Deployment summary"
+  echo "------------------"
+  print_key_value "Workspace" "$WORKSPACE_ROOT"
+  if [[ "${force_full_install_from_master_env:-0}" == "1" ]]; then
+    print_key_value "Deployment env" "$MASTER_ENV_FILE"
+    print_key_value "Master env mode" "full install"
+  fi
+  print_key_value "Reuse install" "$reuse_existing_installation"
+  print_key_value "Install deps" "$INSTALL_SYSTEM_DEPS"
+  print_key_value "Recreate .venv" "$RECREATE_VENV"
+  print_key_value "Update check" "$RUN_UPDATE_ONCE"
+  print_key_value "Watch mode" "$ENABLE_WATCH"
+  print_key_value "Language" "$APP_LANGUAGE"
+  print_key_value "Device ID" "$DEVICE_ID"
+  print_key_value "Videocall room" "$VIDEOCALL_ROOM"
+  print_key_value "Notify key" "$([[ -n "$NOTIFY_API_KEY" ]] && echo configured || echo missing)"
+  print_key_value "Videocall key" "$([[ -n "$VIDEOCALL_DEVICE_API_KEY" ]] && echo configured || echo missing)"
+  print_key_value "Backend" "$BACKEND_BASE_URL"
+  print_key_value "Poll URL" "$DEVICE_POLL_URL"
+  print_key_value "Contacts URL" "$CONTACTS_API_URL"
+  print_key_value "Location" "$DEVICE_LOCATION"
+  print_key_value "Hardware mode" "$HARDWARE_MODE"
+  print_key_value "TTS engine" "$TTS_ENGINE"
+  print_key_value "Install cron" "$INSTALL_CRON"
+  if [[ "$INSTALL_CRON" == "1" ]]; then
+    print_key_value "Cron schedule" "$CRON_SCHEDULE"
+  fi
+  print_key_value "Install systemd" "$INSTALL_SYSTEMD_USER"
+  echo
+}
+
 read_lock_pid() {
   if [[ -f "$LOCK_PID_FILE" ]]; then
     head -n1 "$LOCK_PID_FILE" 2>/dev/null | tr -dc '0-9'
@@ -2538,10 +2598,12 @@ run_full_flow() {
   local launcher_action="1"
   local master_env_loaded="0"
   local master_env_complete="0"
+  local force_full_install_from_master_env="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     log_section "CoBien Ubuntu Setup Assistant"
+    print_intro
     if [[ "$ARGS_PROVIDED" == "0" ]]; then
-      if ask_yes_no "Do you want to run in unattended mode with default values" "n"; then
+      if ask_yes_no "Do you want to run in unattended mode using the detected/default configuration" "n"; then
         NON_INTERACTIVE="1"
         AUTO_CONFIRM="1"
       fi
@@ -2552,7 +2614,10 @@ run_full_flow() {
     master_env_loaded="1"
     if master_env_is_complete; then
       master_env_complete="1"
+      force_full_install_from_master_env="1"
       log "Deployment env is complete. The launcher will use it as the source of truth."
+      log "A full deployment will be executed from the deployment env, including dependencies, environment, models, config and runtime."
+      print_key_value "Deployment env" "$MASTER_ENV_FILE"
       NON_INTERACTIVE="1"
       AUTO_CONFIRM="1"
     else
@@ -2564,12 +2629,12 @@ run_full_flow() {
     echo
     launcher_action="$(
       ask_menu_choice \
-        "Select what you want the launcher to do:" \
+        "Choose the deployment flow you want to run:" \
         "1" \
-        "1. Full assistant: review setup, config, optional update, and then launch." \
+        "1. Guided full deployment: validate config, prepare runtime, install models, and launch." \
         "2. Normal launch: start the furniture runtime using the current installation." \
-        "3. Clean relaunch: stop old launcher/runtime state, recover stale lock files, and start again cleanly." \
-        "4. Setup only: prepare dependencies, uv, Python and .venv, but do not launch." \
+        "3. Clean relaunch: stop old runtime state and launch from a clean slate." \
+        "4. Setup only: install dependencies, Python/uv, .venv and models, but do not launch." \
         "5. Update only: fetch latest code and redeploy if changes exist."
     )"
 
@@ -2607,22 +2672,22 @@ run_full_flow() {
 
   if [[ "$use_last_config" != "1" ]]; then
     if [[ "$master_env_complete" != "1" ]]; then
-      WORKSPACE_ROOT="$(ask "Directory containing both projects" "$WORKSPACE_ROOT")"
+      WORKSPACE_ROOT="$(ask "Workspace directory containing both projects" "$WORKSPACE_ROOT")"
       FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
-      MQTT_REPO_NAME="$(ask "MQTT repository directory name" "$MQTT_REPO_NAME")"
+      MQTT_REPO_NAME="$(ask "MQTT/CAN repository directory name" "$MQTT_REPO_NAME")"
     fi
     normalize_device_identity
     if [[ "$master_env_complete" != "1" || "$master_env_loaded" == "0" ]]; then
       APP_LANGUAGE="$(ask "Application language (es/fr)" "$APP_LANGUAGE")"
     fi
     normalize_device_identity
-    DEVICE_ID="$(ask "Device ID (per furniture)" "$DEVICE_ID")"
-    VIDEOCALL_ROOM="$(ask "Videocall room" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
-    NOTIFY_API_KEY="$(ask_secret_required "Notify API key for backend polling and sync")"
+    DEVICE_ID="$(ask "Device ID (unique furniture identifier)" "$DEVICE_ID")"
+    VIDEOCALL_ROOM="$(ask "Videocall room for this furniture" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
+    NOTIFY_API_KEY="$(ask_secret_required "Notify API key used for polling, sync and secure backend calls")"
     VIDEOCALL_DEVICE_API_KEY="$(ask_secret_required "Videocall device API key for $DEVICE_ID")"
-    BACKEND_BASE_URL="$(ask "Backend base URL" "$BACKEND_BASE_URL")"
+    BACKEND_BASE_URL="$(ask "Backend base URL (portal root)" "$BACKEND_BASE_URL")"
     set_service_defaults
-    DEVICE_POLL_URL="$(ask "Device poll URL" "$DEVICE_POLL_URL")"
+    DEVICE_POLL_URL="$(ask "Device poll URL (backend queue endpoint)" "$DEVICE_POLL_URL")"
     DEVICE_HEARTBEAT_URL="$(ask "Device heartbeat URL" "$DEVICE_HEARTBEAT_URL")"
     CONTACTS_API_URL="$(ask "Contacts API URL" "$CONTACTS_API_URL")"
     PIZARRA_NOTIFY_URL="$(ask "Pizarra notify URL" "$PIZARRA_NOTIFY_URL")"
@@ -2632,7 +2697,7 @@ run_full_flow() {
     PORTAL_CALL_ANSWERED_URL="$(ask "Portal call answered URL" "$PORTAL_CALL_ANSWERED_URL")"
     ICSO_TELEMETRY_URL="$(ask "ICSO telemetry URL" "$ICSO_TELEMETRY_URL")"
     ICSO_EVENTS_URL="$(ask "ICSO events URL" "$ICSO_EVENTS_URL")"
-    DEVICE_LOCATION="$(ask "Device location" "$DEVICE_LOCATION")"
+    DEVICE_LOCATION="$(ask "Furniture location or city" "$DEVICE_LOCATION")"
     HARDWARE_MODE="$(ask "Hardware mode (auto/real/mock)" "$HARDWARE_MODE")"
     SETTINGS_PIN="$(ask "Admin PIN (optional)" "$SETTINGS_PIN")"
     TTS_ENGINE="$(ask "TTS engine (pyttsx3/piper)" "$TTS_ENGINE")"
@@ -2649,12 +2714,12 @@ run_full_flow() {
           echo
           local provider_choice
           provider_choice=$(ask_menu_choice \
-            "How should Piper be installed if not present?" \
+            "How should Piper be installed if it is missing?" \
             "1" \
-            "1. snap (recommended, persistent)" \
+            "1. snap (recommended, persistent, easy to maintain)" \
             "2. system (install to /usr/local, requires sudo)" \
-            "3. user (install to ~/.local/bin)" \
-            "4. skip (do not install)"
+            "3. user (install to ~/.local/bin for this account)" \
+            "4. skip (leave Piper unmanaged by the launcher)"
           )
           case "$provider_choice" in
             1) TTS_PIPER_PROVIDER="snap" ;;
@@ -2672,6 +2737,13 @@ run_full_flow() {
   set_service_defaults
   validate_current_runtime_config
   resolve_paths
+
+  if [[ "$force_full_install_from_master_env" == "1" ]]; then
+    reuse_existing_installation="0"
+    INSTALL_SYSTEM_DEPS="${INSTALL_SYSTEM_DEPS:-1}"
+    RECREATE_VENV="1"
+  fi
+
   if ! has_systemd_user_launcher_service; then
     first_run_without_systemd="1"
     INSTALL_SYSTEMD_USER="1"
@@ -2687,7 +2759,7 @@ run_full_flow() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { echo "Frontend repository not found at: $FRONTEND_REPO"; exit 1; }
   [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
 
-  if [[ "$use_last_config" != "1" ]] && is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
+  if [[ "$force_full_install_from_master_env" != "1" && "$use_last_config" != "1" ]] && is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
     reuse_existing_installation="1"
     INSTALL_SYSTEM_DEPS="0"
   fi
@@ -2704,7 +2776,7 @@ run_full_flow() {
     fi
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" && "$reuse_existing_installation" == "1" ]]; then
+  if [[ "$force_full_install_from_master_env" != "1" && "$NON_INTERACTIVE" != "1" && "$reuse_existing_installation" == "1" ]]; then
     if ask_yes_no "An existing installation was detected. Do you want to reuse it without running setup again" "y"; then
       reuse_existing_installation="1"
       INSTALL_SYSTEM_DEPS="0"
@@ -2713,13 +2785,13 @@ run_full_flow() {
     fi
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" && "$INSTALL_SYSTEM_DEPS" != "1" && "$reuse_existing_installation" != "1" ]]; then
+  if [[ "$force_full_install_from_master_env" != "1" && "$NON_INTERACTIVE" != "1" && "$INSTALL_SYSTEM_DEPS" != "1" && "$reuse_existing_installation" != "1" ]]; then
     if ask_yes_no "Do you want to reinstall or verify system dependencies anyway" "y"; then
       INSTALL_SYSTEM_DEPS="1"
     fi
   fi
 
-  if [[ "$NON_INTERACTIVE" != "1" && -d "$VENV_DIR" ]]; then
+  if [[ "$force_full_install_from_master_env" != "1" && "$NON_INTERACTIVE" != "1" && -d "$VENV_DIR" ]]; then
     if ask_yes_no "A previous .venv was found. Do you want to remove and recreate it" "y"; then
       RECREATE_VENV="1"
     fi
@@ -2750,34 +2822,14 @@ run_full_flow() {
     INSTALL_SYSTEMD_USER="1"
   fi
 
-  echo
-  echo "Summary:"
-  echo "  Workspace:        $WORKSPACE_ROOT"
-  echo "  Reuse install:    $reuse_existing_installation"
-  echo "  Install deps:     $INSTALL_SYSTEM_DEPS"
-  echo "  Recreate .venv:   $RECREATE_VENV"
-  echo "  One-shot update:  $RUN_UPDATE_ONCE"
-  echo "  Watch mode:       $ENABLE_WATCH"
-  echo "  App language:     $APP_LANGUAGE"
-  echo "  Device ID:        $DEVICE_ID"
-  echo "  Videocall room:   $VIDEOCALL_ROOM"
-  echo "  Videocall key:    configured"
-  echo "  Device location:  $DEVICE_LOCATION"
-  echo "  Hardware mode:    $HARDWARE_MODE"
-  echo "  TTS engine:       $TTS_ENGINE"
-  echo "  Install cron:     $INSTALL_CRON"
-  if [[ "$INSTALL_CRON" == "1" ]]; then
-    echo "  Cron schedule:    $CRON_SCHEDULE"
-  fi
-  echo "  Install systemd:  $INSTALL_SYSTEMD_USER"
-  echo
+  print_runtime_summary
 
   if [[ -z "$VIDEOCALL_DEVICE_API_KEY" ]]; then
     echo "Videocall device API key is required."
     exit 1
   fi
 
-  if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue" "y"; then
+  if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue with this deployment plan" "y"; then
     log "WARN: Cancelled."
     exit 0
   fi
