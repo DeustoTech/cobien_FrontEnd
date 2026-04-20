@@ -873,9 +873,12 @@ class LauncherConfigScreen(Screen):
                     0,
                 )
             except Exception as exc:
+                error_text = str(exc)
                 self._append_log(f"[CONTACTS] Sync failed: {exc}")
                 Clock.schedule_once(
-                    lambda _dt: self._set_status(f"{_('Error forzando sincronización de contactos')}: {exc}"),
+                    lambda _dt, error_text=error_text: self._set_status(
+                        f"{_('Error forzando sincronización de contactos')}: {error_text}"
+                    ),
                     0,
                 )
 
@@ -945,9 +948,12 @@ class LauncherConfigScreen(Screen):
                 response.raise_for_status()
                 self._append_log("[MQTT] Backend accepted diagnostic publish request")
             except Exception as exc:
+                error_text = str(exc)
                 self._append_log(f"[MQTT] Backend diagnostic request failed: {exc}")
                 Clock.schedule_once(
-                    lambda _dt: self._set_status(f"{_('Error verificando MQTT')}: {exc}"),
+                    lambda _dt, error_text=error_text: self._set_status(
+                        f"{_('Error verificando MQTT')}: {error_text}"
+                    ),
                     0,
                 )
                 return
