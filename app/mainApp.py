@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import importlib.util
 import subprocess
 import sys
 import ssl
@@ -2025,6 +2026,12 @@ class MyApp(App):
         script_proximity_logger = os.path.join(os.path.dirname(__file__), "proximity_sensors_reader.py")
         if not os.path.isfile(script_proximity_logger):
             print("[WARN] proximity_sensor_logger.py introuvable:", script_proximity_logger)
+            return
+        if importlib.util.find_spec("can") is None:
+            print("[Proximity Sensor] Skipped: python-can is not installed in this runtime.")
+            return
+        if not os.path.exists("/sys/class/net/can0"):
+            print("[Proximity Sensor] Skipped: CAN interface can0 is not available on this device.")
             return
         if getattr(self, "_proximity_sensor", None) and self._proximity_sensor.poll() is None:
             return

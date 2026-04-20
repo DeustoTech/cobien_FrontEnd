@@ -1,4 +1,8 @@
-import can
+try:
+    import can
+except ModuleNotFoundError:
+    can = None
+
 from icso_data.proximity_sensor_logger import log_proximity_event
 
 CAN_INTERFACE = "can0"
@@ -12,7 +16,14 @@ def parse_event_code(data):
     return (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5]
 
 def main():
-    bus = can.Bus(channel=CAN_INTERFACE, interface="socketcan")
+    if can is None:
+        print("[Proximity Sensor] python-can is not installed. Proximity logger disabled.")
+        return
+    try:
+        bus = can.Bus(channel=CAN_INTERFACE, interface="socketcan")
+    except Exception as exc:
+        print(f"[Proximity Sensor] Unable to open {CAN_INTERFACE}: {exc}")
+        return
     try:
         while True:
             msg = bus.recv(timeout=1.0)
