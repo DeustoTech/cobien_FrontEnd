@@ -866,6 +866,7 @@ set_service_defaults() {
   [[ -z "$PORTAL_VIDEOCALL_DEVICE_URL" ]] && PORTAL_VIDEOCALL_DEVICE_URL="${BACKEND_BASE_URL%/}/videocall/device/"
   [[ -z "$DEVICE_VIDEOCALL_SESSION_URL" ]] && DEVICE_VIDEOCALL_SESSION_URL="${BACKEND_BASE_URL%/}/api/device-videocall-session/"
   [[ -z "$PORTAL_CALL_ANSWERED_URL" ]] && PORTAL_CALL_ANSWERED_URL="${BACKEND_BASE_URL%/}/api/call-answered/"
+  return 0
 }
 
 load_master_env_if_present() {
