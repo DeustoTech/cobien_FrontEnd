@@ -1216,10 +1216,18 @@ ask() {
   fi
   while true; do
     if [[ -n "$default_value" ]]; then
-      read -r -p "$prompt [$default_value]: " answer
+      if ! read -r -p "$prompt [$default_value]: " answer; then
+        echo
+        echo "$default_value"
+        return
+      fi
       answer="${answer:-$default_value}"
     else
-      read -r -p "$prompt: " answer
+      if ! read -r -p "$prompt: " answer; then
+        echo
+        echo ""
+        return
+      fi
     fi
     answer="${answer#"${answer%%[![:space:]]*}"}"
     answer="${answer%"${answer##*[![:space:]]}"}"
@@ -1237,7 +1245,15 @@ ask_secret_required() {
     return
   fi
   while true; do
-    read -r -s -p "$prompt: " answer
+    if ! read -r -s -p "$prompt: " answer; then
+      echo
+      if [[ -n "${current_value//[[:space:]]/}" ]]; then
+        echo "$current_value"
+        return
+      fi
+      echo "This value is required."
+      return 1
+    fi
     echo
     if [[ -n "${answer//[[:space:]]/}" ]]; then
       echo "$answer"
@@ -1265,7 +1281,11 @@ ask_yes_no() {
   fi
 
   while true; do
-    read -r -p "$prompt $suffix: " answer
+    if ! read -r -p "$prompt $suffix: " answer; then
+      echo
+      [[ "$default_value" != "n" ]]
+      return
+    fi
     answer="${answer:-$default_value}"
     case "${answer,,}" in
       y|yes|s|si|sí) return 0 ;;
@@ -1298,7 +1318,11 @@ ask_menu_choice() {
   done
 
   while true; do
-    read -r -p "Choose an option [$default_value]: " answer
+    if ! read -r -p "Choose an option [$default_value]: " answer; then
+      echo
+      echo "$default_value"
+      return
+    fi
     answer="${answer:-$default_value}"
     local choice
     for choice in "${valid_choices[@]}"; do
