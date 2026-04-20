@@ -2,7 +2,7 @@ import os
 import json
 import re
 import unicodedata
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -136,6 +136,12 @@ def _cleanup_previous_images(base_name):
 def _download_contact_image(image_url, base_name):
     if not image_url:
         return False
+
+    if str(image_url).startswith("/"):
+        services_cfg = load_section("services", {})
+        backend_base_url = str(services_cfg.get("backend_base_url", "") or "").strip()
+        if backend_base_url:
+            image_url = urljoin(f"{backend_base_url.rstrip('/')}/", image_url.lstrip("/"))
 
     response = requests.get(
         image_url,
