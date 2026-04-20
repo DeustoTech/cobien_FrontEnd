@@ -94,8 +94,20 @@ def resolve_runtime_config(argv: Optional[list] = None) -> Tuple[Dict[str, Any],
     argv = argv or sys.argv
     config_path = argv[1] if len(argv) > 1 and argv[1] else None
     config = load_config(config_path)
-    room_name = config.get("room") or config.get("videocall_room") or "CoBien1"
-    device_name = config.get("identity") or config.get("device_id") or room_name
+    settings_cfg = config.get("settings") if isinstance(config.get("settings"), dict) else {}
+    room_name = (
+        config.get("room")
+        or config.get("videocall_room")
+        or settings_cfg.get("videocall_room")
+        or settings_cfg.get("device_id")
+        or "CoBien1"
+    )
+    device_name = (
+        config.get("identity")
+        or config.get("device_id")
+        or settings_cfg.get("device_id")
+        or room_name
+    )
     return config, room_name, device_name
 
 def notify_backend_call_answered(room_name: str, device_name: str) -> None:
@@ -323,6 +335,29 @@ class MainWindow(QMainWindow):
                 }
             )
             target_url = f"{DEVICE_PORTAL_URL}#{fragment}"
+        elif DEVICE_API_KEY:
+            error_html = f"""
+            <html>
+              <body style="background:#111;color:#fff;font-family:Arial,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+                <div style="max-width:900px;padding:32px;border:1px solid #444;border-radius:16px;background:#1b1b1b;">
+                  <h1 style="margin-top:0;">Video call device access failed</h1>
+                  <p>The furniture is configured to enter the videocall without human login, but the backend session could not be created.</p>
+                  <p>Please review:</p>
+                  <ul>
+                    <li><strong>device_id</strong>: {self.device_name}</li>
+                    <li><strong>room</strong>: {self.room_name}</li>
+                    <li><strong>device session URL</strong>: {DEVICE_SESSION_URL}</li>
+                    <li><strong>device portal URL</strong>: {DEVICE_PORTAL_URL}</li>
+                    <li><strong>videocall device API key</strong>: configured</li>
+                  </ul>
+                  <p>The launcher stopped before opening the login-protected web portal to avoid falling back to manual authentication.</p>
+                </div>
+              </body>
+            </html>
+            """
+            self.web_view.setHtml(error_html, QUrl(DEVICE_PORTAL_URL))
+            print("[VIDEOCALL] ❌ Device session missing; refusing fallback to login portal.")
+            return
         else:
             target_url = PORTAL_URL
         self.web_view.setUrl(QUrl(target_url))
