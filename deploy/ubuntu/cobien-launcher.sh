@@ -229,6 +229,37 @@ print_question_group() {
   printf '%b%s%b\n' "$COLOR_BOLD$COLOR_CYAN" "$title" "$COLOR_RESET"
 }
 
+tty_read() {
+  local silent="${1:-0}"
+  local prompt="${2:-}"
+  local __resultvar="${3:-REPLY}"
+  local value=""
+  local input_fd
+
+  if [[ -r /dev/tty ]]; then
+    exec {input_fd}</dev/tty
+  else
+    input_fd=0
+  fi
+
+  if [[ "$silent" == "1" ]]; then
+    if ! read -r -s -u "$input_fd" -p "$prompt" value; then
+      [[ "$input_fd" != "0" ]] && exec {input_fd}<&-
+      return 1
+    fi
+    echo
+  else
+    if ! read -r -u "$input_fd" -p "$prompt" value; then
+      [[ "$input_fd" != "0" ]] && exec {input_fd}<&-
+      return 1
+    fi
+  fi
+
+  [[ "$input_fd" != "0" ]] && exec {input_fd}<&-
+  printf -v "$__resultvar" '%s' "$value"
+  return 0
+}
+
 print_runtime_summary() {
   echo
   echo "Deployment summary"
@@ -1216,14 +1247,14 @@ ask() {
   fi
   while true; do
     if [[ -n "$default_value" ]]; then
-      if ! read -r -p "$prompt [$default_value]: " answer; then
+      if ! tty_read 0 "$prompt [$default_value]: " answer; then
         echo
         echo "$default_value"
         return
       fi
       answer="${answer:-$default_value}"
     else
-      if ! read -r -p "$prompt: " answer; then
+      if ! tty_read 0 "$prompt: " answer; then
         echo
         echo ""
         return
@@ -1245,7 +1276,7 @@ ask_secret_required() {
     return
   fi
   while true; do
-    if ! read -r -s -p "$prompt: " answer; then
+    if ! tty_read 1 "$prompt: " answer; then
       echo
       if [[ -n "${current_value//[[:space:]]/}" ]]; then
         echo "$current_value"
@@ -1281,7 +1312,7 @@ ask_yes_no() {
   fi
 
   while true; do
-    if ! read -r -p "$prompt $suffix: " answer; then
+    if ! tty_read 0 "$prompt $suffix: " answer; then
       echo
       [[ "$default_value" != "n" ]]
       return
@@ -1318,7 +1349,7 @@ ask_menu_choice() {
   done
 
   while true; do
-    if ! read -r -p "Choose an option [$default_value]: " answer; then
+    if ! tty_read 0 "Choose an option [$default_value]: " answer; then
       echo
       echo "$default_value"
       return
