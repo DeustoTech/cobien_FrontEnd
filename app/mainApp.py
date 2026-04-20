@@ -2097,7 +2097,8 @@ class MyApp(App):
     def on_start(self):
         self._start_orchestrator()
         self._start_proximity_logger()
-        self._start_backend_polling()
+        if getattr(self, "main_ref", None):
+            self.main_ref._start_backend_polling()
         schedule_icso_sync(force_snapshot=True)
         self._schedule_device_heartbeat()
         self._send_device_heartbeat()
@@ -2106,7 +2107,8 @@ class MyApp(App):
     def on_stop(self):
         self._stop_orchestrator()
         self._stop_proximity_logger()
-        self._stop_backend_polling()
+        if getattr(self, "main_ref", None):
+            self.main_ref._stop_backend_polling()
         heartbeat_event = getattr(self, "_heartbeat_event", None)
         if heartbeat_event:
             heartbeat_event.cancel()
