@@ -7,6 +7,7 @@ content is hosted inside a scroll view to remain usable on furniture devices.
 
 import json
 import os
+import requests
 import shutil
 import subprocess
 import threading
@@ -341,6 +342,13 @@ class LauncherConfigScreen(Screen):
         root.add_widget(self.lbl_status)
 
         actions = BoxLayout(size_hint_y=None, height=dp(66), spacing=dp(14))
+        sync_btn = Button(
+            text=_("Forzar sync contactos"),
+            background_normal="",
+            background_color=(0.87, 0.56, 0.18, 1),
+            font_size=sp(22),
+            color=(1, 1, 1, 1),
+        )
         save_btn = Button(
             text=_("Guardar configuración"),
             background_normal="",
@@ -355,8 +363,10 @@ class LauncherConfigScreen(Screen):
             font_size=sp(22),
             color=(1, 1, 1, 1),
         )
+        sync_btn.bind(on_release=lambda *_args: self.force_contacts_sync())
         save_btn.bind(on_release=lambda *_args: self.save_changes())
         reload_btn.bind(on_release=lambda *_args: self.run_full_update_reload())
+        actions.add_widget(sync_btn)
         actions.add_widget(save_btn)
         actions.add_widget(reload_btn)
         root.add_widget(actions)
@@ -710,6 +720,91 @@ class LauncherConfigScreen(Screen):
 
     def go_back(self) -> None:
         self.sm.current = "settings"
+
+    def _current_device_id(self) -> str:
+        launcher_value = (self._launcher_inputs.get("COBIEN_DEVICE_ID").text or "").strip() if self._launcher_inputs.get("COBIEN_DEVICE_ID") else ""
+        if launcher_value:
+            return launcher_value
+        config_widget = self._config_inputs.get(("settings", "device_id"))
+        if config_widget:
+            return (config_widget.text or "").strip()
+        return str(self.cfg.get_device_id() or "").strip()
+
+    def _notify_api_key_value(self) -> str:
+        launcher_value = (self._launcher_inputs.get("COBIEN_NOTIFY_API_KEY").text or "").strip() if self._launcher_inputs.get("COBIEN_NOTIFY_API_KEY") else ""
+        if launcher_value:
+            return launcher_value
+        config_widget = self._config_inputs.get(("services", "notify_api_key"))
+        if config_widget:
+            return (config_widget.text or "").strip()
+        services_cfg = load_section("services", {})
+        return str(services_cfg.get("notify_api_key", "") or "").strip()
+
+    def _contacts_sync_url(self) -> str:
+        config_widget = self._config_inputs.get(("services", "contacts_api_url"))
+        contacts_api_url = (config_widget.text or "").strip() if config_widget else ""
+        if contacts_api_url:
+            if "{device_id}" in contacts_api_url:
+                contacts_api_url = contacts_api_url.replace("{device_id}", "")
+            contacts_api_url = contacts_api_url.split("?", 1)[0].rstrip("/")
+            if contacts_api_url.endswith("/api/contacts"):
+                return f"{contacts_api_url}/sync/"
+
+        backend_widget = self._config_inputs.get(("services", "backend_base_url"))
+        backend_base_url = (backend_widget.text or "").strip() if backend_widget else ""
+        if not backend_base_url:
+            services_cfg = load_section("services", {})
+            backend_base_url = str(services_cfg.get("backend_base_url", "") or "").strip()
+        if backend_base_url:
+            return f"{backend_base_url.rstrip('/')}/pizarra/api/contacts/sync/"
+        return ""
+
+    def force_contacts_sync(self) -> None:
+        device_id = self._current_device_id()
+        if not device_id:
+            self.lbl_status.text = _("Falta el Device ID para forzar la sincronización de contactos.")
+            return
+
+        api_key = self._notify_api_key_value()
+        if not api_key:
+            self.lbl_status.text = _("Falta la Notify API key para forzar la sincronización de contactos.")
+            return
+
+        sync_url = self._contacts_sync_url()
+        if not sync_url:
+            self.lbl_status.text = _("No se ha podido resolver la URL de sincronización de contactos.")
+            return
+
+        self.lbl_status.text = _("Solicitando sincronización de contactos al backend...")
+
+        def _run() -> None:
+            try:
+                response = requests.post(
+                    sync_url,
+                    json={"to": device_id, "from": "cobien-device-admin"},
+                    headers={"X-API-KEY": api_key},
+                    timeout=10,
+                )
+                response.raise_for_status()
+                Clock.schedule_once(
+                    lambda _dt: setattr(
+                        self.lbl_status,
+                        "text",
+                        _("Sincronización de contactos solicitada correctamente."),
+                    ),
+                    0,
+                )
+            except Exception as exc:
+                Clock.schedule_once(
+                    lambda _dt: setattr(
+                        self.lbl_status,
+                        "text",
+                        f"{_('Error forzando sincronización de contactos')}: {exc}",
+                    ),
+                    0,
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def load_values(self) -> None:
         env = self._read_env()
