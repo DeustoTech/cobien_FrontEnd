@@ -837,6 +837,18 @@ class LauncherConfigScreen(Screen):
                 result = sync_contacts_for_device(device_id=device_id)
                 self._append_log(f"[CONTACTS] Contacts synchronized: {result['count']}")
                 self._append_log(f"[CONTACTS] Images downloaded: {result['images_downloaded']}")
+                for image_result in result.get("image_results", []):
+                    display_name = image_result.get("display_name", "?")
+                    status = image_result.get("status", "unknown")
+                    image_url = image_result.get("image_url", "")
+                    if status == "downloaded":
+                        self._append_log(f"[CONTACTS] Image OK for {display_name}: {image_url}")
+                    elif status == "missing_url":
+                        self._append_log(f"[CONTACTS] No image URL for {display_name}")
+                    else:
+                        self._append_log(
+                            f"[CONTACTS] Image failed for {display_name}: {image_url} | {image_result.get('error', 'unknown error')}"
+                        )
                 try:
                     refresh_contact_keywords()
                     self._append_log("[CONTACTS] Voice assistant contact keywords refreshed")

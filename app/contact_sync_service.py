@@ -135,7 +135,7 @@ def _cleanup_previous_images(base_name):
 
 def _download_contact_image(image_url, base_name):
     if not image_url:
-        return False
+        return False, ""
 
     if str(image_url).startswith("/"):
         services_cfg = load_section("services", {})
@@ -161,7 +161,7 @@ def _download_contact_image(image_url, base_name):
 
     _cleanup_previous_images(base_name)
     os.replace(tmp_path, image_path)
-    return True
+    return True, image_url
 
 
 def _write_contacts_file(contacts):
@@ -208,16 +208,44 @@ def sync_contacts_for_device(device_id, payload=None):
     _write_contacts_file(mapped)
 
     downloaded_images = 0
+    image_results = []
     for item in mapped:
         base_name = _normalize_name(item["display_name"])
+        image_url = item["image_url"]
+        if not image_url:
+            image_results.append(
+                {
+                    "display_name": item["display_name"],
+                    "status": "missing_url",
+                    "image_url": "",
+                }
+            )
+            continue
         try:
-            if _download_contact_image(item["image_url"], base_name):
+            downloaded, resolved_url = _download_contact_image(image_url, base_name)
+            if downloaded:
                 downloaded_images += 1
+                image_results.append(
+                    {
+                        "display_name": item["display_name"],
+                        "status": "downloaded",
+                        "image_url": resolved_url,
+                    }
+                )
         except Exception as exc:
             print(f"[CONTACTS_SYNC] Image download failed for '{item['display_name']}': {exc}")
+            image_results.append(
+                {
+                    "display_name": item["display_name"],
+                    "status": "failed",
+                    "image_url": image_url,
+                    "error": str(exc),
+                }
+            )
 
     return {
         "count": len(mapped),
         "images_downloaded": downloaded_images,
         "contacts_file": CONTACTS_FILE,
+        "image_results": image_results,
     }
