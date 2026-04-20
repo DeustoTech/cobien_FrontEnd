@@ -223,6 +223,12 @@ print_key_value() {
   printf '  %-20s %s\n' "$label" "$value"
 }
 
+print_question_group() {
+  local title="$1"
+  echo
+  printf '%b%s%b\n' "$COLOR_BOLD$COLOR_CYAN" "$title" "$COLOR_RESET"
+}
+
 print_runtime_summary() {
   echo
   echo "Deployment summary"
@@ -1116,20 +1122,26 @@ ask() {
     echo "$default_value"
     return
   fi
-  if [[ -n "$default_value" ]]; then
-    read -r -p "$prompt [$default_value]: " answer
-    echo "${answer:-$default_value}"
-  else
-    read -r -p "$prompt: " answer
+  while true; do
+    if [[ -n "$default_value" ]]; then
+      read -r -p "$prompt [$default_value]: " answer
+      answer="${answer:-$default_value}"
+    else
+      read -r -p "$prompt: " answer
+    fi
+    answer="${answer#"${answer%%[![:space:]]*}"}"
+    answer="${answer%"${answer##*[![:space:]]}"}"
     echo "$answer"
-  fi
+    return
+  done
 }
 
 ask_secret_required() {
   local prompt="$1"
+  local current_value="${2:-}"
   local answer=""
   if [[ "$NON_INTERACTIVE" == "1" ]]; then
-    echo "$VIDEOCALL_DEVICE_API_KEY"
+    echo "$current_value"
     return
   fi
   while true; do
@@ -1146,7 +1158,7 @@ ask_secret_required() {
 ask_yes_no() {
   local prompt="$1"
   local default_value="${2:-y}"
-  local suffix="[S/n]"
+  local suffix="[Y/n]"
   local answer
 
   if [[ "$default_value" == "n" ]]; then
@@ -1164,8 +1176,11 @@ ask_yes_no() {
     read -r -p "$prompt $suffix: " answer
     answer="${answer:-$default_value}"
     case "${answer,,}" in
-      y|yes) return 0 ;;
+      y|yes|s|si|sí) return 0 ;;
       n|no) return 1 ;;
+      *)
+        echo "Please answer yes or no."
+        ;;
     esac
   done
 }
@@ -1176,6 +1191,7 @@ ask_menu_choice() {
   shift 2
   local options=("$@")
   local answer=""
+  local valid_choices=()
 
   if [[ "$NON_INTERACTIVE" == "1" ]]; then
     echo "$default_value"
@@ -1186,17 +1202,20 @@ ask_menu_choice() {
   local option
   for option in "${options[@]}"; do
     printf '  %s\n' "$option" >&2
+    valid_choices+=("${option%%.*}")
   done
 
   while true; do
     read -r -p "Choose an option [$default_value]: " answer
     answer="${answer:-$default_value}"
-    case "$answer" in
-      1|2|3|4|5)
+    local choice
+    for choice in "${valid_choices[@]}"; do
+      if [[ "$answer" == "$choice" ]]; then
         echo "$answer"
         return
-        ;;
-    esac
+      fi
+    done
+    echo "Please choose one of: ${valid_choices[*]}"
   done
 }
 
@@ -2599,6 +2618,7 @@ run_full_flow() {
   local master_env_loaded="0"
   local master_env_complete="0"
   local force_full_install_from_master_env="0"
+  local use_master_env_config="0"
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     log_section "CoBien Ubuntu Setup Assistant"
     print_intro
@@ -2614,12 +2634,21 @@ run_full_flow() {
     master_env_loaded="1"
     if master_env_is_complete; then
       master_env_complete="1"
-      force_full_install_from_master_env="1"
       log "Deployment env is complete. The launcher will use it as the source of truth."
       log "A full deployment will be executed from the deployment env, including dependencies, environment, models, config and runtime."
       print_key_value "Deployment env" "$MASTER_ENV_FILE"
-      NON_INTERACTIVE="1"
-      AUTO_CONFIRM="1"
+      if [[ "$NON_INTERACTIVE" == "1" ]]; then
+        use_master_env_config="1"
+        force_full_install_from_master_env="1"
+        AUTO_CONFIRM="1"
+      elif ask_yes_no "A complete deployment env was found. Do you want to use this configuration for a full installation and launch" "y"; then
+        use_master_env_config="1"
+        force_full_install_from_master_env="1"
+        NON_INTERACTIVE="1"
+        AUTO_CONFIRM="1"
+      else
+        log "The assistant will ignore the detected deployment env and continue with manual review."
+      fi
     else
       log "Deployment env found but incomplete. The assistant will only ask for the missing values."
     fi
@@ -2670,21 +2699,25 @@ run_full_flow() {
     fi
   fi
 
-  if [[ "$use_last_config" != "1" ]]; then
+  if [[ "$use_last_config" != "1" && "$use_master_env_config" != "1" ]]; then
     if [[ "$master_env_complete" != "1" ]]; then
+      print_question_group "Project Layout"
       WORKSPACE_ROOT="$(ask "Workspace directory containing both projects" "$WORKSPACE_ROOT")"
       FRONTEND_REPO_NAME="$(ask "Frontend repository directory name" "$FRONTEND_REPO_NAME")"
       MQTT_REPO_NAME="$(ask "MQTT/CAN repository directory name" "$MQTT_REPO_NAME")"
     fi
     normalize_device_identity
     if [[ "$master_env_complete" != "1" || "$master_env_loaded" == "0" ]]; then
+      print_question_group "Furniture Identity"
       APP_LANGUAGE="$(ask "Application language (es/fr)" "$APP_LANGUAGE")"
+      normalize_device_identity
+      DEVICE_ID="$(ask "Device ID (unique furniture identifier)" "$DEVICE_ID")"
+      VIDEOCALL_ROOM="$(ask "Videocall room for this furniture" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
     fi
     normalize_device_identity
-    DEVICE_ID="$(ask "Device ID (unique furniture identifier)" "$DEVICE_ID")"
-    VIDEOCALL_ROOM="$(ask "Videocall room for this furniture" "${VIDEOCALL_ROOM:-$DEVICE_ID}")"
-    NOTIFY_API_KEY="$(ask_secret_required "Notify API key used for polling, sync and secure backend calls")"
-    VIDEOCALL_DEVICE_API_KEY="$(ask_secret_required "Videocall device API key for $DEVICE_ID")"
+    print_question_group "Backend Connectivity"
+    NOTIFY_API_KEY="$(ask_secret_required "Notify API key used for polling, sync and secure backend calls" "$NOTIFY_API_KEY")"
+    VIDEOCALL_DEVICE_API_KEY="$(ask_secret_required "Videocall device API key for $DEVICE_ID" "$VIDEOCALL_DEVICE_API_KEY")"
     BACKEND_BASE_URL="$(ask "Backend base URL (portal root)" "$BACKEND_BASE_URL")"
     set_service_defaults
     DEVICE_POLL_URL="$(ask "Device poll URL (backend queue endpoint)" "$DEVICE_POLL_URL")"
@@ -2697,6 +2730,7 @@ run_full_flow() {
     PORTAL_CALL_ANSWERED_URL="$(ask "Portal call answered URL" "$PORTAL_CALL_ANSWERED_URL")"
     ICSO_TELEMETRY_URL="$(ask "ICSO telemetry URL" "$ICSO_TELEMETRY_URL")"
     ICSO_EVENTS_URL="$(ask "ICSO events URL" "$ICSO_EVENTS_URL")"
+    print_question_group "Local Runtime"
     DEVICE_LOCATION="$(ask "Furniture location or city" "$DEVICE_LOCATION")"
     HARDWARE_MODE="$(ask "Hardware mode (auto/real/mock)" "$HARDWARE_MODE")"
     SETTINGS_PIN="$(ask "Admin PIN (optional)" "$SETTINGS_PIN")"
@@ -2805,6 +2839,9 @@ run_full_flow() {
     reuse_existing_installation="0"
   fi
 
+  if [[ "$NON_INTERACTIVE" != "1" ]]; then
+    print_question_group "Deployment Options"
+  fi
   if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to run an update check before launch" "n"; then
     RUN_UPDATE_ONCE="1"
   fi
