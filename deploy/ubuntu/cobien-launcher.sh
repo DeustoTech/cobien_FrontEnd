@@ -262,6 +262,98 @@ print_runtime_summary() {
   echo
 }
 
+run_full_install_plan() {
+  local reuse_existing_installation="${1:-0}"
+
+  set_service_defaults
+  validate_current_runtime_config
+  resolve_paths
+
+  if [[ "$force_full_install_from_master_env" == "1" ]]; then
+    reuse_existing_installation="0"
+    INSTALL_SYSTEM_DEPS="${INSTALL_SYSTEM_DEPS:-1}"
+    RECREATE_VENV="1"
+  fi
+
+  if ! has_systemd_user_launcher_service; then
+    INSTALL_SYSTEMD_USER="1"
+    log "First run detected: systemd user service missing, auto-install enabled."
+  fi
+
+  echo
+  echo "Detected paths:"
+  echo "  Frontend: $FRONTEND_REPO"
+  echo "  MQTT:     $MQTT_REPO"
+  echo
+
+  [[ -d "$FRONTEND_REPO/.git" ]] || { echo "Frontend repository not found at: $FRONTEND_REPO"; exit 1; }
+  [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
+
+  if detect_python311; then
+    echo "Python 3.11 detected: $(command -v python3.11)"
+  else
+    echo "Python 3.11 is not installed."
+    if ask_yes_no "Should the script try to install Python 3.11 and system dependencies" "y"; then
+      INSTALL_SYSTEM_DEPS="1"
+    else
+      echo "Cannot continue without Python 3.11."
+      exit 1
+    fi
+  fi
+
+  print_runtime_summary
+
+  if [[ -z "$VIDEOCALL_DEVICE_API_KEY" ]]; then
+    echo "Videocall device API key is required."
+    exit 1
+  fi
+
+  if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue with this deployment plan" "y"; then
+    log "WARN: Cancelled."
+    exit 0
+  fi
+
+  if [[ "$reuse_existing_installation" == "1" ]]; then
+    log_section "[1/4] Reusing existing installation"
+  else
+    log_section "[1/4] Preparing environment"
+    setup_environment
+  fi
+
+  log_section "[2/4] Loading configuration"
+  load_env_file
+
+  log_section "[3/4] Verifying configuration"
+  print_dry_run
+
+  if [[ "$RUN_UPDATE_ONCE" == "1" ]]; then
+    log_section "[3b/4] Running one-shot update"
+    run_update_once
+  fi
+
+  if [[ "$INSTALL_CRON" == "1" ]]; then
+    log_section "[3c/4] Installing cron job"
+    install_cron_job
+  fi
+
+  if [[ "$INSTALL_SYSTEMD_USER" == "1" ]]; then
+    log_section "[3d/4] Installing systemd user services"
+    install_systemd_user_services
+    log_section "[3e/4] Verifying systemd user services"
+    verify_systemd_user_services
+  fi
+
+  save_last_run_config
+
+  log_section "[4/4] Launching furniture system"
+  restart_software
+
+  if [[ "$ENABLE_WATCH" == "1" ]]; then
+    log "Starting watch mode..."
+    run_watch_loop
+  fi
+}
+
 read_lock_pid() {
   if [[ -f "$LOCK_PID_FILE" ]]; then
     head -n1 "$LOCK_PID_FILE" 2>/dev/null | tr -dc '0-9'
@@ -2657,6 +2749,11 @@ run_full_flow() {
     fi
   fi
 
+  if [[ "$use_master_env_config" == "1" ]]; then
+    run_full_install_plan 0
+    return
+  fi
+
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     echo
     launcher_action="$(
@@ -2775,28 +2872,13 @@ run_full_flow() {
   validate_current_runtime_config
   resolve_paths
 
-  if [[ "$force_full_install_from_master_env" == "1" ]]; then
-    reuse_existing_installation="0"
-    INSTALL_SYSTEM_DEPS="${INSTALL_SYSTEM_DEPS:-1}"
-    RECREATE_VENV="1"
-  fi
-
   if ! has_systemd_user_launcher_service; then
     first_run_without_systemd="1"
     INSTALL_SYSTEMD_USER="1"
     log "First run detected: systemd user service missing, auto-install enabled."
   fi
 
-  echo
-  echo "Detected paths:"
-  echo "  Frontend: $FRONTEND_REPO"
-  echo "  MQTT:     $MQTT_REPO"
-  echo
-
-  [[ -d "$FRONTEND_REPO/.git" ]] || { echo "Frontend repository not found at: $FRONTEND_REPO"; exit 1; }
-  [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
-
-  if [[ "$force_full_install_from_master_env" != "1" && "$use_last_config" != "1" ]] && is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
+  if [[ "$use_last_config" != "1" ]] && is_existing_installation_ready && [[ "$RECREATE_VENV" != "1" ]]; then
     reuse_existing_installation="1"
     INSTALL_SYSTEM_DEPS="0"
   fi
@@ -2862,57 +2944,7 @@ run_full_flow() {
     INSTALL_SYSTEMD_USER="1"
   fi
 
-  print_runtime_summary
-
-  if [[ -z "$VIDEOCALL_DEVICE_API_KEY" ]]; then
-    echo "Videocall device API key is required."
-    exit 1
-  fi
-
-  if [[ "$AUTO_CONFIRM" != "1" ]] && ! ask_yes_no "Continue with this deployment plan" "y"; then
-    log "WARN: Cancelled."
-    exit 0
-  fi
-
-  if [[ "$reuse_existing_installation" == "1" ]]; then
-    log_section "[1/4] Reusing existing installation"
-  else
-    log_section "[1/4] Preparing environment"
-    setup_environment
-  fi
-
-  log_section "[2/4] Loading configuration"
-  load_env_file
-
-  log_section "[3/4] Verifying configuration"
-  print_dry_run
-
-  if [[ "$RUN_UPDATE_ONCE" == "1" ]]; then
-    log_section "[3b/4] Running one-shot update"
-    run_update_once
-  fi
-
-  if [[ "$INSTALL_CRON" == "1" ]]; then
-    log_section "[3c/4] Installing cron job"
-    install_cron_job
-  fi
-
-  if [[ "$INSTALL_SYSTEMD_USER" == "1" ]]; then
-    log_section "[3d/4] Installing systemd user services"
-    install_systemd_user_services
-    log_section "[3e/4] Verifying systemd user services"
-    verify_systemd_user_services
-  fi
-
-  save_last_run_config
-
-  log_section "[4/4] Launching furniture system"
-  restart_software
-
-  if [[ "$ENABLE_WATCH" == "1" ]]; then
-    log "Starting watch mode..."
-    run_watch_loop
-  fi
+  run_full_install_plan "$reuse_existing_installation"
 }
 
 parse_args() {
