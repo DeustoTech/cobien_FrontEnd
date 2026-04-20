@@ -138,6 +138,11 @@ CONFIG_FIELD_METADATA = {
     ("services", "mqtt_local_port"): {"label": "MQTT local port", "help": "Puerto del broker MQTT local."},
     ("services", "mqtt_backend_broker"): {"label": "MQTT backend broker", "help": "Broker MQTT remoto/backend."},
     ("services", "mqtt_backend_port"): {"label": "MQTT backend port", "help": "Puerto del broker MQTT backend."},
+    ("services", "mqtt_backend_topic"): {"label": "MQTT backend topic", "help": "Topic backend donde el mueble escucha notificaciones web."},
+    ("services", "mqtt_backend_username"): {"label": "MQTT backend username", "help": "Usuario opcional para el broker MQTT backend."},
+    ("services", "mqtt_backend_password"): {"label": "MQTT backend password", "help": "Contraseña opcional para el broker MQTT backend."},
+    ("services", "mqtt_backend_use_tls"): {"label": "MQTT backend TLS", "kind": "choice:0,1", "help": "Activa TLS para el broker MQTT backend si el broker lo soporta."},
+    ("services", "mqtt_backend_keepalive_sec"): {"label": "MQTT backend keepalive (seg)", "help": "Keepalive del cliente MQTT backend."},
     ("services", "http_timeout_sec"): {"label": "HTTP timeout (seg)", "help": "Timeout general de peticiones HTTP."},
     ("services", "tts_engine"): {"label": "Motor TTS", "kind": "choice:pyttsx3,piper", "help": "Motor de texto a voz activo."},
     ("services", "tts_rate"): {"label": "Velocidad TTS", "help": "Velocidad de lectura de voz."},
@@ -201,6 +206,11 @@ CONFIG_GROUPS = [
             ("services", "mqtt_local_port"),
             ("services", "mqtt_backend_broker"),
             ("services", "mqtt_backend_port"),
+            ("services", "mqtt_backend_topic"),
+            ("services", "mqtt_backend_username"),
+            ("services", "mqtt_backend_password"),
+            ("services", "mqtt_backend_use_tls"),
+            ("services", "mqtt_backend_keepalive_sec"),
             ("services", "http_timeout_sec"),
             ("services", "tts_engine"),
             ("services", "tts_rate"),
@@ -886,6 +896,16 @@ class LauncherConfigScreen(Screen):
 
         self._append_log(f"[MQTT] Local broker connected: {'yes' if local_connected else 'no'}")
         self._append_log(f"[MQTT] Backend broker connected: {'yes' if backend_connected else 'no'}")
+        if main_ref:
+            self._append_log(
+                f"[MQTT] Backend state: connected={getattr(main_ref, 'mqtt_backend_connected', False)} "
+                f"last_connect={getattr(main_ref, 'mqtt_backend_last_connect_at', '') or '-'} "
+                f"last_disconnect={getattr(main_ref, 'mqtt_backend_last_disconnect_at', '') or '-'} "
+                f"last_rc={getattr(main_ref, 'mqtt_backend_last_disconnect_rc', '-')}"
+            )
+            last_error = getattr(main_ref, "mqtt_backend_last_error", "") or ""
+            if last_error:
+                self._append_log(f"[MQTT] Backend last error: {last_error}")
 
         if local_client:
             try:
@@ -1077,8 +1097,7 @@ class LauncherConfigScreen(Screen):
                 "--non-interactive",
                 "--yes",
                 "--force-restart",
-                "--run-update-once",
-                "--mode", "run",
+                "--mode", "clean-launch",
                 "--workspace", env.get("COBIEN_WORKSPACE_ROOT", os.path.join(os.path.expanduser("~"), "cobien")),
                 "--frontend-name", env.get("COBIEN_FRONTEND_REPO_NAME", "cobien_FrontEnd"),
                 "--mqtt-name", env.get("COBIEN_MQTT_REPO_NAME", "cobien_MQTT_Dictionnary"),

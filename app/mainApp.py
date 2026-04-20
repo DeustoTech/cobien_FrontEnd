@@ -3,6 +3,7 @@ import json
 import random
 import subprocess
 import sys
+import ssl
 import unicodedata
 from glob import glob
 from datetime import date, datetime
@@ -605,17 +606,43 @@ class MainScreen(Screen):
         self.mqtt_client_backend = mqtt.Client(client_id="kivy_backend_client")
         self.mqtt_broker_backend = services_cfg.get("mqtt_backend_broker", "broker.hivemq.com")
         self.mqtt_port_backend = int(services_cfg.get("mqtt_backend_port", 1883))
+        self.mqtt_topic_general = services_cfg.get("mqtt_backend_topic", "tarjeta") or "tarjeta"
+        self.mqtt_backend_keepalive = int(services_cfg.get("mqtt_backend_keepalive_sec", 60) or 60)
+        self.mqtt_backend_username = (services_cfg.get("mqtt_backend_username", "") or "").strip()
+        self.mqtt_backend_password = (services_cfg.get("mqtt_backend_password", "") or "").strip()
+        self.mqtt_backend_use_tls = str(services_cfg.get("mqtt_backend_use_tls", "0") or "0").strip().lower() in {"1", "true", "yes", "on"}
         self.mqtt_client_backend.on_connect = self.on_connect_backend
         self.mqtt_client_backend.on_message = self.on_message_backend
+        self.mqtt_client_backend.on_disconnect = self.on_disconnect_backend
         self._subscribed_backend = False
+        self.mqtt_backend_connected = False
+        self.mqtt_backend_last_connect_at = ""
+        self.mqtt_backend_last_disconnect_at = ""
+        self.mqtt_backend_last_disconnect_rc = None
+        self.mqtt_backend_last_error = ""
 
-        self.mqtt_topic_general = "tarjeta"
+        self.mqtt_client_backend.reconnect_delay_set(min_delay=2, max_delay=60)
+        if self.mqtt_backend_username:
+            self.mqtt_client_backend.username_pw_set(
+                self.mqtt_backend_username,
+                self.mqtt_backend_password or None,
+            )
+        if self.mqtt_backend_use_tls:
+            self.mqtt_client_backend.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 
         try:
-            self.mqtt_client_backend.connect(self.mqtt_broker_backend, self.mqtt_port_backend, 60)
+            self.mqtt_client_backend.connect_async(
+                self.mqtt_broker_backend,
+                self.mqtt_port_backend,
+                self.mqtt_backend_keepalive,
+            )
             self.mqtt_client_backend.loop_start()
-            print("[MQTT BACKEND] Connected to broker.hivemq.com for notifications")
+            print(
+                f"[MQTT BACKEND] Connecting to {self.mqtt_broker_backend}:{self.mqtt_port_backend} "
+                f"(topic={self.mqtt_topic_general}, tls={'on' if self.mqtt_backend_use_tls else 'off'})"
+            )
         except Exception as e:
+            self.mqtt_backend_last_error = str(e)
             print(f"[MQTT BACKEND] Connection error: {e}")
 
         # Gestionnaire de notifications
@@ -839,11 +866,20 @@ class MainScreen(Screen):
         """Connect to backend broker for notifications."""
         if rc == 0:
             if self._subscribed_backend:
+                self.mqtt_backend_connected = True
+                self.mqtt_backend_last_connect_at = datetime.now().isoformat()
                 return
-            print("[MQTT BACKEND] Subscribed to 'videollamada' and 'tarjeta'")
+            self.mqtt_backend_connected = True
+            self.mqtt_backend_last_connect_at = datetime.now().isoformat()
+            self.mqtt_backend_last_disconnect_rc = 0
+            self.mqtt_backend_last_error = ""
+            print(f"[MQTT BACKEND] Subscribed to topic '{self.mqtt_topic_general}'")
             client.subscribe(self.mqtt_topic_general)
             self._subscribed_backend = True
         else:
+            self.mqtt_backend_connected = False
+            self.mqtt_backend_last_disconnect_rc = rc
+            self.mqtt_backend_last_error = f"connect rc={rc}"
             print(f"[MQTT BACKEND] Connection failed, code: {rc}")
 
     def on_message_backend(self, client, userdata, msg):
@@ -852,6 +888,17 @@ class MainScreen(Screen):
         topic = msg.topic
         print(f"[MQTT BACKEND] Message received on {topic}: {message}")
         Clock.schedule_once(lambda dt: self.process_backend_notification(message, topic))
+
+    def on_disconnect_backend(self, client, userdata, rc):
+        self.mqtt_backend_connected = False
+        self.mqtt_backend_last_disconnect_at = datetime.now().isoformat()
+        self.mqtt_backend_last_disconnect_rc = rc
+        if rc == 0:
+            print("[MQTT BACKEND] Disconnected cleanly")
+            return
+        self.mqtt_backend_last_error = f"disconnect rc={rc}"
+        self._subscribed_backend = False
+        print(f"[MQTT BACKEND] Unexpected disconnect, code: {rc}. Auto-reconnect should retry.")
 
     # ---------------- Fecha/Hora ----------------
     def on_pre_enter(self, *args):

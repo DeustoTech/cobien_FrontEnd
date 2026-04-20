@@ -730,6 +730,28 @@ stop_runtime_processes() {
   pkill -f "\\[CAN\\] Initializing the CAN bus" >/dev/null 2>&1 || true
 }
 
+wait_for_runtime_shutdown() {
+  local timeout_seconds="${1:-12}"
+  local elapsed=0
+  local running_count="0"
+
+  while (( elapsed < timeout_seconds )); do
+    running_count="$(count_running_runtime_processes | tr -d '[:space:]')"
+    if [[ "${running_count:-0}" == "0" ]]; then
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  running_count="$(count_running_runtime_processes | tr -d '[:space:]')"
+  if [[ "${running_count:-0}" != "0" ]]; then
+    log "WARN: Runtime processes still present after waiting ${timeout_seconds}s (${running_count} remaining)."
+    return 1
+  fi
+  return 0
+}
+
 count_running_runtime_processes() {
   local matches
   matches="$(pgrep -af "candump can0|/cobien_bridge|mainApp.py|\\[APP\\] Launching frontend with uv|\\[BRIDGE\\] Build and launch|\\[CAN\\] Initializing the CAN bus" || true)"
@@ -750,7 +772,8 @@ perform_preflight_runtime_cleanup() {
   fi
   close_runtime_windows
   stop_runtime_processes
-  sleep 1
+  wait_for_runtime_shutdown 12 || true
+  close_runtime_windows
 }
 
 clear_launcher_stop_request() {
