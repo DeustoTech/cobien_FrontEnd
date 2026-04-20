@@ -879,6 +879,10 @@ class MainScreen(Screen):
     def trigger_backend_poll(self):
         self._trigger_backend_poll()
 
+    # Legacy typo compatibility kept temporarily for already deployed launchers.
+    def start_bakend_polling(self):
+        self._start_backend_polling()
+
     def _poll_backend_notifications(self):
         try:
             headers = {}
