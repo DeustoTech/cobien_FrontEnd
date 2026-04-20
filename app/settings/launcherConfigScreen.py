@@ -11,6 +11,7 @@ import requests
 import shutil
 import subprocess
 import threading
+import uuid
 from typing import Any, Dict, Tuple
 
 from kivy.app import App
@@ -27,8 +28,10 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.uix.textinput import TextInput
 
+from contact_sync_service import sync_contacts_for_device
 from config_store import load_config, load_section, save_config
 from translation import _
+from virtual_assistant.commands import refresh_contact_keywords
 
 
 KV = """
@@ -341,11 +344,33 @@ class LauncherConfigScreen(Screen):
         self.lbl_status.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
         root.add_widget(self.lbl_status)
 
+        self.log_output = TextInput(
+            text="",
+            multiline=True,
+            readonly=True,
+            size_hint_y=None,
+            height=dp(200),
+            font_size=sp(16),
+            background_normal="",
+            background_active="",
+            background_color=(0.98, 0.99, 1, 1),
+            foreground_color=(0.08, 0.1, 0.14, 1),
+            cursor_color=(0.16, 0.35, 0.78, 1),
+        )
+        root.add_widget(self.log_output)
+
         actions = BoxLayout(size_hint_y=None, height=dp(66), spacing=dp(14))
         sync_btn = Button(
             text=_("Forzar sync contactos"),
             background_normal="",
             background_color=(0.87, 0.56, 0.18, 1),
+            font_size=sp(22),
+            color=(1, 1, 1, 1),
+        )
+        mqtt_btn = Button(
+            text=_("Verificar MQTT"),
+            background_normal="",
+            background_color=(0.45, 0.38, 0.8, 1),
             font_size=sp(22),
             color=(1, 1, 1, 1),
         )
@@ -364,9 +389,11 @@ class LauncherConfigScreen(Screen):
             color=(1, 1, 1, 1),
         )
         sync_btn.bind(on_release=lambda *_args: self.force_contacts_sync())
+        mqtt_btn.bind(on_release=lambda *_args: self.verify_mqtt())
         save_btn.bind(on_release=lambda *_args: self.save_changes())
         reload_btn.bind(on_release=lambda *_args: self.run_full_update_reload())
         actions.add_widget(sync_btn)
+        actions.add_widget(mqtt_btn)
         actions.add_widget(save_btn)
         actions.add_widget(reload_btn)
         root.add_widget(actions)
@@ -721,6 +748,16 @@ class LauncherConfigScreen(Screen):
     def go_back(self) -> None:
         self.sm.current = "settings"
 
+    def _set_status(self, text: str) -> None:
+        self.lbl_status.text = text
+
+    def _append_log(self, text: str) -> None:
+        def _update(_dt) -> None:
+            current = str(self.log_output.text or "")
+            self.log_output.text = f"{current}{text}\n" if current else f"{text}\n"
+            self.log_output.cursor = (0, len(self.log_output.text.splitlines()))
+        Clock.schedule_once(_update, 0)
+
     def _current_device_id(self) -> str:
         launcher_value = (self._launcher_inputs.get("COBIEN_DEVICE_ID").text or "").strip() if self._launcher_inputs.get("COBIEN_DEVICE_ID") else ""
         if launcher_value:
@@ -759,50 +796,146 @@ class LauncherConfigScreen(Screen):
             return f"{backend_base_url.rstrip('/')}/pizarra/api/contacts/sync/"
         return ""
 
+    def _backend_mqtt_check_url(self) -> str:
+        backend_widget = self._config_inputs.get(("services", "backend_base_url"))
+        backend_base_url = (backend_widget.text or "").strip() if backend_widget else ""
+        if not backend_base_url:
+            services_cfg = load_section("services", {})
+            backend_base_url = str(services_cfg.get("backend_base_url", "") or "").strip()
+        if backend_base_url:
+            return f"{backend_base_url.rstrip('/')}/pizarra/api/mqtt/diagnostic/"
+        return ""
+
+    def _refresh_contacts_ui(self) -> None:
+        if self.sm.has_screen("contacts"):
+            contacts_screen = self.sm.get_screen("contacts")
+            if hasattr(contacts_screen, "reload_contacts_from_disk"):
+                contacts_screen.reload_contacts_from_disk()
+        if self.sm.has_screen("settings"):
+            settings_screen = self.sm.get_screen("settings")
+            if hasattr(settings_screen, "rfid_actions_screen"):
+                rfid_screen = settings_screen.rfid_actions_screen
+                if hasattr(rfid_screen, "load_available_contacts"):
+                    rfid_screen.load_available_contacts()
+
     def force_contacts_sync(self) -> None:
         device_id = self._current_device_id()
         if not device_id:
-            self.lbl_status.text = _("Falta el Device ID para forzar la sincronización de contactos.")
+            self._set_status(_("Falta el Device ID para forzar la sincronización de contactos."))
             return
 
         api_key = self._notify_api_key_value()
         if not api_key:
-            self.lbl_status.text = _("Falta la Notify API key para forzar la sincronización de contactos.")
+            self._set_status(_("Falta la Notify API key para forzar la sincronización de contactos."))
+            return
+        self._set_status(_("Sincronizando contactos directamente desde backend..."))
+        self._append_log(f"[CONTACTS] Device ID: {device_id}")
+        self._append_log("[CONTACTS] Starting direct contacts download")
+
+        def _run() -> None:
+            try:
+                result = sync_contacts_for_device(device_id=device_id)
+                self._append_log(f"[CONTACTS] Contacts synchronized: {result['count']}")
+                self._append_log(f"[CONTACTS] Images downloaded: {result['images_downloaded']}")
+                try:
+                    refresh_contact_keywords()
+                    self._append_log("[CONTACTS] Voice assistant contact keywords refreshed")
+                except Exception as refresh_exc:
+                    self._append_log(f"[CONTACTS] Contact keyword refresh warning: {refresh_exc}")
+                Clock.schedule_once(
+                    lambda _dt: self._refresh_contacts_ui(),
+                    0,
+                )
+                Clock.schedule_once(
+                    lambda _dt: self._set_status(_("Contactos sincronizados correctamente.")),
+                    0,
+                )
+            except Exception as exc:
+                self._append_log(f"[CONTACTS] Sync failed: {exc}")
+                Clock.schedule_once(
+                    lambda _dt: self._set_status(f"{_('Error forzando sincronización de contactos')}: {exc}"),
+                    0,
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def verify_mqtt(self) -> None:
+        device_id = self._current_device_id()
+        api_key = self._notify_api_key_value()
+        app = App.get_running_app()
+        main_ref = getattr(app, "main_ref", None) if app else None
+
+        self._append_log("[MQTT] Starting diagnostic")
+
+        local_client = getattr(main_ref, "mqtt_client_local", None)
+        backend_client = getattr(main_ref, "mqtt_client_backend", None)
+        local_connected = bool(local_client and local_client.is_connected())
+        backend_connected = bool(backend_client and backend_client.is_connected())
+
+        self._append_log(f"[MQTT] Local broker connected: {'yes' if local_connected else 'no'}")
+        self._append_log(f"[MQTT] Backend broker connected: {'yes' if backend_connected else 'no'}")
+
+        if local_client:
+            try:
+                info = local_client.publish(
+                    "app/nav",
+                    json.dumps({"type": "admin_mqtt_check", "source": "launcher_config"}),
+                    qos=0,
+                )
+                self._append_log(f"[MQTT] Local publish rc: {getattr(info, 'rc', 'unknown')}")
+            except Exception as exc:
+                self._append_log(f"[MQTT] Local publish failed: {exc}")
+
+        if not device_id:
+            self._set_status(_("Falta el Device ID para verificar MQTT."))
+            return
+        if not api_key:
+            self._set_status(_("Falta la Notify API key para verificar MQTT."))
             return
 
-        sync_url = self._contacts_sync_url()
-        if not sync_url:
-            self.lbl_status.text = _("No se ha podido resolver la URL de sincronización de contactos.")
+        check_url = self._backend_mqtt_check_url()
+        if not check_url:
+            self._set_status(_("No se ha podido resolver la URL de diagnóstico MQTT."))
             return
 
-        self.lbl_status.text = _("Solicitando sincronización de contactos al backend...")
+        check_id = uuid.uuid4().hex
+        self._set_status(_("Lanzando verificación MQTT extremo a extremo..."))
+        self._append_log(f"[MQTT] Backend diagnostic id: {check_id}")
 
         def _run() -> None:
             try:
                 response = requests.post(
-                    sync_url,
-                    json={"to": device_id, "from": "cobien-device-admin"},
+                    check_url,
+                    json={"to": device_id, "from": "cobien-device-admin", "check_id": check_id},
                     headers={"X-API-KEY": api_key},
                     timeout=10,
                 )
                 response.raise_for_status()
-                Clock.schedule_once(
-                    lambda _dt: setattr(
-                        self.lbl_status,
-                        "text",
-                        _("Sincronización de contactos solicitada correctamente."),
-                    ),
-                    0,
-                )
+                self._append_log("[MQTT] Backend accepted diagnostic publish request")
             except Exception as exc:
+                self._append_log(f"[MQTT] Backend diagnostic request failed: {exc}")
                 Clock.schedule_once(
-                    lambda _dt: setattr(
-                        self.lbl_status,
-                        "text",
-                        f"{_('Error forzando sincronización de contactos')}: {exc}",
-                    ),
+                    lambda _dt: self._set_status(f"{_('Error verificando MQTT')}: {exc}"),
                     0,
                 )
+                return
+
+            for _ in range(10):
+                diagnostic = getattr(main_ref, "last_backend_mqtt_diagnostic", None) if main_ref else None
+                if diagnostic and diagnostic.get("check_id") == check_id:
+                    self._append_log("[MQTT] Backend->furniture diagnostic message received")
+                    Clock.schedule_once(
+                        lambda _dt: self._set_status(_("MQTT verificado correctamente entre backend y mueble.")),
+                        0,
+                    )
+                    return
+                threading.Event().wait(0.5)
+
+            self._append_log("[MQTT] Timeout waiting for backend diagnostic message on furniture")
+            Clock.schedule_once(
+                lambda _dt: self._set_status(_("No se confirmó la recepción MQTT desde backend en el mueble.")),
+                0,
+            )
 
         threading.Thread(target=_run, daemon=True).start()
 
@@ -826,10 +959,13 @@ class LauncherConfigScreen(Screen):
         self.raw_config_input.text = json.dumps(runtime_cfg, ensure_ascii=False, indent=4)
         self.raw_env_input.text = "\n".join(f"{key}={env[key]}" for key in sorted(env.keys()))
 
-        self.lbl_status.text = f"{_('Configuración cargada desde')}: {self._env_path()}"
+        self._set_status(f"{_('Configuración cargada desde')}: {self._env_path()}")
+        self.log_output.text = ""
+        self._append_log("[CONFIG] Configuration loaded")
 
     def save_changes(self) -> None:
         try:
+            self._append_log("[CONFIG] Saving launcher and local configuration")
             env = self._read_env()
             raw_env_text = str(self.raw_env_input.text or "").strip()
             if raw_env_text:
@@ -887,7 +1023,9 @@ class LauncherConfigScreen(Screen):
             self.raw_config_input.text = json.dumps(self._normalized_runtime_config(load_config()), ensure_ascii=False, indent=4)
             saved_env = self._read_env()
             self.raw_env_input.text = "\n".join(f"{key}={saved_env[key]}" for key in sorted(saved_env.keys()))
+            self._append_log("[CONFIG] Configuration saved successfully")
         except Exception as exc:
+            self._append_log(f"[CONFIG] Save failed: {exc}")
             self.lbl_status.text = f"{_('Error guardando configuración')}: {exc}"
             return
 
@@ -909,10 +1047,12 @@ class LauncherConfigScreen(Screen):
             return False
 
     def run_full_update_reload(self) -> None:
+        self._append_log("[RUNTIME] Starting save + update + reload sequence")
         self.save_changes()
         launcher_script = self._launcher_script_path()
         if not os.path.isfile(launcher_script):
             self.lbl_status.text = f"{_('Error')}: launcher no encontrado: {launcher_script}"
+            self._append_log(f"[RUNTIME] Launcher script not found: {launcher_script}")
             return
 
         env = self._read_env()
@@ -942,21 +1082,28 @@ class LauncherConfigScreen(Screen):
         piper_bin = shutil.which("piper")
         if env.get("COBIEN_TTS_ENGINE", "pyttsx3") == "piper" and not piper_bin:
             self.lbl_status.text = _("Piper no detectado. El launcher intentará configurarlo durante la recarga...")
+            self._append_log("[RUNTIME] Piper not found locally, launcher will try to configure it")
         elif use_systemd_restart:
             self.lbl_status.text = _("Guardado completado. Reiniciando servicio del mueble...")
+            self._append_log("[RUNTIME] Restarting user service cobien-launcher.service")
         else:
             self.lbl_status.text = _("Guardando y relanzando runtime...")
+            self._append_log("[RUNTIME] Running launcher in direct reload mode")
 
         def _run() -> None:
             try:
+                self._append_log(f"[RUNTIME] Executing command: {' '.join(cmd[:6])}...")
                 completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
                 if completed.returncode == 0:
+                    self._append_log("[RUNTIME] Runtime reload completed successfully")
                     Clock.schedule_once(lambda _dt: setattr(self.lbl_status, "text", _("Secuencia completada. Runtime recargado.")), 0)
                     return
                 stderr_tail = (completed.stderr or "").strip().splitlines()[-1:] or [""]
                 error_msg = stderr_tail[0] if stderr_tail[0] else f"return code {completed.returncode}"
+                self._append_log(f"[RUNTIME] Reload failed: {error_msg}")
                 Clock.schedule_once(lambda _dt: setattr(self.lbl_status, "text", f"{_('Error en actualización')}: {error_msg}"), 0)
             except Exception as exc:
+                self._append_log(f"[RUNTIME] Unexpected reload error: {exc}")
                 Clock.schedule_once(lambda _dt: setattr(self.lbl_status, "text", f"{_('Error en actualización')}: {exc}"), 0)
 
         threading.Thread(target=_run, daemon=True).start()

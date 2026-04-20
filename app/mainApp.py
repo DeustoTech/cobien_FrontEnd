@@ -620,6 +620,7 @@ class MainScreen(Screen):
 
         # Gestionnaire de notifications
         self.notification_manager = NotificationManager(sm, self)
+        self.last_backend_mqtt_diagnostic = None
 
         # Reloj
         Clock.schedule_interval(self._update_datetime, 1)
@@ -1599,6 +1600,15 @@ class MainScreen(Screen):
                 args=(data,),
                 daemon=True,
             ).start()
+            return
+
+        elif notif_type == "mqtt_diagnostic":
+            self.last_backend_mqtt_diagnostic = {
+                "check_id": data.get("check_id", ""),
+                "from": data.get("from", ""),
+                "timestamp": data.get("timestamp", ""),
+            }
+            print(f"[BACKEND_NOTIF] ✅ MQTT diagnostic received: {self.last_backend_mqtt_diagnostic}")
             return
         
         # ❌ TYPE INCONNU
