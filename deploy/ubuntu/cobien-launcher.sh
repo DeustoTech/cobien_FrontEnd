@@ -825,6 +825,7 @@ resolve_paths() {
   RUNTIME_STATE_DIR="$FRONTEND_APP_DIR/runtime_state"
   UPDATE_MARKER_FILE="$RUNTIME_STATE_DIR/system_updated.json"
   LAUNCHER_STOP_REQUEST_FILE="$RUNTIME_STATE_DIR/launcher_stop_requested.flag"
+  MANUAL_UPDATE_RELOAD_FILE="$RUNTIME_STATE_DIR/manual_update_reload.flag"
 }
 
 derive_default_device_id() {
@@ -1163,6 +1164,16 @@ clear_launcher_stop_request() {
   if [[ -n "${LAUNCHER_STOP_REQUEST_FILE:-}" && -f "$LAUNCHER_STOP_REQUEST_FILE" ]]; then
     rm -f "$LAUNCHER_STOP_REQUEST_FILE" >/dev/null 2>&1 || true
   fi
+}
+
+clear_manual_update_reload_request() {
+  if [[ -n "${MANUAL_UPDATE_RELOAD_FILE:-}" && -f "$MANUAL_UPDATE_RELOAD_FILE" ]]; then
+    rm -f "$MANUAL_UPDATE_RELOAD_FILE" >/dev/null 2>&1 || true
+  fi
+}
+
+is_manual_update_reload_requested() {
+  [[ -n "${MANUAL_UPDATE_RELOAD_FILE:-}" && -f "$MANUAL_UPDATE_RELOAD_FILE" ]]
 }
 
 is_launcher_stop_requested() {
@@ -2589,9 +2600,14 @@ restart_software() {
 run_update_once() {
   local handoff_mode="${1:-launch}"
   local updated=0
+  local manual_reload_requested="0"
 
   check_paths
   load_env_file
+  if is_manual_update_reload_requested; then
+    manual_reload_requested="1"
+    log "Manual update requested from furniture administration; runtime will be relaunched even if repositories are already up to date."
+  fi
   log "Preparing update handoff: ensuring only one launcher/runtime instance remains before updating."
 
   if ! is_running_inside_systemd_user_service && has_active_systemd_user_launcher_service; then
@@ -2612,6 +2628,11 @@ run_update_once() {
 
   if [[ "$updated" -eq 1 ]]; then
     mark_update_applied
+    clear_manual_update_reload_request
+    restart_software 1
+  elif [[ "$manual_reload_requested" == "1" ]]; then
+    log "No repository changes found, but manual update requested a full runtime reload."
+    clear_manual_update_reload_request
     restart_software 1
   else
     log "No changes to deploy"

@@ -1097,6 +1097,11 @@ class LauncherConfigScreen(Screen):
         frontend_name = (self._launcher_inputs["COBIEN_FRONTEND_REPO_NAME"].text or "").strip() or "cobien_FrontEnd"
         return os.path.join(workspace, frontend_name, "deploy", "ubuntu", "cobien-launcher.sh")
 
+    def _manual_update_reload_flag_path(self) -> str:
+        workspace = (self._launcher_inputs["COBIEN_WORKSPACE_ROOT"].text or "").strip() or os.path.join(os.path.expanduser("~"), "cobien")
+        frontend_name = (self._launcher_inputs["COBIEN_FRONTEND_REPO_NAME"].text or "").strip() or "cobien_FrontEnd"
+        return os.path.join(workspace, frontend_name, "app", "runtime_state", "manual_update_reload.flag")
+
     def _systemd_launcher_active(self) -> bool:
         try:
             result = subprocess.run(
@@ -1113,6 +1118,7 @@ class LauncherConfigScreen(Screen):
         self._append_log("[RUNTIME] Starting save + update + reload sequence")
         self.save_changes()
         launcher_script = self._launcher_script_path()
+        manual_reload_flag = self._manual_update_reload_flag_path()
         if not os.path.isfile(launcher_script):
             self.lbl_status.text = f"{_('Error')}: launcher no encontrado: {launcher_script}"
             self._append_log(f"[RUNTIME] Launcher script not found: {launcher_script}")
@@ -1153,17 +1159,31 @@ class LauncherConfigScreen(Screen):
 
         def _run() -> None:
             try:
+                os.makedirs(os.path.dirname(manual_reload_flag), exist_ok=True)
+                with open(manual_reload_flag, "w", encoding="utf-8") as marker_file:
+                    marker_file.write("manual-update\n")
+                self._append_log(f"[RUNTIME] Manual update marker written: {manual_reload_flag}")
                 self._append_log(f"[RUNTIME] Executing command: {' '.join(cmd[:6])}...")
                 completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
                 if completed.returncode == 0:
                     self._append_log("[RUNTIME] Runtime reload completed successfully")
                     Clock.schedule_once(lambda _dt: setattr(self.lbl_status, "text", _("Secuencia completada. Runtime recargado.")), 0)
                     return
+                try:
+                    if os.path.exists(manual_reload_flag):
+                        os.remove(manual_reload_flag)
+                except OSError:
+                    pass
                 stderr_tail = (completed.stderr or "").strip().splitlines()[-1:] or [""]
                 error_msg = stderr_tail[0] if stderr_tail[0] else f"return code {completed.returncode}"
                 self._append_log(f"[RUNTIME] Reload failed: {error_msg}")
                 Clock.schedule_once(lambda _dt: setattr(self.lbl_status, "text", f"{_('Error en actualización')}: {error_msg}"), 0)
             except Exception as exc:
+                try:
+                    if os.path.exists(manual_reload_flag):
+                        os.remove(manual_reload_flag)
+                except OSError:
+                    pass
                 self._append_log(f"[RUNTIME] Unexpected reload error: {exc}")
                 Clock.schedule_once(lambda _dt: setattr(self.lbl_status, "text", f"{_('Error en actualización')}: {exc}"), 0)
 
