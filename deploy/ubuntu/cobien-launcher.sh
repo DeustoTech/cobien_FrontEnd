@@ -2380,12 +2380,12 @@ write_env_file() {
 }
 
 load_env_file() {
-  load_master_env_if_present || true
   if [[ -f "$ENV_FILE" ]]; then
     set -a
     source "$ENV_FILE"
     set +a
   fi
+  load_master_env_if_present || true
   normalize_device_identity
   set_service_defaults
   reconcile_update_supervision_mode

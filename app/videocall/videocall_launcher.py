@@ -26,8 +26,17 @@ from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEnginePage, QWebEngineProfile, QWebEngineSettings
 )
 
-# Allow camera/microphone permissions without interactive prompts.
-os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--use-fake-ui-for-media-stream"
+# Allow media permissions without interactive prompts and relax autoplay/WebRTC
+# restrictions for kiosk device calls.
+_existing_qt_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").strip()
+_required_qt_flags = [
+    "--use-fake-ui-for-media-stream",
+    "--autoplay-policy=no-user-gesture-required",
+]
+_merged_qt_flags = " ".join(
+    flag for flag in (_existing_qt_flags.split() + _required_qt_flags) if flag
+)
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = _merged_qt_flags
 
 _services_cfg = load_section("services", {})
 PORTAL_URL = _services_cfg.get("portal_videocall_url", "https://portal.co-bien.eu/videocall/")
@@ -261,6 +270,8 @@ class MainWindow(QMainWindow):
         s.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
         s.setAttribute(QWebEngineSettings.JavascriptCanOpenWindows, True)
         s.setAttribute(QWebEngineSettings.FullScreenSupportEnabled, True)
+        if hasattr(QWebEngineSettings, "PlaybackRequiresUserGesture"):
+            s.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, False)
 
         # Web view and customized page.
         self.web_view = QWebEngineView()
