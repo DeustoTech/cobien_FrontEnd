@@ -1,49 +1,64 @@
-try:
-    import can
-except ModuleNotFoundError:
-    can = None
+"""MQTT-based proximity sensor reader for Cobien."""
+import json
+import os
+
+import paho.mqtt.client as mqtt
 
 from icso_data.proximity_sensor_logger import log_proximity_event
 
-CAN_INTERFACE = "can0"
+try:
+    from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+except ImportError:
+    MQTT_LOCAL_BROKER = os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost")
+    MQTT_LOCAL_PORT = int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883"))
 
-SENSORS_IDS = {0x474, 0x475, 0x476, 0x477}
-EVENT_CODES = {0x5EBA1ADE, 0xD157A4CE, 0xE5ABA1ED}
+TOPIC = "proximity/update"
 
-def parse_event_code(data):
-    if data is None or len(data) < 6:
-        return None
-    return (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5]
+
+def on_connect(client, userdata, flags, reason_code, properties):
+    if reason_code == 0:
+        client.subscribe(TOPIC, qos=1)
+        print(f"[Proximity Sensor] Connected, subscribed to {TOPIC}")
+    else:
+        print(f"[Proximity Sensor] Connection failed: {reason_code}")
+
+
+def on_disconnect(client, userdata, reason_code, properties):
+    print(f"[Proximity Sensor] Disconnected: {reason_code}")
+
+
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode("utf-8"))
+        can_id = payload.get("can_id")
+        event = payload.get("event")
+        if can_id is None or event is None:
+            print(f"[Proximity Sensor] Missing fields in payload: {payload}")
+            return
+        log_proximity_event(int(can_id), int(event))
+    except (json.JSONDecodeError, ValueError, OSError) as e:
+        print(f"[Proximity Sensor] Error processing message: {e}")
+
 
 def main():
-    if can is None:
-        print("[Proximity Sensor] python-can is not installed. Proximity logger disabled.")
-        return
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        protocol=mqtt.MQTTv5,
+    )
+    client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
+    client.on_message = on_message
+
     try:
-        bus = can.Bus(channel=CAN_INTERFACE, interface="socketcan")
-    except Exception as exc:
-        print(f"[Proximity Sensor] Unable to open {CAN_INTERFACE}: {exc}")
-        return
-    try:
-        while True:
-            msg = bus.recv(timeout=1.0)
-            if msg is None:
-                continue
+        print(
+            f"[Proximity Sensor] Connecting to "
+            f"{MQTT_LOCAL_BROKER}:{MQTT_LOCAL_PORT}..."
+        )
+        client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT)
+        client.loop_forever()
+    except (OSError, ConnectionRefusedError) as e:
+        print(f"[Proximity Sensor] Fatal error: {e}")
 
-            can_id = msg.arbitration_id
-            if can_id not in SENSORS_IDS:
-                continue
-
-            event_code = parse_event_code(msg.data)
-            if event_code not in EVENT_CODES:
-                continue
-
-            log_proximity_event(can_id, event_code)
-    finally:
-        try:
-            bus.shutdown()
-        except Exception:
-            pass
 
 if __name__ == "__main__":
     main()
