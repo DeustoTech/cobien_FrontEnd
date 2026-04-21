@@ -16,12 +16,16 @@ from typing import Any, Dict, Tuple
 
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.factory import Factory
 from kivy.lang import Builder
 from kivy.metrics import dp, sp
 from kivy.graphics import Color, RoundedRectangle
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.properties import StringProperty
 from kivy.uix.screenmanager import Screen
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.spinner import Spinner
@@ -38,8 +42,41 @@ KV = """
 #:import dp kivy.metrics.dp
 #:import sp kivy.metrics.sp
 
+<IconBadge>:
+    size_hint: None, None
+    size: dp(80), dp(80)
+    padding: dp(6)
+    canvas.before:
+        Color:
+            rgba: 1,1,1,1
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(16),]
+        Color:
+            rgba: 0,0,0,0.85
+        Line:
+            width: 2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
+    Image:
+        source: root.icon_source
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+        size_hint: None, None
+        size: dp(56), dp(56)
+
 <LauncherConfigScreen>:
 """
+
+
+class IconBadge(ButtonBehavior, AnchorLayout):
+    """Compact icon-only badge used for header actions."""
+
+    icon_source = StringProperty("")
+
+
+Factory.register("IconBadge", cls=IconBadge)
 
 
 DEFAULT_PIPER_MODEL_ES_MALE = "es_ES-davefx-medium"
@@ -271,6 +308,7 @@ class LauncherConfigScreen(Screen):
         self._build_ui()
 
     def _build_ui(self) -> None:
+        app = App.get_running_app()
         root = BoxLayout(orientation="vertical", padding=dp(24), spacing=dp(18))
         with root.canvas.before:
             Color(0.96, 0.97, 0.98, 1)
@@ -294,15 +332,8 @@ class LauncherConfigScreen(Screen):
             valign="middle",
         )
         title.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
-        back_btn = Button(
-            text=_("Volver"),
-            size_hint=(None, None),
-            size=(dp(140), dp(74)),
-            background_normal="",
-            background_color=(0.88, 0.9, 0.94, 1),
-            font_size=sp(24),
-            color=(0.08, 0.1, 0.14, 1),
-        )
+        back_btn = IconBadge()
+        back_btn.icon_source = app.back_icon if hasattr(app, "back_icon") and app.back_icon else "data/images/back.png"
         back_btn.bind(on_release=lambda *_args: self.go_back())
         header.add_widget(title)
         header.add_widget(back_btn)
@@ -1100,10 +1131,10 @@ class LauncherConfigScreen(Screen):
         frontend_name = (self._launcher_inputs["COBIEN_FRONTEND_REPO_NAME"].text or "").strip() or "cobien_FrontEnd"
         return os.path.join(workspace, frontend_name, "app", "runtime_state", "manual_update_reload.flag")
 
-    def _systemd_launcher_active(self) -> bool:
+    def _systemd_launcher_available(self) -> bool:
         try:
             result = subprocess.run(
-                ["systemctl", "--user", "is-active", "--quiet", "cobien-launcher.service"],
+                ["systemctl", "--user", "cat", "cobien-update.service"],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -1123,7 +1154,7 @@ class LauncherConfigScreen(Screen):
             return
 
         env = self._read_env()
-        use_systemd_restart = self._systemd_launcher_active()
+        use_systemd_restart = self._systemd_launcher_available()
         cmd = (
             ["systemctl", "--user", "restart", "cobien-update.service"]
             if use_systemd_restart

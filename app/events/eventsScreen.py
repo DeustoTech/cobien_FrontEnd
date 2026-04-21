@@ -253,6 +253,25 @@ KV = r"""
             pos: self.pos
             size: self.size
 
+<DayAudienceMarker@BoxLayout>:
+    dot_rgba: 0.15, 0.55, 0.95, 1
+    count_text: ""
+    size_hint: None, None
+    height: dp(36)
+    width: self.minimum_width
+    spacing: dp(6)
+    LegendDot:
+        size: dp(36), dp(36)
+        rgba: root.dot_rgba
+    Label:
+        text: root.count_text
+        font_size: sp(18)
+        bold: True
+        color: C_BLACK
+        size_hint: None, None
+        size: self.texture_size if self.text else (0, 0)
+        opacity: 1 if self.text else 0
+
 <DayCell@ButtonBehavior+BoxLayout>:
     day_num: 0
     selected: False
@@ -736,17 +755,22 @@ class EventsScreen(Screen):
             cell.selected = (day_date == self.today)
 
             if evs:
-                audiences = {(e.get("audience") or "").lower().strip() for e in evs}
-                if "all" in audiences:
-                    dot = LegendDot()
-                    dot.size = (dp(28), dp(28))
-                    dot.rgba = [0.15, 0.55, 0.95, 1]
-                    cell.ids.dots_box.add_widget(dot)
-                if "device" in audiences:
-                    dot = LegendDot()
-                    dot.size = (dp(28), dp(28))
-                    dot.rgba = [1, 0.23, 0.18, 1]
-                    cell.ids.dots_box.add_widget(dot)
+                audience_counts = defaultdict(int)
+                for event in evs:
+                    audience = (event.get("audience") or "").lower().strip()
+                    if audience in {"all", "device"}:
+                        audience_counts[audience] += 1
+
+                if audience_counts["all"]:
+                    marker = Factory.DayAudienceMarker()
+                    marker.dot_rgba = [0.15, 0.55, 0.95, 1]
+                    marker.count_text = str(audience_counts["all"]) if audience_counts["all"] > 1 else ""
+                    cell.ids.dots_box.add_widget(marker)
+                if audience_counts["device"]:
+                    marker = Factory.DayAudienceMarker()
+                    marker.dot_rgba = [1, 0.23, 0.18, 1]
+                    marker.count_text = str(audience_counts["device"]) if audience_counts["device"] > 1 else ""
+                    cell.ids.dots_box.add_widget(marker)
 
             def _open_day(_inst, _d=day_date):
                 day_screen = self._get_day_events_widget()

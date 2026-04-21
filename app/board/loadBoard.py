@@ -287,7 +287,12 @@ def _fetch_image_from_url(image_url: str, item_id: str) -> Optional[str]:
             ext = ".bin"
         target = os.path.join(CACHE_DIR, f"api_{item_id}{ext}")
         if not os.path.exists(target):
-            response = requests.get(image_url, timeout=8)
+            services_cfg = load_section("services", {})
+            headers = {}
+            api_key = (services_cfg.get("notify_api_key", "") or "").strip()
+            if api_key:
+                headers["X-API-KEY"] = api_key
+            response = requests.get(image_url, headers=headers, timeout=8)
             response.raise_for_status()
             with open(target, "wb") as out:
                 out.write(response.content)
@@ -323,11 +328,11 @@ def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
             created = None
 
         item_id = raw.get("id", "message")
-        image_path = _fetch_image_from_url(raw.get("image", ""), item_id) or ""
+        image_path = _fetch_image_from_url(raw.get("image", "") or raw.get("image_url", ""), item_id) or ""
         items.append(
             {
                 "id": raw.get("id", ""),
-                "author": raw.get("author", "—"),
+                "author": raw.get("author_name") or raw.get("author", "—"),
                 "text": raw.get("text", ""),
                 "image": image_path,
                 "created_at": created,
