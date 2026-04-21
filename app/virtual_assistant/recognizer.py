@@ -8,7 +8,7 @@ import os
 import queue
 import sounddevice as sd
 import json
-import audioop
+import numpy as np
 from vosk import Model, KaldiRecognizer
 import time
 from typing import Any, Callable, Optional, Tuple
@@ -198,9 +198,13 @@ class SpeechRecognizer:
 
                 if callable(level_callback):
                     try:
-                        rms = audioop.rms(data, 2)
+                        samples = np.frombuffer(data, dtype=np.int16)
+                        if samples.size:
+                            rms = float(np.sqrt(np.mean(np.square(samples.astype(np.float32)))))
+                        else:
+                            rms = 0.0
                         # Empirical normalization for 16-bit mono stream
-                        norm = min(1.0, float(rms) / 3500.0)
+                        norm = min(1.0, rms / 3500.0)
                         level_callback(norm)
                     except Exception:
                         pass
