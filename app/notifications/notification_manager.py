@@ -965,7 +965,8 @@ class NotificationManager:
                 
                 print(f"[NOTIF] 🚀 Launching videocall_launcher.py")
                 print(f"[NOTIF]    Room: '{room}' (from settings.json)")
-                
+
+                self._prepare_runtime_for_videocall()
                 self.active_call_process = subprocess.Popen([sys.executable, launcher_path, config_file])
                 self._cleanup_videocall_temp_file_later(config_file, self.active_call_process)
                 
@@ -997,13 +998,58 @@ class NotificationManager:
                 process.wait(timeout=None)
             except Exception:
                 pass
+            self.active_call_process = None
             try:
                 if temp_path and os.path.exists(temp_path):
                     os.remove(temp_path)
             except Exception as exc:
                 print(f"[NOTIF] ⚠️ Could not remove temporary videocall config {temp_path}: {exc}")
+            self._restore_runtime_after_videocall()
 
         threading.Thread(target=_cleanup, daemon=True).start()
+
+    def _prepare_runtime_for_videocall(self) -> None:
+        """Pause idle blackout behaviour before opening the external call window."""
+        app = App.get_running_app()
+        if not app:
+            return
+
+        try:
+            idle_event = getattr(app, "_idle_event", None)
+            if idle_event:
+                idle_event.cancel()
+                app._idle_event = None
+        except Exception as exc:
+            print(f"[NOTIF] ⚠️ Could not pause idle timer before videocall: {exc}")
+
+        try:
+            if getattr(app, "black_overlay", None) and app.black_overlay.parent:
+                app.black_overlay.dismiss()
+        except Exception as exc:
+            print(f"[NOTIF] ⚠️ Could not dismiss black overlay before videocall: {exc}")
+
+    def _restore_runtime_after_videocall(self) -> None:
+        """Restore Kivy visibility and idle handling once the call window closes."""
+        def _restore(_dt: float) -> None:
+            app = App.get_running_app()
+            if not app:
+                return
+
+            try:
+                if getattr(app, "black_overlay", None) and app.black_overlay.parent:
+                    app.black_overlay.dismiss()
+            except Exception as exc:
+                print(f"[NOTIF] ⚠️ Could not dismiss black overlay after videocall: {exc}")
+
+            try:
+                if hasattr(app, "_on_wakeup"):
+                    app._on_wakeup()
+                elif hasattr(app, "_reset_idle_timer"):
+                    app._reset_idle_timer()
+            except Exception as exc:
+                print(f"[NOTIF] ⚠️ Could not restore idle timer after videocall: {exc}")
+
+        Clock.schedule_once(_restore, 0)
     
     def _handle_event_action(self, action: str, data: Dict[str, Any]) -> None:
         """Handle event-notification user actions."""
