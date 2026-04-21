@@ -526,37 +526,36 @@ KV = r"""
                         icon_source: app.icon_videocall
                         text: root.btn_llamame_texto
 
-    AnchorLayout:
-        anchor_x: "right"
-        anchor_y: "bottom"
-        padding: [0, 0, dp(12), dp(10)]
+    FloatLayout:
+        size_hint: 1, 1
 
         BoxLayout:
             orientation: "horizontal"
             size_hint: None, None
             width: self.minimum_width
-            height: dp(26)
+            height: dp(24)
             spacing: dp(8)
+            pos_hint: {"right": 0.992, "y": 0.006}
 
             Label:
                 text: root.footer_identity_text
-                font_size: sp(18)
+                font_size: sp(16)
                 color: 0, 0, 0, 0.72
                 halign: "right"
                 valign: "middle"
                 text_size: self.size
                 size_hint_x: None
-                width: max(dp(120), self.texture_size[0] + dp(6))
+                width: max(dp(110), self.texture_size[0] + dp(6))
 
             Label:
                 text: root.footer_version_text
-                font_size: sp(18)
+                font_size: sp(16)
                 color: 0, 0, 0, 0.72
                 halign: "right"
                 valign: "middle"
                 text_size: self.size
                 size_hint_x: None
-                width: max(dp(80), self.texture_size[0] + dp(6))
+                width: max(dp(74), self.texture_size[0] + dp(6))
 """
 
 #----------------------- CONTACT NAME --------------------------
@@ -2236,6 +2235,12 @@ class MyApp(App):
                 version_text = (vf.read().strip() or "unknown")
         except Exception:
             pass
+
+        if version_text and version_text != "unknown":
+            if lang == "fr":
+                message_text = f"{message_text}\nVersion installée: v{version_text}"
+            else:
+                message_text = f"{message_text}\nVersión instalada: v{version_text}"
 
         try:
             if getattr(self.main_ref, "notification_manager", None):
