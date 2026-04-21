@@ -408,7 +408,7 @@ class ContactScreen(Screen):
         print(f"[ContactScreen] Loaded contacts: {len(self.contacts)}")
         
         Clock.schedule_once(self._populate_contacts, 0.2)
-        Clock.schedule_interval(self._refresh_header, 1)
+        Clock.schedule_interval(self._refresh_header, 60)
         
         # Update translated labels after UI creation.
         Clock.schedule_once(lambda *_: self.update_labels(), 0.3)

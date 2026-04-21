@@ -4,6 +4,7 @@ import random
 import subprocess
 import sys
 import unicodedata
+import fcntl
 from glob import glob
 from datetime import date, datetime
 
@@ -90,6 +91,8 @@ Builder.load_string(PINBACK_BUTTON_KV)
 RUNTIME_STATE_DIR = os.path.join(os.path.dirname(__file__), "runtime_state")
 UPDATE_MARKER_FILE = os.path.join(RUNTIME_STATE_DIR, "system_updated.json")
 LAUNCHER_STOP_REQUEST_FILE = os.path.join(RUNTIME_STATE_DIR, "launcher_stop_requested.flag")
+APP_LOCK_FILE = os.path.join(RUNTIME_STATE_DIR, "cobien-app.lock")
+APP_PID_FILE = os.path.join(RUNTIME_STATE_DIR, "cobien-app.pid")
 
 # Prevent Kivy from closing the app directly when Escape is pressed.
 Config.set("kivy", "exit_on_escape", "0")
@@ -2098,6 +2101,49 @@ class MyApp(App):
     settings_icon = StringProperty("data/images/settings.png")
     SETTINGS_BADGE_LONG_PRESS_SEC = 1.2
 
+    def _acquire_app_singleton(self):
+        os.makedirs(RUNTIME_STATE_DIR, exist_ok=True)
+        self._app_lock_handle = open(APP_LOCK_FILE, "w", encoding="utf-8")
+        try:
+            fcntl.flock(self._app_lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("[APP] Another CoBien frontend instance is already running. Exiting duplicate process.")
+            try:
+                self._app_lock_handle.close()
+            except Exception:
+                pass
+            self._app_lock_handle = None
+            return False
+
+        self._app_lock_handle.seek(0)
+        self._app_lock_handle.truncate()
+        self._app_lock_handle.write(str(os.getpid()))
+        self._app_lock_handle.flush()
+        try:
+            with open(APP_PID_FILE, "w", encoding="utf-8") as pid_file:
+                pid_file.write(str(os.getpid()))
+        except Exception:
+            pass
+        return True
+
+    def _release_app_singleton(self):
+        lock_handle = getattr(self, "_app_lock_handle", None)
+        if lock_handle is not None:
+            try:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass
+            try:
+                lock_handle.close()
+            except Exception:
+                pass
+            self._app_lock_handle = None
+        try:
+            if os.path.exists(APP_PID_FILE):
+                os.remove(APP_PID_FILE)
+        except OSError:
+            pass
+
     def _start_orchestrator(self):
         script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")
         if not os.path.isfile(script):
@@ -2181,6 +2227,10 @@ class MyApp(App):
         return True
 
     def on_start(self):
+        if not getattr(self, "_singleton_acquired", False):
+            print("[APP] Singleton lock missing at startup. Stopping duplicate instance.")
+            self.stop()
+            return
         self._start_orchestrator()
         self._start_proximity_logger()
         if getattr(self, "main_ref", None):
@@ -2198,6 +2248,7 @@ class MyApp(App):
         heartbeat_event = getattr(self, "_heartbeat_event", None)
         if heartbeat_event:
             heartbeat_event.cancel()
+        self._release_app_singleton()
 
     def _show_pending_system_update_notification(self):
         if not os.path.exists(UPDATE_MARKER_FILE):
@@ -2576,6 +2627,9 @@ class MyApp(App):
 
 
     def build(self):
+        self._singleton_acquired = self._acquire_app_singleton()
+        if not self._singleton_acquired:
+            raise SystemExit(0)
         self.black_overlay = BlackOverlay(on_wakeup=self._on_wakeup)
         self._idle_event = None
         self._exit_pin_popup = None

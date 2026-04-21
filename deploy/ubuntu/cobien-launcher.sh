@@ -1244,6 +1244,14 @@ ensure_runtime_supervision() {
   launch_runtime 0
 }
 
+run_passive_supervision_loop() {
+  log "Passive supervision enabled; update checks are delegated to external triggers."
+  while true; do
+    ensure_runtime_supervision
+    sleep 2
+  done
+}
+
 ask() {
   local prompt="$1"
   local default_value="${2:-}"
@@ -2534,8 +2542,8 @@ restart_software() {
   local relaunch_after_update="${1:-0}"
   log "Relaunching furniture software"
   if [[ "$relaunch_after_update" == "1" ]]; then
-    if ! is_running_inside_systemd_user_service && has_active_systemd_user_launcher_service; then
-      log "Update-triggered relaunch detected from auxiliary updater."
+    if [[ "$INSTALL_SYSTEMD_USER" == "1" ]] || has_systemd_user_launcher_service; then
+      log "Update-triggered relaunch detected under systemd supervision."
       log "Delegating restart to cobien-launcher.service to avoid overlapping runtimes."
       release_single_instance_lock
       restart_systemd_user_launcher_service
@@ -2584,6 +2592,15 @@ run_update_once() {
 
   check_paths
   load_env_file
+  log "Preparing update handoff: ensuring only one launcher/runtime instance remains before updating."
+
+  if ! is_running_inside_systemd_user_service && has_active_systemd_user_launcher_service; then
+    stop_systemd_user_launcher_supervision || true
+  fi
+  stop_all_other_launcher_processes || true
+  wait_for_no_other_launcher_processes 10 || true
+  stop_runtime_processes
+  wait_for_runtime_shutdown 20 || true
 
   if update_repo_if_needed "$FRONTEND_REPO" "$handoff_mode"; then
     updated=1
@@ -3256,8 +3273,10 @@ parse_args() {
 main() {
   init_colors
   parse_args "$@"
-  prepare_manual_launcher_takeover
-  acquire_single_instance_lock
+  if [[ "$MODE" != "update-once" ]]; then
+    prepare_manual_launcher_takeover
+    acquire_single_instance_lock
+  fi
   resolve_paths
   normalize_device_identity
   dedupe_existing_update_cron_entries
@@ -3271,8 +3290,12 @@ main() {
           load_env_file
           normalize_device_identity
           launch_runtime "$RELAUNCH_AFTER_UPDATE"
-          log "Launch mode keeps watcher active by default."
-          run_watch_loop
+          if [[ "$ENABLE_WATCH" == "1" ]]; then
+            log "Launch mode keeps watcher active."
+            run_watch_loop
+          else
+            run_passive_supervision_loop
+          fi
           ;;
         clean-launch)
           FORCE_RESTART="1"
@@ -3281,8 +3304,12 @@ main() {
           normalize_device_identity
           log "Clean launch requested: previous launcher/runtime state will be replaced."
           launch_runtime 0
-          log "Clean launch keeps watcher active by default."
-          run_watch_loop
+          if [[ "$ENABLE_WATCH" == "1" ]]; then
+            log "Clean launch keeps watcher active."
+            run_watch_loop
+          else
+            run_passive_supervision_loop
+          fi
           ;;
         setup)
           setup_environment
@@ -3310,8 +3337,12 @@ main() {
       load_env_file
       normalize_device_identity
       launch_runtime "$RELAUNCH_AFTER_UPDATE"
-      log "Launch mode keeps watcher active by default."
-      run_watch_loop
+      if [[ "$ENABLE_WATCH" == "1" ]]; then
+        log "Launch mode keeps watcher active."
+        run_watch_loop
+      else
+        run_passive_supervision_loop
+      fi
       ;;
     clean-launch)
       FORCE_RESTART="1"
@@ -3320,8 +3351,12 @@ main() {
       normalize_device_identity
       log "Clean launch requested: previous launcher/runtime state will be replaced."
       launch_runtime 0
-      log "Clean launch keeps watcher active by default."
-      run_watch_loop
+      if [[ "$ENABLE_WATCH" == "1" ]]; then
+        log "Clean launch keeps watcher active."
+        run_watch_loop
+      else
+        run_passive_supervision_loop
+      fi
       ;;
     dry-run)
       print_dry_run
