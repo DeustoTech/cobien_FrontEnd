@@ -305,7 +305,7 @@ KV = r"""
 
         HeaderCard:
             size_hint_y: None
-            height: dp(300)
+            height: min(dp(300), root.height * 0.26)
 
             BoxLayout:
                 orientation: "vertical"
@@ -489,11 +489,12 @@ KV = r"""
                     size_hint_y: 1
 
         Widget:
-            size_hint_y: 0.2
+            size_hint_y: None
+            height: dp(12)
 
         RoundCardNoBorder:
             size_hint_y: None
-            height: dp(650)
+            height: min(dp(650), root.height * 0.50)
             padding: [dp(22), dp(18), dp(22), dp(18)]
 
             GridLayout:
@@ -505,7 +506,7 @@ KV = r"""
                     cols: 2
                     spacing: dp(20)
                     size_hint_x: 1.15
-                    row_default_height: dp(290)
+                    row_default_height: min(dp(290), root.height * 0.22)
                     row_force_default: True
                     padding: [dp(15), 0, 0, 0]
 
