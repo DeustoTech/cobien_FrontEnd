@@ -1787,9 +1787,6 @@ class MainScreen(Screen):
             print(f"[CONTACTS_SYNC] ❌ Contacts synchronization failed: {exc}")
 
     def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
-        if not self._begin_interaction_guard():
-            print("[APP] Navigation tap ignored while previous action is still settling.")
-            return
         d = self._normalize_nav_text(destino)
         target = None
         if "tiempo" in d or "meteo" in d:
@@ -1877,9 +1874,6 @@ class MainScreen(Screen):
     """
     ### SIMONA
     def start_assistant(self):
-        if not self._begin_interaction_guard(1.2):
-            print("[APP] Assistant trigger ignored while previous action is still settling.")
-            return
         # Configuration to wakeup the app if needed
         app = App.get_running_app()
         if (
@@ -2100,8 +2094,6 @@ class MyApp(App):
     mic_icon = StringProperty("data/images/voice.png")
     settings_icon = StringProperty("data/images/settings.png")
     SETTINGS_BADGE_LONG_PRESS_SEC = 1.2
-    INTERACTION_GUARD_SEC = 0.9
-
     def _acquire_app_singleton(self):
         os.makedirs(RUNTIME_STATE_DIR, exist_ok=True)
         self._app_lock_handle = open(APP_LOCK_FILE, "w", encoding="utf-8")
@@ -2144,38 +2136,6 @@ class MyApp(App):
                 os.remove(APP_PID_FILE)
         except OSError:
             pass
-
-    def _begin_interaction_guard(self, duration: float = None) -> bool:
-        try:
-            guard_duration = float(duration if duration is not None else self.INTERACTION_GUARD_SEC)
-        except Exception:
-            guard_duration = self.INTERACTION_GUARD_SEC
-
-        if getattr(self, "_interaction_guard_active", False):
-            return False
-
-        self._interaction_guard_active = True
-        previous_event = getattr(self, "_interaction_guard_event", None)
-        if previous_event is not None:
-            try:
-                previous_event.cancel()
-            except Exception:
-                pass
-        self._interaction_guard_event = Clock.schedule_once(
-            lambda _dt: self._release_interaction_guard(),
-            max(0.1, guard_duration),
-        )
-        return True
-
-    def _release_interaction_guard(self):
-        event = getattr(self, "_interaction_guard_event", None)
-        if event is not None:
-            try:
-                event.cancel()
-            except Exception:
-                pass
-        self._interaction_guard_event = None
-        self._interaction_guard_active = False
 
     def _start_orchestrator(self):
         script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")
@@ -2278,6 +2238,13 @@ class MyApp(App):
         self._stop_proximity_logger()
         if getattr(self, "main_ref", None):
             self.main_ref._stop_backend_polling()
+        if not bool(getattr(self, "_intentional_admin_exit", False)):
+            try:
+                if os.path.exists(LAUNCHER_STOP_REQUEST_FILE):
+                    os.remove(LAUNCHER_STOP_REQUEST_FILE)
+                    print("[APP] Cleared stale launcher stop request because shutdown was not an intentional admin exit.")
+            except OSError as exc:
+                print(f"[APP] Could not clear launcher stop request: {exc}")
         heartbeat_event = getattr(self, "_heartbeat_event", None)
         if heartbeat_event:
             heartbeat_event.cancel()
@@ -2561,6 +2528,7 @@ class MyApp(App):
             self._close_exit_pin_popup()
             app = App.get_running_app()
             try:
+                setattr(app, "_intentional_admin_exit", True)
                 setattr(app, "_force_exit", True)
             except Exception:
                 pass

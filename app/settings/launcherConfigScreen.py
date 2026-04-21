@@ -1125,7 +1125,7 @@ class LauncherConfigScreen(Screen):
         env = self._read_env()
         use_systemd_restart = self._systemd_launcher_active()
         cmd = (
-            ["systemctl", "--user", "start", "cobien-update.service"]
+            ["systemctl", "--user", "restart", "cobien-update.service"]
             if use_systemd_restart
             else [
                 "/bin/bash", launcher_script,
@@ -1150,7 +1150,7 @@ class LauncherConfigScreen(Screen):
             self._append_log("[RUNTIME] Piper not found locally, launcher will try to configure it")
         elif use_systemd_restart:
             self.lbl_status.text = _("Guardado completado. Ejecutando actualización y relanzado del mueble...")
-            self._append_log("[RUNTIME] Starting user service cobien-update.service")
+            self._append_log("[RUNTIME] Restarting user service cobien-update.service")
         else:
             self.lbl_status.text = _("Guardando, actualizando repositorios y relanzando runtime...")
             self._append_log("[RUNTIME] Running launcher in direct update-once mode")
