@@ -304,12 +304,15 @@ KV = r"""
         BoxLayout:
             orientation: "vertical"
             size_hint: 1, 1
-            padding: [dp(20), dp(20), dp(20), dp(18)]
-            spacing: dp(12)
+            padding: [dp(20), dp(12), dp(20), dp(12)]
+            spacing: dp(10)
+
+            Widget:
+                size_hint_y: 0.2
 
             HeaderCard:
                 size_hint_y: None
-                height: min(dp(290), root.height * 0.27)
+                height: min(dp(285), root.height * 0.265)
 
                 GridLayout:
                     cols: 1
@@ -521,33 +524,38 @@ KV = r"""
                             icon_source: app.icon_videocall
                             text: root.btn_llamame_texto
 
+            Widget:
+                size_hint_y: 0.28
+
         BoxLayout:
-            orientation: "horizontal"
+            orientation: "vertical"
             size_hint: None, None
-            width: self.minimum_width
-            height: dp(22)
-            spacing: dp(8)
-            pos_hint: {"right": 0.992, "y": 0.003}
+            width: max(dp(148), self.minimum_width + dp(18))
+            height: dp(34)
+            spacing: 0
+            padding: [dp(10), dp(4), dp(10), dp(4)]
+            pos_hint: {"right": 0.985, "y": 0.018}
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 0.52
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(12), dp(12), dp(12), dp(12)]
+                Color:
+                    rgba: 0, 0, 0, 0.16
+                Line:
+                    width: 1.2
+                    rounded_rectangle: (self.x, self.y, self.width, self.height, dp(12))
 
             Label:
-                text: root.footer_identity_text
-                font_size: sp(16)
-                color: 0, 0, 0, 0.72
-                halign: "right"
+                text: root.footer_meta_text
+                font_size: sp(15)
+                color: 0, 0, 0, 0.78
+                bold: True
+                halign: "center"
                 valign: "middle"
                 text_size: self.size
-                size_hint_x: None
-                width: max(dp(110), self.texture_size[0] + dp(6))
-
-            Label:
-                text: root.footer_version_text
-                font_size: sp(16)
-                color: 0, 0, 0, 0.72
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
-                size_hint_x: None
-                width: max(dp(74), self.texture_size[0] + dp(6))
 """
 
 #----------------------- CONTACT NAME --------------------------
@@ -585,8 +593,7 @@ class MainScreen(Screen):
     btn_eventos_texto = StringProperty("Eventos")
     btn_pizarra_texto = StringProperty("Pizarra")
     btn_llamame_texto = StringProperty("Llámame")
-    footer_identity_text = StringProperty("")
-    footer_version_text = StringProperty("")
+    footer_meta_text = StringProperty("")
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
@@ -747,8 +754,7 @@ class MainScreen(Screen):
                 version_text = (vf.read().strip() or "unknown")
         except Exception:
             pass
-        self.footer_identity_text = visible_name
-        self.footer_version_text = f"v{version_text}"
+        self.footer_meta_text = f"{visible_name} · v{version_text}"
 
        
     def _maybe_refresh_joke(self, force=False):
