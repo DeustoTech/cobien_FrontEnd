@@ -2655,6 +2655,12 @@ run_update_once() {
   fi
 }
 
+preflight_update_before_launch() {
+  local handoff_mode="${1:-launch}"
+  log "Boot/start preflight: checking frontend and MQTT repositories before launching the furniture runtime."
+  run_update_once "$handoff_mode"
+}
+
 run_watch_loop() {
   local elapsed
   check_paths
@@ -3328,6 +3334,7 @@ main() {
           check_paths
           load_env_file
           normalize_device_identity
+          preflight_update_before_launch launch
           launch_runtime "$RELAUNCH_AFTER_UPDATE"
           if [[ "$ENABLE_WATCH" == "1" ]]; then
             log "Launch mode keeps watcher active."
@@ -3341,6 +3348,7 @@ main() {
           check_paths
           load_env_file
           normalize_device_identity
+          preflight_update_before_launch clean-launch
           log "Clean launch requested: previous launcher/runtime state will be replaced."
           launch_runtime 0
           if [[ "$ENABLE_WATCH" == "1" ]]; then
@@ -3375,6 +3383,7 @@ main() {
       check_paths
       load_env_file
       normalize_device_identity
+      preflight_update_before_launch launch
       launch_runtime "$RELAUNCH_AFTER_UPDATE"
       if [[ "$ENABLE_WATCH" == "1" ]]; then
         log "Launch mode keeps watcher active."
@@ -3388,6 +3397,7 @@ main() {
       check_paths
       load_env_file
       normalize_device_identity
+      preflight_update_before_launch clean-launch
       log "Clean launch requested: previous launcher/runtime state will be replaced."
       launch_runtime 0
       if [[ "$ENABLE_WATCH" == "1" ]]; then
