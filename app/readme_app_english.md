@@ -204,7 +204,7 @@ Resolution priority:
 2. `app/config/config.local.json`
 
 `config.local.json` can store together:
-- secrets (`MONGO_URI`, `OWM_API_KEY`, `NEWS_API_KEY`, `SPOONACULAR_API_KEY`, `COBIEN_NOTIFY_API_KEY`)
+- secrets (`MONGO_URI`, `OWM_API_KEY`, `NEWS_API_KEY`, `COBIEN_NOTIFY_API_KEY`)
 - URLs and broker endpoints
 - furniture/device options (`device_id`, `videocall_room`, `device_location`, etc.)
 

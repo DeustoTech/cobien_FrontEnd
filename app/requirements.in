@@ -1,6 +1,5 @@
 # Direct runtime dependencies for the Ubuntu furniture frontend.
 beautifulsoup4==4.13.4
-googletrans==4.0.0rc1
 joblib==1.4.2
 Kivy==2.3.1
 numpy==1.24.3; python_version < "3.12"

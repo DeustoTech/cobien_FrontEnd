@@ -167,7 +167,6 @@ CONFIG_FIELD_METADATA = {
     ("services", "mongo_uri"): {"label": "Mongo URI", "help": "Cadena de conexión a MongoDB."},
     ("services", "owm_api_key"): {"label": "OpenWeather API key", "help": "Clave del proveedor meteorológico OpenWeather."},
     ("services", "news_api_key"): {"label": "News API key", "help": "Clave del proveedor de noticias."},
-    ("services", "spoonacular_api_key"): {"label": "Spoonacular API key", "help": "Clave del proveedor de recetas."},
     ("software", "version"): {"label": "Versión software", "help": "Versión local mostrada en administración."},
 }
 
@@ -250,7 +249,6 @@ CONFIG_GROUPS = [
             ("services", "mongo_uri"),
             ("services", "owm_api_key"),
             ("services", "news_api_key"),
-            ("services", "spoonacular_api_key"),
             ("software", "version"),
         ],
     ),

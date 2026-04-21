@@ -120,7 +120,7 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
   - ver_eventos, iniciar_llamada
   - consultar_fecha, consultar_hora, consultar_clima, consultar_pronostico
   - configurar_recordatorio, establecer_recordatorio
-  - consultar_noticias, consultar_receta, contar_chiste, saludar, despedirse
+  - consultar_noticias, contar_chiste, saludar, despedirse
 - Extractores: tiempo del recordatorio y receta.
 - Integración UI: cambiar pantalla y TTS.
 
@@ -204,7 +204,7 @@ Orden de prioridad:
 2. `app/config/config.local.json`
 
 En `config.local.json` puedes guardar conjuntamente:
-- secretos (`MONGO_URI`, `OWM_API_KEY`, `NEWS_API_KEY`, `SPOONACULAR_API_KEY`, `COBIEN_NOTIFY_API_KEY`)
+- secretos (`MONGO_URI`, `OWM_API_KEY`, `NEWS_API_KEY`, `COBIEN_NOTIFY_API_KEY`)
 - URLs y brokers
 - opciones del mueble (`device_id`, `videocall_room`, `device_location`, etc.)
 

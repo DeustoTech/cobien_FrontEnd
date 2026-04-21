@@ -10,9 +10,7 @@ from datetime import datetime
 import os
 import requests
 from reminders.reminders import RecordatorioManager
-from bs4 import BeautifulSoup
 import re
-from googletrans import Translator
 from config_store import load_section
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -20,15 +18,9 @@ _SERVICES_CFG = load_section("services", {})
 HTTP_TIMEOUT = float(_SERVICES_CFG.get("http_timeout_sec", os.getenv("COBIEN_HTTP_TIMEOUT", "8")))
 OWM_API_KEY = (_SERVICES_CFG.get("owm_api_key", "") or "").strip()
 NEWS_API_KEY = (_SERVICES_CFG.get("news_api_key", "") or "").strip()
-SPOONACULAR_API_KEY = (_SERVICES_CFG.get("spoonacular_api_key", "") or "").strip()
 OWM_CURRENT_URL = _SERVICES_CFG.get("openweather_current_url", "https://api.openweathermap.org/data/2.5/weather")
 OWM_FORECAST_URL = _SERVICES_CFG.get("openweather_forecast_url", "https://api.openweathermap.org/data/2.5/forecast")
 NEWS_API_URL = _SERVICES_CFG.get("news_api_url", "https://newsapi.org/v2/top-headlines")
-SPOON_SEARCH_URL = _SERVICES_CFG.get("spoonacular_search_url", "https://api.spoonacular.com/recipes/complexSearch")
-SPOON_INFO_URL_TEMPLATE = _SERVICES_CFG.get(
-    "spoonacular_info_url_template",
-    "https://api.spoonacular.com/recipes/{id}/information",
-)
 
 
 class ActionExecutor:
@@ -62,7 +54,6 @@ class ActionExecutor:
             "consultar_pronostico": self.consultar_pronostico,
             "configurar_recordatorio": self.configurar_recordatorio,
             "consultar_noticias": self.consultar_noticias,
-            "consultar_receta": self.consultar_receta,
             "contar_chiste": self.contar_chiste,
             "saludar": self.saludar,
             "despedirse": self.despedirse,
@@ -72,13 +63,7 @@ class ActionExecutor:
         if intencion not in acciones:
             texto_a_decir = self._respuesta_sin_intencion(self.app.ultimo_texto)
         else:
-            # Caso especial: consultar_receta sin args
-            if intencion == "consultar_receta" and not args:
-                receta = self.extraer_receta(self.app.ultimo_texto)
-                texto_a_decir = acciones[intencion](receta)
-
-            # Caso especial: configurar_recordatorio sin args
-            elif intencion == "configurar_recordatorio" and not args:
+            if intencion == "configurar_recordatorio" and not args:
                 segundos, mensaje = self.extraer_recordatorio(self.app.ultimo_texto)
                 texto_a_decir = acciones[intencion](segundos, mensaje)
 
@@ -251,50 +236,6 @@ class ActionExecutor:
         for patron in expresiones:
             texto = re.sub(patron, "", texto).strip()
         return texto
-
-    def consultar_receta(self, receta: str) -> str:
-        """Fetch and translate one recipe from Spoonacular."""
-        texto = f"Buscando receta para {receta}..."
-        print(texto)
-
-        try:
-            if not SPOONACULAR_API_KEY:
-                return "No he podido obtener la receta: falta la clave SPOONACULAR_API_KEY."
-            url = f"{SPOON_SEARCH_URL}?query={receta}&number=1&apiKey={SPOONACULAR_API_KEY}"
-            respuesta = requests.get(url, timeout=HTTP_TIMEOUT)
-            respuesta.raise_for_status()
-            datos = respuesta.json()
-
-            if "results" in datos and len(datos["results"]) > 0:
-                receta_id = datos["results"][0]["id"]
-                receta_url = f"{SPOON_INFO_URL_TEMPLATE.format(id=receta_id)}?apiKey={SPOONACULAR_API_KEY}"
-                receta_resp = requests.get(receta_url, timeout=HTTP_TIMEOUT)
-                receta_resp.raise_for_status()
-                receta_info = receta_resp.json()
-
-                nombre = receta_info.get("title", "Receta desconocida")
-                instrucciones_html = receta_info.get("instructions", "No hay instrucciones disponibles.")
-                instrucciones_limpias = BeautifulSoup(instrucciones_html, "html.parser").get_text()
-
-                translator = Translator()
-                nombre_es = translator.translate(nombre, src="en", dest="es").text
-                instrucciones_es = translator.translate(instrucciones_limpias, src="en", dest="es").text
-
-                texto = f"La receta para {nombre_es} es: {instrucciones_es}"
-            else:
-                texto = f"No he encontrado una receta para {receta}."
-        except Exception as e:
-            print(f"Error consultando receta: {e}")
-            texto = "No he podido obtener la receta."
-        print(texto)
-        return texto
-
-    def extraer_receta(self, texto: str) -> str:
-        """Extract recipe target text from a natural-language request."""
-        palabras_clave = ["una", "receta", "de", "para", "quiero", "hazme", "prepara", "pero", "busca", "quieres"]
-        for palabra in palabras_clave:
-            texto = texto.replace(palabra, "")
-        return texto.strip()
 
     def contar_chiste(self) -> str:
         """Return a static joke response."""

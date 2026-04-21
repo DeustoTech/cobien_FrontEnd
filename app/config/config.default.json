@@ -60,7 +60,6 @@
         "device_poll_interval_sec": 5,
         "owm_api_key": "",
         "news_api_key": "",
-        "spoonacular_api_key": "",
         "mongo_uri": "",
         "http_timeout_sec": 8.0,
         "tts_engine": "pyttsx3",
@@ -97,8 +96,6 @@
         "openweather_current_url": "https://api.openweathermap.org/data/2.5/weather",
         "openweather_forecast_url": "https://api.openweathermap.org/data/2.5/forecast",
         "news_api_url": "https://newsapi.org/v2/top-headlines",
-        "spoonacular_search_url": "https://api.spoonacular.com/recipes/complexSearch",
-        "spoonacular_info_url_template": "https://api.spoonacular.com/recipes/{id}/information",
         "open_meteo_url": "https://api.open-meteo.com/v1/forecast",
         "nominatim_search_url": "https://nominatim.openstreetmap.org/search"
     },
