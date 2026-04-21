@@ -526,37 +526,37 @@ KV = r"""
                         icon_source: app.icon_videocall
                         text: root.btn_llamame_texto
 
-        AnchorLayout:
-            anchor_x: "right"
-            anchor_y: "bottom"
-            padding: [0, 0, dp(12), dp(10)]
+    AnchorLayout:
+        anchor_x: "right"
+        anchor_y: "bottom"
+        padding: [0, 0, dp(12), dp(10)]
 
-            BoxLayout:
-                orientation: "horizontal"
-                size_hint: None, None
-                width: self.minimum_width
-                height: dp(26)
-                spacing: dp(8)
+        BoxLayout:
+            orientation: "horizontal"
+            size_hint: None, None
+            width: self.minimum_width
+            height: dp(26)
+            spacing: dp(8)
 
-                Label:
-                    text: root.footer_identity_text
-                    font_size: sp(18)
-                    color: 0, 0, 0, 0.72
-                    halign: "right"
-                    valign: "middle"
-                    text_size: self.size
-                    size_hint_x: None
-                    width: max(dp(120), self.texture_size[0] + dp(6))
+            Label:
+                text: root.footer_identity_text
+                font_size: sp(18)
+                color: 0, 0, 0, 0.72
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+                size_hint_x: None
+                width: max(dp(120), self.texture_size[0] + dp(6))
 
-                Label:
-                    text: root.footer_version_text
-                    font_size: sp(18)
-                    color: 0, 0, 0, 0.72
-                    halign: "right"
-                    valign: "middle"
-                    text_size: self.size
-                    size_hint_x: None
-                    width: max(dp(80), self.texture_size[0] + dp(6))
+            Label:
+                text: root.footer_version_text
+                font_size: sp(18)
+                color: 0, 0, 0, 0.72
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+                size_hint_x: None
+                width: max(dp(80), self.texture_size[0] + dp(6))
 """
 
 #----------------------- CONTACT NAME --------------------------
