@@ -298,127 +298,147 @@ KV = r"""
             pos: self.pos
             source: app.bg_image if app.has_bg_image else ""
 
-    BoxLayout:
-        orientation: "vertical"
-        padding: [dp(20), 0, dp(20), 0]
-        spacing: 0
+    FloatLayout:
+        size_hint: 1, 1
 
-        Widget:
-            size_hint_y: 1
+        BoxLayout:
+            orientation: "vertical"
+            size_hint: 1, 1
+            padding: [dp(20), dp(20), dp(20), dp(18)]
+            spacing: dp(12)
 
-        HeaderCard:
-            size_hint_y: None
-            height: min(dp(300), root.height * 0.26)
-
-            BoxLayout:
-                orientation: "vertical"
-
-                Widget:
-                    size_hint_y: 1
+            HeaderCard:
+                size_hint_y: None
+                height: min(dp(290), root.height * 0.27)
 
                 GridLayout:
-                    cols: 5
-                    size_hint_y: None
-                    height: TITLE_H
-                    spacing: 0
-                    padding: 0
+                    cols: 1
+                    spacing: dp(8)
 
-                    Label:
-                        id: lbl_fecha
-                        text: root.fecha_texto
-                        markup: True
-                        bold: True
-                        font_size: sp(40)
-                        color: 0, 0, 0, 1
-                        halign: "left"
-                        valign: "middle"
-                        text_size: self.width, None
-                        size_hint_x: 1.30
-                    VSeparator:
+                    GridLayout:
+                        cols: 5
+                        size_hint_y: None
+                        height: TITLE_H
+                        spacing: 0
+                        padding: 0
 
-                    BoxLayout:
-                        size_hint_x: 1.00
-                        padding: [PAD_L, 0, 0, 0]
                         Label:
-                            text: root.condicion_texto
+                            id: lbl_fecha
+                            text: root.fecha_texto
                             markup: True
                             bold: True
-                            font_size: sp(34)
+                            font_size: sp(40)
                             color: 0, 0, 0, 1
                             halign: "left"
                             valign: "middle"
-                            text_size: self.size
-                    VSeparator:
-
-                    BoxLayout:
-                        size_hint_x: 1.45
-                        padding: [PAD_L, 0, 0, 0]
-                        Label:
-                            id: lbl_proximos_eventos
-                            text: root.proximos_eventos_texto
-                            markup: True
-                            bold: True
-                            font_size: sp(34)
-                            color: 0, 0, 0, 1
-                            halign: "left"
-                            valign: "top"
-                            text_size: self.size
-
-                GridLayout:
-                    cols: 5
-                    size_hint_y: None
-                    height: CONTENT_H
-                    spacing: 0
-                    padding: 0
-
-                    AnchorLayout:
-                        size_hint_x: 1.30
-                        anchor_x: "left"
-                        anchor_y: "center"
-                        Label:
-                            text: root.hora_texto
-                            font_size: sp(160)
-                            color: 0, 0, 0, 1
-                            halign: "left"
-                            valign: "middle"
-                            size_hint_y: None
-                            height: self.texture_size[1]
                             text_size: self.width, None
-                    VSeparator:
+                            size_hint_x: 1.30
+                        VSeparator:
 
-                    BoxLayout:
-                        size_hint_x: 1.00
-                        padding: [PAD_L, 0, 0, 0]
+                        BoxLayout:
+                            size_hint_x: 1.00
+                            padding: [PAD_L, 0, 0, 0]
+                            Label:
+                                text: root.condicion_texto
+                                markup: True
+                                bold: True
+                                font_size: sp(34)
+                                color: 0, 0, 0, 1
+                                halign: "left"
+                                valign: "middle"
+                                text_size: self.size
+                        VSeparator:
+
+                        BoxLayout:
+                            size_hint_x: 1.45
+                            padding: [PAD_L, 0, 0, 0]
+                            Label:
+                                id: lbl_proximos_eventos
+                                text: root.proximos_eventos_texto
+                                markup: True
+                                bold: True
+                                font_size: sp(34)
+                                color: 0, 0, 0, 1
+                                halign: "left"
+                                valign: "top"
+                                text_size: self.size
+
+                    GridLayout:
+                        cols: 5
+                        size_hint_y: None
+                        height: CONTENT_H
+                        spacing: 0
+                        padding: 0
+
                         AnchorLayout:
+                            size_hint_x: 1.30
+                            anchor_x: "left"
                             anchor_y: "center"
-                            BoxLayout:
-                                orientation: "horizontal"
+                            Label:
+                                text: root.hora_texto
+                                font_size: sp(160)
+                                color: 0, 0, 0, 1
+                                halign: "left"
+                                valign: "middle"
                                 size_hint_y: None
-                                height: self.minimum_height
-                                spacing: dp(14)
-                                RoundedHeaderImage:
-                                    source: app.weather_icon
-                                    size_hint: None, None
-                                    size: dp(110), dp(110)
-                                    allow_stretch: True
-                                    keep_ratio: True
-                                    mipmap: True
+                                height: self.texture_size[1]
+                                text_size: self.width, None
+                        VSeparator:
+
+                        BoxLayout:
+                            size_hint_x: 1.00
+                            padding: [PAD_L, 0, 0, 0]
+                            AnchorLayout:
+                                anchor_y: "center"
                                 BoxLayout:
-                                    orientation: "vertical"
+                                    orientation: "horizontal"
                                     size_hint_y: None
                                     height: self.minimum_height
-                                    Label:
-                                        text: root.temp_texto
-                                        font_size: sp(60)
-                                        bold: True
-                                        color: 0, 0, 0, 1
-                                        halign: "left"
-                                        valign: "middle"
+                                    spacing: dp(14)
+                                    RoundedHeaderImage:
+                                        source: app.weather_icon
+                                        size_hint: None, None
+                                        size: dp(110), dp(110)
+                                        allow_stretch: True
+                                        keep_ratio: True
+                                        mipmap: True
+                                    BoxLayout:
+                                        orientation: "vertical"
                                         size_hint_y: None
-                                        height: self.texture_size[1]
-                                        text_size: self.width, None
+                                        height: self.minimum_height
+                                        Label:
+                                            text: root.temp_texto
+                                            font_size: sp(60)
+                                            bold: True
+                                            color: 0, 0, 0, 1
+                                            halign: "left"
+                                            valign: "middle"
+                                            size_hint_y: None
+                                            height: self.texture_size[1]
+                                            text_size: self.width, None
+                                        Label:
+                                            text: root.minmax_texto
+                                            font_size: sp(30)
+                                            color: 0, 0, 0, 1
+                                            halign: "left"
+                                            valign: "middle"
+                                            size_hint_y: None
+                                            height: self.texture_size[1]
+                                            text_size: self.width, None
+                        VSeparator:
+
+                        BoxLayout:
+                            size_hint_x: 1.45
+                            padding: [PAD_L, 0, 0, 0]
+                            RelativeLayout:
+                                BoxLayout:
+                                    orientation: "vertical"
+                                    size_hint: 1, None
+                                    height: self.minimum_height
+                                    pos_hint: {"top": 1}
+                                    spacing: dp(8)
                                     Label:
-                                        text: root.minmax_texto
+                                        text: root.evento_1
                                         font_size: sp(30)
                                         color: 0, 0, 0, 1
                                         halign: "left"
@@ -426,120 +446,88 @@ KV = r"""
                                         size_hint_y: None
                                         height: self.texture_size[1]
                                         text_size: self.width, None
-                    VSeparator:
 
-                    BoxLayout:
-                        size_hint_x: 1.45
-                        padding: [PAD_L, 0, 0, 0]
-                        RelativeLayout:
-                            BoxLayout:
-                                orientation: "vertical"
-                                size_hint: 1, None
-                                height: self.minimum_height
-                                pos_hint: {"top": 1}
-                                spacing: dp(8)
-                                Label:
-                                    text: root.evento_1
-                                    font_size: sp(30)
-                                    color: 0, 0, 0, 1
-                                    halign: "left"
-                                    valign: "middle"
-                                    size_hint_y: None
-                                    height: self.texture_size[1]
-                                    text_size: self.width, None
-
-                                Label:
-                                    id: lbl_joke_title
-                                    text: root.joke_title
-                                    bold: True
-                                    font_size: sp(34)
-                                    color: 0, 0, 0, 1
-                                    halign: "left"
-                                    valign: "middle"
-                                    size_hint_y: None
-                                    height: dp(48)
-                                    text_size: self.size
-
-                                ScrollView:
-                                    do_scroll_x: False
-                                    bar_width: dp(6)
-                                    size_hint_y: None
-                                    height: dp(120)
-                                    BoxLayout:
-                                        orientation: "vertical"
+                                    Label:
+                                        id: lbl_joke_title
+                                        text: root.joke_title
+                                        bold: True
+                                        font_size: sp(34)
+                                        color: 0, 0, 0, 1
+                                        halign: "left"
+                                        valign: "middle"
                                         size_hint_y: None
-                                        height: self.minimum_height
-                                        Label:
-                                            text: root.joke_text
-                                            font_size: sp(30)
-                                            color: 0, 0, 0, 1
-                                            halign: "left"
-                                            valign: "top"
-                                            text_size: self.width, None
+                                        height: dp(48)
+                                        text_size: self.size
+
+                                    ScrollView:
+                                        do_scroll_x: False
+                                        bar_width: dp(6)
+                                        size_hint_y: None
+                                        height: dp(120)
+                                        BoxLayout:
+                                            orientation: "vertical"
                                             size_hint_y: None
-                                            height: self.texture_size[1]
+                                            height: self.minimum_height
+                                            Label:
+                                                text: root.joke_text
+                                                font_size: sp(30)
+                                                color: 0, 0, 0, 1
+                                                halign: "left"
+                                                valign: "top"
+                                                text_size: self.width, None
+                                                size_hint_y: None
+                                                height: self.texture_size[1]
 
-                            BoxLayout:
-                                size_hint: None, None
-                                size: dp(180), dp(100)
-                                pos_hint: {"right": 0.95, "top": 1.4}
-                                spacing: dp(10)
+                                BoxLayout:
+                                    size_hint: None, None
+                                    size: dp(180), dp(100)
+                                    pos_hint: {"right": 0.95, "top": 1.4}
+                                    spacing: dp(10)
 
-                                SettingsBadge:
-                                VoiceBadge:
+                                    SettingsBadge:
+                                    VoiceBadge:
 
-                Widget:
-                    size_hint_y: 1
-
-        Widget:
-            size_hint_y: None
-            height: dp(12)
-
-        RoundCardNoBorder:
-            size_hint_y: None
-            height: min(dp(650), root.height * 0.50)
-            padding: [dp(22), dp(18), dp(22), dp(18)]
-
-            GridLayout:
-                cols: 2
-                spacing: dp(20)
-                padding: [0, 0, 0, 0]
+            RoundCardNoBorder:
+                size_hint_y: 1
+                padding: [dp(22), dp(18), dp(22), dp(18)]
 
                 GridLayout:
                     cols: 2
                     spacing: dp(20)
-                    size_hint_x: 1.15
-                    row_default_height: min(dp(290), root.height * 0.22)
-                    row_force_default: True
-                    padding: [dp(15), 0, 0, 0]
+                    padding: [0, 0, 0, 0]
 
-                    NavButton:
-                        id: btn_tiempo
-                        icon_source: app.icon_weather
-                        text: root.btn_tiempo_texto
-                    NavButton:
-                        id: btn_eventos
-                        icon_source: app.icon_calendar
-                        text: root.btn_eventos_texto
-                    NavButton:
-                        id: btn_pizarra
-                        icon_source: app.icon_board
-                        text: root.btn_pizarra_texto
-                    NavButton:
-                        id: btn_llamame
-                        icon_source: app.icon_videocall
-                        text: root.btn_llamame_texto
+                    GridLayout:
+                        cols: 2
+                        spacing: dp(20)
+                        size_hint_x: 1.15
+                        row_default_height: min(dp(270), root.height * 0.21)
+                        row_force_default: True
+                        padding: [dp(15), 0, 0, 0]
 
-    FloatLayout:
-        size_hint: 1, 1
+                        NavButton:
+                            id: btn_tiempo
+                            icon_source: app.icon_weather
+                            text: root.btn_tiempo_texto
+                        NavButton:
+                            id: btn_eventos
+                            icon_source: app.icon_calendar
+                            text: root.btn_eventos_texto
+                        NavButton:
+                            id: btn_pizarra
+                            icon_source: app.icon_board
+                            text: root.btn_pizarra_texto
+                        NavButton:
+                            id: btn_llamame
+                            icon_source: app.icon_videocall
+                            text: root.btn_llamame_texto
 
         BoxLayout:
             orientation: "horizontal"
             size_hint: None, None
             width: self.minimum_width
-            height: dp(24)
+            height: dp(22)
             spacing: dp(8)
-            pos_hint: {"right": 0.992, "y": 0.006}
+            pos_hint: {"right": 0.992, "y": 0.003}
 
             Label:
                 text: root.footer_identity_text
