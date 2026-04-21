@@ -192,7 +192,7 @@ Objetivo: cargar eventos desde MongoDB (con filtro por ciudad y dispositivo), ma
 - Usar la fuente de dependencias del proyecto:
   - `uv sync --project .`
 - Con versión explícita de Python (opcional):
-  - `uv sync --project . --python 3.11`
+  - `uv sync --project . --python 3.13`
 
 3) Claves y conexión
 Opciones recomendadas:

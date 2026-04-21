@@ -79,7 +79,7 @@ Parámetros relevantes:
 - `COBIEN_TTS_PIPER_MODEL_ES`: ruta modelo Piper español `.onnx`.
 - `COBIEN_TTS_PIPER_MODEL_FR`: ruta modelo Piper francés `.onnx`.
 - `COBIEN_LOG_DIR`: ruta de logs (opcional; por defecto `<frontend_repo>/logs`).
-- `COBIEN_BOOTSTRAP_PYTHON_VERSION`: versión Python solicitada (por defecto `3.11`).
+- `COBIEN_BOOTSTRAP_PYTHON_VERSION`: versión Python solicitada (por defecto `3.13`, con compatibilidad explícita para `3.11`).
 - `COBIEN_CAN_BITRATE`: bitrate CAN (por defecto `500000`).
 - `COBIEN_CAN_LOG_ENABLE`: `1`/`0` para activar/desactivar `candump`.
 

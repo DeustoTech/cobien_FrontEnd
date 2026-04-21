@@ -18,7 +18,7 @@ The production runtime is orchestrated by a single entrypoint:
 
 The launcher handles:
 
-- Environment bootstrap with UV + Python 3.11
+- Environment bootstrap with UV + Python 3.13
 - Dependency sync (`uv sync`)
 - Device identity + runtime config persistence
 - CAN setup (real hardware mode) and CAN bridge launch
@@ -126,7 +126,7 @@ Dependency source:
 Standard commands:
 
 ```bash
-uv sync --project app --python 3.11
+uv sync --project app --python 3.13
 uv run --project app mainApp.py
 ```
 

@@ -93,7 +93,7 @@ TTS_PIPER_RELEASE_TAG_DEFAULT="2023.11.14-2"
 [[ -z "$TTS_PIPER_MODEL_FR_FEMALE_URL" ]] && TTS_PIPER_MODEL_FR_FEMALE_URL="$TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL"
 PYTHON_BIN="${COBIEN_BOOTSTRAP_PYTHON_BIN:-}"
 UV_BIN="${COBIEN_BOOTSTRAP_UV_BIN:-}"
-PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-3.11}"
+PYTHON_REQUEST="${COBIEN_BOOTSTRAP_PYTHON_VERSION:-${COBIEN_UV_PYTHON:-3.13}}"
 ARGS_PROVIDED="0"
 GLOBAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cobien"
 LAST_RUN_CONFIG_FILE="$GLOBAL_CONFIG_DIR/launcher-last.env"
@@ -323,14 +323,16 @@ run_full_install_plan() {
   [[ -d "$FRONTEND_REPO/.git" ]] || { echo "Frontend repository not found at: $FRONTEND_REPO"; exit 1; }
   [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
 
-  if detect_python311; then
-    echo "Python 3.11 detected: $(command -v python3.11)"
+  if detect_requested_python; then
+    echo "Python ${PYTHON_REQUEST} detected: $(command -v "python${PYTHON_REQUEST}")"
+  elif detect_python311; then
+    echo "Python ${PYTHON_REQUEST} is not installed, but Python 3.11 is available as compatibility fallback: $(command -v python3.11)"
   else
-    echo "Python 3.11 is not installed."
-    if ask_yes_no "Should the script try to install Python 3.11 and system dependencies" "y"; then
+    echo "Python ${PYTHON_REQUEST} is not installed."
+    if ask_yes_no "Should the script try to install Python ${PYTHON_REQUEST} and system dependencies" "y"; then
       INSTALL_SYSTEM_DEPS="1"
     else
-      echo "Cannot continue without Python 3.11."
+      echo "Cannot continue without Python ${PYTHON_REQUEST} or the Python 3.11 compatibility fallback."
       exit 1
     fi
   fi
@@ -1392,6 +1394,10 @@ ask_menu_choice() {
   done
 }
 
+detect_requested_python() {
+  command -v "python${PYTHON_REQUEST}" >/dev/null 2>&1
+}
+
 detect_python311() {
   command -v python3.11 >/dev/null 2>&1
 }
@@ -1433,7 +1439,9 @@ install_system_deps_fn() {
     libxcomposite1 libxdamage1 libxrandr2 libnss3 \
     libatk-bridge2.0-0 libgtk-3-0
 
-  if apt-cache show python3.11 >/dev/null 2>&1; then
+  if apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
+    sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
+  elif apt-cache show python3.11 >/dev/null 2>&1; then
     sudo apt install -y python3.11 python3.11-venv python3.11-dev
   fi
 }
@@ -1466,8 +1474,15 @@ ensure_runtime_dependencies() {
     sudo apt install -y "${missing_packages[@]}"
   fi
 
-  if ! command -v python3.11 >/dev/null 2>&1 && apt-cache show python3.11 >/dev/null 2>&1; then
-    log "Python 3.11 not found. Installing runtime Python dependencies..."
+  if ! detect_requested_python && apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
+    log "Python ${PYTHON_REQUEST} not found. Installing runtime Python dependencies..."
+    if [[ "$apt_updated" != "1" ]]; then
+      sudo apt update
+      apt_updated="1"
+    fi
+    sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
+  elif ! command -v python3.11 >/dev/null 2>&1 && apt-cache show python3.11 >/dev/null 2>&1; then
+    log "Python 3.11 fallback not found. Installing compatibility fallback..."
     if [[ "$apt_updated" != "1" ]]; then
       sudo apt update
       apt_updated="1"
@@ -2376,6 +2391,7 @@ write_env_file() {
     echo "COBIEN_VENV_ACTIVATE=$(shell_quote_env_value "$VENV_DIR/bin/activate")"
     echo "COBIEN_PYTHON_BIN=$(shell_quote_env_value "$PYTHON_BIN")"
     echo "COBIEN_UV_BIN=$(shell_quote_env_value "$UV_BIN")"
+    echo "COBIEN_BOOTSTRAP_PYTHON_VERSION=$(shell_quote_env_value "$PYTHON_REQUEST")"
     echo "COBIEN_UV_PYTHON=$(shell_quote_env_value "$PYTHON_REQUEST")"
     echo "COBIEN_FRONTEND_APP_DIR=$(shell_quote_env_value "$FRONTEND_APP_DIR")"
     echo "COBIEN_BRIDGE_DIR=$(shell_quote_env_value "$BRIDGE_DIR")"
@@ -3027,14 +3043,16 @@ run_full_flow() {
     INSTALL_SYSTEM_DEPS="0"
   fi
 
-  if detect_python311; then
-    echo "Python 3.11 detected: $(command -v python3.11)"
+  if detect_requested_python; then
+    echo "Python ${PYTHON_REQUEST} detected: $(command -v "python${PYTHON_REQUEST}")"
+  elif detect_python311; then
+    echo "Python ${PYTHON_REQUEST} is not installed, but Python 3.11 is available as compatibility fallback: $(command -v python3.11)"
   else
-    echo "Python 3.11 is not installed."
-    if ask_yes_no "Should the script try to install Python 3.11 and system dependencies" "y"; then
+    echo "Python ${PYTHON_REQUEST} is not installed."
+    if ask_yes_no "Should the script try to install Python ${PYTHON_REQUEST} and system dependencies" "y"; then
       INSTALL_SYSTEM_DEPS="1"
     else
-      echo "Cannot continue without Python 3.11."
+      echo "Cannot continue without Python ${PYTHON_REQUEST} or the Python 3.11 compatibility fallback."
       exit 1
     fi
   fi

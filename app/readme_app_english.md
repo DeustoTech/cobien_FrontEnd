@@ -192,7 +192,7 @@ Purpose: load events from MongoDB (filtered by city and device), maintain local 
 - Use the project lock/dependency source:
   - `uv sync --project .`
 - Optional explicit Python version:
-  - `uv sync --project . --python 3.11`
+  - `uv sync --project . --python 3.13`
 
 3) Keys and Connection
 Recommended options:
