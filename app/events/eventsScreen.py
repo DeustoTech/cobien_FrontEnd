@@ -67,7 +67,7 @@ class EventStore:
         """Initialize the store and load initial data."""
         self.reload()
 
-    def reload(self) -> None:
+    def reload(self, device_name: str = "", location_name: str = "") -> None:
         """Reload events from primary/fallback sources and rebuild the index.
 
         Returns:
@@ -78,11 +78,11 @@ class EventStore:
             cache via loader functions.
         """
         try:
-            raw = fetch_events_from_mongo() or []
+            raw = fetch_events_from_mongo(device_name=device_name or None, location_name=location_name or None) or []
             if not raw:
                 raise RuntimeError("Mongo vacío")
         except Exception:
-            raw = cargar_eventos_locales() or []
+            raw = cargar_eventos_locales(location_name or None) or []
         self.events = self._normalize(raw)
         self.index = self._build_index(self.events)
 
@@ -98,10 +98,24 @@ class EventStore:
         """
         out = []
         for e in raw:
-            d_str = (e.get("date") or "").strip()
-            try:
-                d = datetime.strptime(d_str, "%d-%m-%Y").date()
-            except Exception:
+            raw_date = e.get("date") or e.get("fecha_inicio") or e.get("fecha")
+            d = None
+            if isinstance(raw_date, datetime):
+                d = raw_date.date()
+            else:
+                d_str = str(raw_date or "").strip().replace("T", " ")
+                for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y %H:%M", "%Y-%m-%d %H:%M:%S"):
+                    try:
+                        d = datetime.strptime(d_str, fmt).date()
+                        break
+                    except Exception:
+                        pass
+                if d is None:
+                    try:
+                        d = datetime.fromisoformat(d_str).date()
+                    except Exception:
+                        d = None
+            if d is None:
                 continue
             loc = (e.get("location") or "Desconocido").strip()
             _id = str(e.get("id") or "")
@@ -549,6 +563,10 @@ class EventsScreen(Screen):
         self.DEFAULT_LOCATION = self.cfg.get_device_location()
 
         self.store = EventStore()
+        self.store.reload(
+            device_name=self.cfg.get_device_id(),
+            location_name=self.cfg.get_device_location(),
+        )
         self.today = date.today()
         self.current = date(self.today.year, self.today.month, 1)
         self.root_view = Factory.EventsRoot()
@@ -766,7 +784,10 @@ class EventsScreen(Screen):
         self.current = date(self.today.year, self.today.month, 1)
         
         try:
-            self.store.reload()
+            self.store.reload(
+                device_name=self.cfg.get_device_id(),
+                location_name=self.cfg.get_device_location(),
+            )
             print(f"[EVENTS] ✅ Store rechargé: {len(self.store.events)} événements")
         except Exception as e:
             print(f"[EVENTS] ❌ Error recargando store: {e}")
@@ -782,7 +803,10 @@ class EventsScreen(Screen):
         print("[EVENTS] 🔄 on_pre_enter: rechargement données et affichage")
         
         try:
-            self.store.reload()
+            self.store.reload(
+                device_name=self.cfg.get_device_id(),
+                location_name=self.cfg.get_device_location(),
+            )
             print(f"[EVENTS] ✅ Store rechargé: {len(self.store.events)} événements")
         except Exception as e:
             print(f"[EVENTS] ❌ Error recargando store: {e}")
@@ -798,7 +822,10 @@ class EventsScreen(Screen):
         
         try:
             old_count = len(self.store.events)
-            self.store.reload()
+            self.store.reload(
+                device_name=self.cfg.get_device_id(),
+                location_name=self.cfg.get_device_location(),
+            )
             new_count = len(self.store.events)
             
             print(f"[EVENTS] ✅ Store rechargé")

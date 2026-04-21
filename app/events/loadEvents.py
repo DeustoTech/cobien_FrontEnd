@@ -13,6 +13,7 @@ import os
 import json
 import math
 import time
+import unicodedata
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -27,15 +28,27 @@ from config_store import load_section
 # ------------------------ CONFIGURATION ------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 LOCAL_FILE = os.path.join(BASE_DIR, "events", "eventos_local.json")
-_cfg = AppConfig()
-DEVICE_NAME = _cfg.get_device_id()
-LOCATION_NAME = _cfg.get_device_location()
-print(f"[LOADEVENTS] device={DEVICE_NAME}, location={LOCATION_NAME}")
 
 AUDIENCE_COLORS = {
     "all": "#1E90FF",     # Azul (públicos)
     "device": "#FF3B30"   # Rojo (personales)
 }
+
+def _runtime_cfg() -> AppConfig:
+    return AppConfig()
+
+def _current_device_name() -> str:
+    return _runtime_cfg().get_device_id()
+
+def _current_location_name() -> str:
+    return _runtime_cfg().get_device_location()
+
+def _normalize_location_text(value: Optional[str]) -> str:
+    if value is None:
+        return ""
+    text = unicodedata.normalize("NFKD", str(value).strip())
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return text.casefold()
 
 def get_mongo_client() -> MongoClient:
     """Build a MongoDB client using unified service configuration.
@@ -136,7 +149,7 @@ def limpiar_evento(evento: Dict[str, Any]) -> Dict[str, Any]:
             evento_limpio[key] = value
     return evento_limpio
 
-def _match_location(loc: Optional[str]) -> bool:
+def _match_location(loc: Optional[str], location_name: Optional[str] = None) -> bool:
     """Check whether event location matches current configured location.
 
     Args:
@@ -147,7 +160,8 @@ def _match_location(loc: Optional[str]) -> bool:
     """
     if loc is None:
         return False
-    return loc.strip() == LOCATION_NAME
+    target_location = location_name or _current_location_name()
+    return _normalize_location_text(loc) == _normalize_location_text(target_location)
 
 def guardar_eventos_localmente(eventos: List[Dict[str, Any]]) -> None:
     """Persist sanitized event list in local JSON cache.
@@ -163,7 +177,7 @@ def guardar_eventos_localmente(eventos: List[Dict[str, Any]]) -> None:
     with open(LOCAL_FILE, "w", encoding="utf-8") as f:
         json.dump(eventos_limpios, f, ensure_ascii=False, indent=2)
 
-def cargar_eventos_locales() -> List[Dict[str, Any]]:
+def cargar_eventos_locales(location_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """Load events from local cache and apply location filter.
 
     Returns:
@@ -181,9 +195,10 @@ def cargar_eventos_locales() -> List[Dict[str, Any]]:
         eventos = json.load(f)
 
     # Aplica filtro de ciudad
-    eventos = [e for e in eventos if _match_location(e.get("location"))]
+    target_location = location_name or _current_location_name()
+    eventos = [e for e in eventos if _match_location(e.get("location"), target_location)]
 
-    print(f"{len(eventos)} eventos cargados desde archivo local (location='{LOCATION_NAME}').")
+    print(f"{len(eventos)} eventos cargados desde archivo local (location='{target_location}').")
     return eventos
 
 
@@ -206,12 +221,12 @@ def _append_personal_event_local(
     Returns:
         str: Generated local event id (`local-...`).
     """
-    target_location = location or LOCATION_NAME
-    target_device = device_name or DEVICE_NAME
+    target_location = location or _current_location_name()
+    target_device = device_name or _current_device_name()
     fecha_str = day_date.strftime("%d-%m-%Y")
     local_id = f"local-{int(time.time() * 1000)}"
 
-    local_events = cargar_eventos_locales() or []
+    local_events = cargar_eventos_locales(target_location) or []
     local_events.append({
         "id": local_id,
         "date": fecha_str,
@@ -227,7 +242,7 @@ def _append_personal_event_local(
     event_bus.notify_events_changed()
     return local_id
 
-def fetch_events_from_mongo(device_name: str = DEVICE_NAME) -> List[Dict[str, Any]]:
+def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch events from MongoDB with location and device filtering.
 
     Included event subsets:
@@ -247,6 +262,8 @@ def fetch_events_from_mongo(device_name: str = DEVICE_NAME) -> List[Dict[str, An
         >>> events = fetch_events_from_mongo(device_name="CoBien1")
     """
     try:
+        target_device = device_name or _current_device_name()
+        target_location = location_name or _current_location_name()
         client = get_mongo_client()
         client.server_info()
 
@@ -256,14 +273,14 @@ def fetch_events_from_mongo(device_name: str = DEVICE_NAME) -> List[Dict[str, An
         # Filtro por ciudad en ambos casos
         query = {
             "$or": [
-                {"audience": "all", "location": LOCATION_NAME},
-                {"audience": "device", "target_device": device_name, "location": LOCATION_NAME}
+                {"audience": "all", "location": target_location},
+                {"audience": "device", "target_device": target_device, "location": target_location}
             ]
         }
 
         eventos_raw = list(collection.find(query))
         eventos = []
-        print(f"{len(eventos_raw)} eventos cargados desde MongoDB (device='{device_name}', location='{LOCATION_NAME}').")
+        print(f"{len(eventos_raw)} eventos cargados desde MongoDB (device='{target_device}', location='{target_location}').")
 
         for event in eventos_raw:
             fecha_str = _formatea_fecha(event.get("date") or event.get("fecha_inicio"))
@@ -272,7 +289,7 @@ def fetch_events_from_mongo(device_name: str = DEVICE_NAME) -> List[Dict[str, An
             loc = _safe_str(event.get("location"), "Sin localización")
 
             # Seguridad extra por si algún documento se cuela sin location exacta
-            if not _match_location(loc):
+            if not _match_location(loc, target_location):
                 continue
 
             eventos.append({
@@ -293,7 +310,7 @@ def fetch_events_from_mongo(device_name: str = DEVICE_NAME) -> List[Dict[str, An
     except Exception as e:
         print(f"No se pudo conectar a MongoDB: {e}")
         # Carga desde local con el mismo criterio de ciudad
-        return cargar_eventos_locales()
+        return cargar_eventos_locales(location_name)
 
 # ------------------------
 # MONGO: DELETE
@@ -332,7 +349,7 @@ def delete_event_mongo(event_id: str) -> bool:
         ok = res.deleted_count == 1
         if ok:
             try:
-                eventos = fetch_events_from_mongo(device_name=DEVICE_NAME)
+                eventos = fetch_events_from_mongo(device_name=_current_device_name(), location_name=_current_location_name())
                 guardar_eventos_localmente(eventos)
                 event_bus.notify_events_changed()
             except Exception as e:
@@ -371,8 +388,8 @@ def add_personal_event_mongo(
         client = get_mongo_client()
         db = client["LabasAppDB"]
         collection = db["eventos"]
-        target_location = location or LOCATION_NAME
-        target_device = device_name or DEVICE_NAME
+        target_location = location or _current_location_name()
+        target_device = device_name or _current_device_name()
 
         # Guardamos la fecha con el mismo formato que estás usando en la app
         fecha_str = day_date.strftime("%d-%m-%Y")
@@ -414,7 +431,7 @@ def add_personal_event_mongo(
 # ------------------------
 # API PARA LA APP
 # ------------------------
-def get_events(device_name: str = DEVICE_NAME) -> List[Dict[str, Any]]:
+def get_events(device_name: Optional[str] = None, location_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """Single entrypoint for app-level event retrieval.
 
     Args:
@@ -426,13 +443,13 @@ def get_events(device_name: str = DEVICE_NAME) -> List[Dict[str, Any]]:
     Examples:
         >>> current_events = get_events()
     """
-    return fetch_events_from_mongo(device_name=device_name)
+    return fetch_events_from_mongo(device_name=device_name, location_name=location_name)
 
 # ------------------------
 # TEST MANUAL
 # ------------------------
 if __name__ == "__main__":
     eventos = get_events()
-    print(f"Se han obtenido {len(eventos)} eventos (location='{LOCATION_NAME}').")
+    print(f"Se han obtenido {len(eventos)} eventos (location='{_current_location_name()}').")
     for e in eventos:
         print(f"- {e['date']} | {e['title']} | {e['audience']} | {e['location']} ({e['color']})  id={e.get('id','')}")
