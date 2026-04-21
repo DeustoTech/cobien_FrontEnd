@@ -526,33 +526,37 @@ KV = r"""
                         icon_source: app.icon_videocall
                         text: root.btn_llamame_texto
 
-        BoxLayout:
-            size_hint_y: None
-            height: dp(42)
-            padding: [0, 0, dp(10), dp(8)]
-            Label:
-                text: ""
-            Label:
-                text: root.footer_identity_text
-                font_size: sp(18)
-                color: 0, 0, 0, 0.72
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
-                size_hint_x: None
-                width: max(dp(240), self.texture_size[0] + dp(12))
-            Label:
-                text: root.footer_version_text
-                font_size: sp(18)
-                color: 0, 0, 0, 0.72
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
-                size_hint_x: None
-                width: max(dp(110), self.texture_size[0] + dp(12))
+        AnchorLayout:
+            anchor_x: "right"
+            anchor_y: "bottom"
+            padding: [0, 0, dp(12), dp(10)]
 
-        Widget:
-            size_hint_y: 0.05
+            BoxLayout:
+                orientation: "horizontal"
+                size_hint: None, None
+                width: self.minimum_width
+                height: dp(26)
+                spacing: dp(8)
+
+                Label:
+                    text: root.footer_identity_text
+                    font_size: sp(18)
+                    color: 0, 0, 0, 0.72
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
+                    size_hint_x: None
+                    width: max(dp(120), self.texture_size[0] + dp(6))
+
+                Label:
+                    text: root.footer_version_text
+                    font_size: sp(18)
+                    color: 0, 0, 0, 0.72
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
+                    size_hint_x: None
+                    width: max(dp(80), self.texture_size[0] + dp(6))
 """
 
 #----------------------- CONTACT NAME --------------------------
@@ -2503,13 +2507,14 @@ class MyApp(App):
         commands = [
             ["systemctl", "reboot"],
             ["loginctl", "reboot"],
+            ["systemctl", "--force", "reboot"],
             ["reboot"],
         ]
 
         for cmd in commands:
             try:
-                subprocess.Popen(cmd)
-                print(f"[APP] Reboot command launched: {' '.join(cmd)}")
+                subprocess.run(cmd, check=True, timeout=8)
+                print(f"[APP] Reboot command executed: {' '.join(cmd)}")
                 return True
             except Exception as exc:
                 print(f"[APP] Reboot command failed ({' '.join(cmd)}): {exc}")
