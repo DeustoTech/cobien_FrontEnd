@@ -126,6 +126,7 @@ class AppConfig(EventDispatcher):
     def get_videocall_room(self):
         """Retourne la room de videocall"""
         return self.data.get("videocall_room", DEFAULT_VIDEOCALL_ROOM)
+
     
     def get_device_location(self):
         """Retourne la localisation du meuble"""

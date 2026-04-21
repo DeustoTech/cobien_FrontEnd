@@ -40,6 +40,7 @@ VIDEOCALL_DEVICE_API_KEY="${COBIEN_VIDEOCALL_DEVICE_API_KEY:-}"
 DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
 SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-}"
+RESTART_PIN="${COBIEN_RESTART_PIN:-}"
 BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-https://portal.co-bien.eu}"
 DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-}"
 DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-5}"
@@ -654,6 +655,7 @@ COBIEN_VIDEOCALL_DEVICE_API_KEY=$VIDEOCALL_DEVICE_API_KEY
 COBIEN_DEVICE_LOCATION=$DEVICE_LOCATION
 COBIEN_HARDWARE_MODE=$HARDWARE_MODE
 COBIEN_SETTINGS_PIN=$SETTINGS_PIN
+COBIEN_RESTART_PIN=$RESTART_PIN
 COBIEN_BACKEND_BASE_URL=$BACKEND_BASE_URL
 COBIEN_DEVICE_POLL_URL=$DEVICE_POLL_URL
 COBIEN_DEVICE_POLL_INTERVAL_SEC=$DEVICE_POLL_INTERVAL_SEC
@@ -726,6 +728,7 @@ load_last_run_config() {
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
   HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
   SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-$SETTINGS_PIN}"
+  RESTART_PIN="${COBIEN_RESTART_PIN:-$RESTART_PIN}"
   BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-$BACKEND_BASE_URL}"
   DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-$DEVICE_POLL_URL}"
   DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-$DEVICE_POLL_INTERVAL_SEC}"
@@ -896,6 +899,7 @@ load_master_env_if_present() {
   DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-$DEVICE_LOCATION}"
   HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
   SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-$SETTINGS_PIN}"
+  RESTART_PIN="${COBIEN_RESTART_PIN:-$RESTART_PIN}"
   BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-$BACKEND_BASE_URL}"
   DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-$DEVICE_POLL_URL}"
   DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-$DEVICE_POLL_INTERVAL_SEC}"
@@ -1880,6 +1884,7 @@ ensure_device_identity_config() {
     "$TTS_PIPER_MODEL_FR_FEMALE_URL" \
     "$NOTIFY_API_KEY" \
     "$SETTINGS_PIN" \
+    "$RESTART_PIN" \
     "$BACKEND_BASE_URL" \
     "$DEVICE_POLL_URL" \
     "$DEVICE_POLL_INTERVAL_SEC" \
@@ -1927,6 +1932,7 @@ import sys
     tts_piper_model_fr_female_url,
     notify_api_key,
     settings_pin,
+    restart_pin,
     backend_base_url,
     device_poll_url,
     device_poll_interval_sec,
@@ -1945,7 +1951,7 @@ import sys
     mqtt_local_broker,
     mqtt_local_port,
     http_timeout_sec,
-) = sys.argv[1:43]
+) = sys.argv[1:44]
 data = {}
 if os.path.exists(config_file):
     try:
@@ -1999,6 +2005,8 @@ if videocall_device_api_key:
     services["videocall_device_api_key"] = videocall_device_api_key
 if settings_pin:
     security["settings_pin"] = settings_pin
+if restart_pin:
+    security["restart_pin"] = restart_pin
 
 service_values = {
     "backend_base_url": backend_base_url,
@@ -2270,8 +2278,12 @@ write_env_file() {
   }
 
   local settings_pin_line=""
+  local restart_pin_line=""
   if [[ -n "${COBIEN_SETTINGS_PIN:-}" ]]; then
     settings_pin_line="COBIEN_SETTINGS_PIN=$(shell_quote_env_value "$COBIEN_SETTINGS_PIN")"
+  fi
+  if [[ -n "${COBIEN_RESTART_PIN:-}" ]]; then
+    restart_pin_line="COBIEN_RESTART_PIN=$(shell_quote_env_value "$COBIEN_RESTART_PIN")"
   fi
   # Keep only sensitive values that are not part of the normal launcher flow.
   declare -A existing_env
@@ -2354,6 +2366,13 @@ write_env_file() {
     else
       if [[ -n "$settings_pin_line" ]]; then
         echo "$settings_pin_line"
+      fi
+    fi
+    if [[ -n "${existing_env[COBIEN_RESTART_PIN]:-}" ]]; then
+      echo "COBIEN_RESTART_PIN=${existing_env[COBIEN_RESTART_PIN]}"
+    else
+      if [[ -n "$restart_pin_line" ]]; then
+        echo "$restart_pin_line"
       fi
     fi
   } > "$ENV_FILE"

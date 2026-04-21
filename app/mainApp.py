@@ -526,8 +526,33 @@ KV = r"""
                         icon_source: app.icon_videocall
                         text: root.btn_llamame_texto
 
+        BoxLayout:
+            size_hint_y: None
+            height: dp(42)
+            padding: [0, 0, dp(10), dp(8)]
+            Label:
+                text: ""
+            Label:
+                text: root.footer_identity_text
+                font_size: sp(18)
+                color: 0, 0, 0, 0.72
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+                size_hint_x: None
+                width: max(dp(240), self.texture_size[0] + dp(12))
+            Label:
+                text: root.footer_version_text
+                font_size: sp(18)
+                color: 0, 0, 0, 0.72
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+                size_hint_x: None
+                width: max(dp(110), self.texture_size[0] + dp(12))
+
         Widget:
-            size_hint_y: 1
+            size_hint_y: 0.05
 """
 
 #----------------------- CONTACT NAME --------------------------
@@ -565,6 +590,8 @@ class MainScreen(Screen):
     btn_eventos_texto = StringProperty("Eventos")
     btn_pizarra_texto = StringProperty("Pizarra")
     btn_llamame_texto = StringProperty("Llámame")
+    footer_identity_text = StringProperty("")
+    footer_version_text = StringProperty("")
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
@@ -582,7 +609,9 @@ class MainScreen(Screen):
         print(f"[MAIN]    Videocall Room: '{self.VIDEOCALL_ROOM}' (case-sensitive)")
         print(f"[MAIN]    Location: '{self.DEVICE_LOCATION}'")
         print(f"[MAIN] ========================================")
-        
+
+        self._update_footer_meta()
+
         # ✅ ÉTAPE 7 : Charger traduction au démarrage
         
         self.action_executor = None
@@ -713,6 +742,18 @@ class MainScreen(Screen):
 
         self._assistant_overlay = AssistantOverlay()
         self._assistant_init_lock = threading.Lock()
+
+    def _update_footer_meta(self):
+        visible_name = (self.cfg.get_device_id() or "").strip() or "CoBien"
+        version_text = "unknown"
+        try:
+            version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+            with open(version_path, "r", encoding="utf-8") as vf:
+                version_text = (vf.read().strip() or "unknown")
+        except Exception:
+            pass
+        self.footer_identity_text = visible_name
+        self.footer_version_text = f"v{version_text}"
 
        
     def _maybe_refresh_joke(self, force=False):

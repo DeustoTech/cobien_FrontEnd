@@ -205,7 +205,10 @@ def fetch_weather_bundle(city_name, lat, lon, tz_name, api_lang, owm_api_key, fo
     # Try OpenWeather first if API key is configured; fallback to Open-Meteo when unavailable.
     if (owm_api_key or "").strip():
         try:
-            cur_url = f"{openweather_current_url}?q={city_name}&appid={owm_api_key}&units=metric&lang={api_lang}"
+            cur_url = (
+                f"{openweather_current_url}"
+                f"?lat={lat}&lon={lon}&appid={owm_api_key}&units=metric&lang={api_lang}"
+            )
             cur = requests.get(cur_url, timeout=8).json()
             if isinstance(cur, dict) and "main" in cur and "weather" in cur and cur["weather"]:
                 cur_temp = round(float(cur["main"]["temp"]))

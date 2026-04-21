@@ -660,6 +660,26 @@ class NotificationManager:
         self.active_call_process = None
         
         print("[NOTIF_MANAGER] ✅ Notification manager initialized (CASE-SENSITIVE)")
+
+    def _wake_app_for_notification(self) -> None:
+        """Wake the furniture UI if a notification arrives during black overlay."""
+        app = App.get_running_app()
+        if not app:
+            return
+
+        try:
+            if getattr(app, "black_overlay", None) and app.black_overlay.parent:
+                app.black_overlay.dismiss()
+        except Exception as exc:
+            print(f"[NOTIF] ⚠️ Could not dismiss black overlay for incoming notification: {exc}")
+
+        try:
+            if hasattr(app, "_on_wakeup"):
+                app._on_wakeup()
+            elif hasattr(app, "_reset_idle_timer"):
+                app._reset_idle_timer()
+        except Exception as exc:
+            print(f"[NOTIF] ⚠️ Could not restore runtime after incoming notification: {exc}")
     
     def show_videocall_notification(self, caller: str, room: Optional[str] = None) -> None:
         """Display an incoming video call notification popup.
@@ -752,15 +772,8 @@ class NotificationManager:
                 self.active_videocall_popup = popup
 
                 self.active_notifications.append(popup)
+                self._wake_app_for_notification()
                 popup.open()
-
-                # Disable sleep mode screen
-                app = App.get_running_app()
-                if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
-                    app.black_overlay.dismiss()
-                    # restart timer and wakeup logs if present in MyApp
-                    if hasattr(app, "_on_wakeup"):
-                        app._on_wakeup()
 
                 print(f"[NOTIF] ✅ Popup displayed for '{caller}' → room '{room}'")
             except Exception as e:
@@ -804,15 +817,8 @@ class NotificationManager:
                     callback=self._handle_event_action
                 )
                 self.active_notifications.append(popup)
+                self._wake_app_for_notification()
                 popup.open()
-
-                # Disable sleep mode screen
-                app = App.get_running_app()
-                if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
-                    app.black_overlay.dismiss()
-                    # relance timer + logs wakeup si tu l'as déjà dans MyApp
-                    if hasattr(app, "_on_wakeup"):
-                        app._on_wakeup()
 
                 print(f"[NOTIF] Event: {title}")
             except Exception as e:
@@ -864,15 +870,8 @@ class NotificationManager:
                     callback=self._handle_message_action
                 )
                 self.active_notifications.append(popup)
+                self._wake_app_for_notification()
                 popup.open()
-
-                # Disable sleep mode screen
-                app = App.get_running_app()
-                if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
-                    app.black_overlay.dismiss()
-                    # relance timer + logs wakeup si tu l'as déjà dans MyApp
-                    if hasattr(app, "_on_wakeup"):
-                        app._on_wakeup()
 
                 print(f"[NOTIF] Message from {sender}")
             except Exception as e:
@@ -1256,14 +1255,9 @@ class NotificationManager:
         container.add_widget(btn_wrapper)
 
         popup.add_widget(container)
+        self._wake_app_for_notification()
         popup.open()
         Clock.schedule_once(lambda dt: _close(), 10)
-
-        app = App.get_running_app()
-        if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
-            app.black_overlay.dismiss()
-            if hasattr(app, "_on_wakeup"):
-                app._on_wakeup()
     
     def show_missed_call_notification(self, caller: str, time_str: str):
         """
@@ -1417,14 +1411,7 @@ class NotificationManager:
         popup.add_widget(container)
         
         # Ouvrir le popup
+        self._wake_app_for_notification()
         popup.open()
-
-        # Disable sleep mode screen
-        app = App.get_running_app()
-        if app and getattr(app, "black_overlay", None) and app.black_overlay.parent:
-            app.black_overlay.dismiss()
-            # relance timer + logs wakeup si tu l'as déjà dans MyApp
-            if hasattr(app, "_on_wakeup"):
-                app._on_wakeup()
         
         print("[NOTIF] ✅ Missed call notification displayed")

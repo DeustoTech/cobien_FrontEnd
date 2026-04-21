@@ -554,7 +554,16 @@ class WeatherScreenWidget(BoxLayout):
         self.lat = c["lat"]
         self.lon = c["lon"]
         self.tz_name = c["tz"]
+        self.current_temp = "—°"
         self.current_desc = _("Cargando…")
+        self.today_minmax_left = f"{_('Min')} —°"
+        self.today_minmax_right = f"{_('Max')} —°"
+        self.current_icon = "data/images/nubes.png"
+        if hasattr(self, "ids"):
+            if "hourly_grid" in self.ids:
+                self.ids.hourly_grid.clear_widgets()
+            if "daily_row" in self.ids:
+                self.ids.daily_row.clear_widgets()
         self._update_title()
         self._refresh_async()
 
@@ -708,6 +717,21 @@ class WeatherScreenWidget(BoxLayout):
 
         except Exception as e:
             print(f"[WEATHER] Error: {e}")
+            def _apply_error(_dt):
+                if request_seq != self._refresh_seq:
+                    return
+                self.current_temp = "—°"
+                self.current_desc = _("No se pudo actualizar")
+                self.today_minmax_left = f"{_('Min')} —°"
+                self.today_minmax_right = f"{_('Max')} —°"
+                self.current_icon = "data/images/nubes.png"
+                if hasattr(self, "ids"):
+                    if "hourly_grid" in self.ids:
+                        self.ids.hourly_grid.clear_widgets()
+                    if "daily_row" in self.ids:
+                        self.ids.daily_row.clear_widgets()
+
+            Clock.schedule_once(_apply_error)
 
     def _render_hourly(self, items):
         """Render hourly forecast columns."""
