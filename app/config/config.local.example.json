@@ -42,7 +42,8 @@
     }
   },
   "security": {
-    "settings_pin": ""
+    "settings_pin": "",
+    "restart_pin": ""
   },
   "services": {
     "mqtt_local_broker": "localhost",

@@ -137,6 +137,7 @@ CONFIG_FIELD_METADATA = {
     ("settings", "joke_category"): {"label": "Categoría de frases", "help": "Categoría activa para frases o bromas del sistema."},
     ("settings", "idle_timeout_sec"): {"label": "Timeout inactividad (seg)", "help": "Tiempo antes de volver al estado principal por inactividad."},
     ("security", "settings_pin"): {"label": "PIN administración", "help": "PIN necesario para acceder a la administración."},
+    ("security", "restart_pin"): {"label": "PIN reinicio equipo", "help": "PIN alternativo para abrir la pantalla de reinicio completo del equipo."},
     ("services", "backend_base_url"): {"label": "Backend base URL", "help": "URL base del portal web y backend principal."},
     ("services", "notify_api_key"): {"label": "Notify API key", "help": "Clave usada para avisos y llamadas desde/hacia backend."},
     ("services", "videocall_device_api_key"): {"label": "Videocall device API key", "help": "Clave del mueble para entrar en videollamada sin login humano."},
@@ -245,6 +246,7 @@ CONFIG_GROUPS = [
         "Credenciales sensibles y metadatos locales del software.",
         [
             ("security", "settings_pin"),
+            ("security", "restart_pin"),
             ("services", "mongo_uri"),
             ("services", "owm_api_key"),
             ("services", "news_api_key"),

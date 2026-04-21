@@ -4,6 +4,7 @@ from datetime import datetime
 import requests
 
 from config_store import load_section
+from hardware_inventory import get_heartbeat_hardware_payload
 
 
 def _load_runtime_config():
@@ -28,6 +29,9 @@ def send_device_heartbeat(screen_name="", extra_payload=None):
         "screen": str(screen_name or "").strip(),
         "sent_at": datetime.utcnow().isoformat() + "Z",
     }
+    hardware_payload = get_heartbeat_hardware_payload()
+    if hardware_payload:
+        payload.update(hardware_payload)
     if isinstance(extra_payload, dict):
         payload.update(extra_payload)
 

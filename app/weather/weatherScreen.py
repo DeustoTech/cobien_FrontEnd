@@ -456,11 +456,18 @@ class WeatherScreenWidget(BoxLayout):
             self.show_city_navigation = False
             return
         
+        previous_city = (self.city or "").strip().lower()
         self.cities = cities
         self.show_city_navigation = len(self.cities) > 1
         self.city_index = 0
-        self._set_city(self.cities[0])
-        self._refresh_async()
+
+        if previous_city:
+            for idx, city in enumerate(self.cities):
+                if str(city.get("name", "")).strip().lower() == previous_city:
+                    self.city_index = idx
+                    break
+
+        self._set_city(self.cities[self.city_index])
 
     def _geocode_city(self, name):
         """Resolve city coordinates and timezone using Nominatim/Open-Meteo."""
@@ -547,6 +554,7 @@ class WeatherScreenWidget(BoxLayout):
         self.lat = c["lat"]
         self.lon = c["lon"]
         self.tz_name = c["tz"]
+        self.current_desc = _("Cargando…")
         self._update_title()
         self._refresh_async()
 
@@ -565,7 +573,6 @@ class WeatherScreenWidget(BoxLayout):
         def on_animation_complete(anim, widget):
             self.city_index = (self.city_index + 1) % len(self.cities)
             self._set_city(self.cities[self.city_index])
-            self._refresh_async()
             
             self.transition_x = self.width
             self.transition_alpha = 0
@@ -596,7 +603,6 @@ class WeatherScreenWidget(BoxLayout):
         def on_animation_complete(anim, widget):
             self.city_index = (self.city_index - 1) % len(self.cities)
             self._set_city(self.cities[self.city_index])
-            self._refresh_async()
             
             self.transition_x = -self.width
             self.transition_alpha = 0
@@ -759,12 +765,10 @@ class WeatherScreenWidget(BoxLayout):
 
     def set_city_by_name(self, name: str):
         """Set active city by display name lookup."""
-        from weather.weatherScreen import cities
-        for i, c in enumerate(cities):
+        for i, c in enumerate(self.cities):
             if c["name"].lower() == name.lower():
                 self.city_index = i
                 self._set_city(c)
-                self._refresh_async()
                 break
 
     def _map_icon_openmeteo(self, code: int, is_day: bool) -> str:

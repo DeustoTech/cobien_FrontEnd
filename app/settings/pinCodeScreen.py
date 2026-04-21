@@ -140,12 +140,24 @@ class PinBackButton(Button):
 class PinCodeScreen(Screen):
     """PIN authentication screen for protected navigation."""
     
-    def __init__(self, sm: Any, cfg: Any, target_screen: str = "settings", **kwargs: Any) -> None:
+    def __init__(
+        self,
+        sm: Any,
+        cfg: Any,
+        target_screen: str = "settings",
+        security_key: str = "settings_pin",
+        pin_env_var: str = PIN_ENV_VAR,
+        default_pin: str = "1234",
+        **kwargs: Any,
+    ) -> None:
         """Initialize PIN screen and build keypad UI."""
         super().__init__(**kwargs)
         self.sm = sm
         self.cfg = cfg
         self.target_screen = target_screen
+        self.security_key = security_key
+        self.pin_env_var = pin_env_var
+        self.default_pin = default_pin
         
         self.correct_pin = self.load_pin()
         
@@ -170,23 +182,23 @@ class PinCodeScreen(Screen):
         Clock.schedule_once(lambda dt: self.update_labels(), 0)
     
     def load_pin(self) -> str:
-        """Load the settings PIN from env first, then file fallback."""
+        """Load the active screen PIN from env first, then unified config."""
         try:
-            env_pin = os.getenv(PIN_ENV_VAR, "").strip()
+            env_pin = os.getenv(self.pin_env_var, "").strip()
             if env_pin:
-                print(f"[PIN] Settings PIN loaded from environment variable {PIN_ENV_VAR}")
+                print(f"[PIN] PIN loaded from environment variable {self.pin_env_var}")
                 return env_pin
 
-            security = load_section("security", {"settings_pin": "1234"}) or {"settings_pin": "1234"}
-            pin = str(security.get("settings_pin", "")).strip()
+            security = load_section("security", {self.security_key: self.default_pin}) or {self.security_key: self.default_pin}
+            pin = str(security.get(self.security_key, "")).strip()
             if pin:
                 print("[PIN] Settings PIN loaded from unified config")
                 return pin
             
-            default_pin = "1234"
-            security["settings_pin"] = default_pin
+            default_pin = self.default_pin
+            security[self.security_key] = default_pin
             save_section("security", security)
-            print(f"[PIN] Default settings PIN created: {default_pin}")
+            print(f"[PIN] Default PIN created for {self.security_key}: {default_pin}")
             return default_pin
             
         except Exception as e:

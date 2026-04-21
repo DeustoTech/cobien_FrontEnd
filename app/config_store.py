@@ -18,6 +18,7 @@ VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 SENSITIVE_CONFIG = {
     "security": {
         "settings_pin": {"env": "COBIEN_SETTINGS_PIN"},
+        "restart_pin": {"env": "COBIEN_RESTART_PIN"},
     },
     "services": {
         "owm_api_key": {"env": "OWM_API_KEY"},
@@ -55,6 +56,7 @@ DEFAULT_UNIFIED_CONFIG = {
     },
     "security": {
         "settings_pin": "",
+        "restart_pin": "",
     },
     "services": {
         "mqtt_local_broker": os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost"),

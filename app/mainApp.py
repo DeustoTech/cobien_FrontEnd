@@ -52,6 +52,7 @@ from settings.logsScreen import LogsMenuScreen, LogsViewerScreen
 from settings.launcherConfigScreen import LauncherConfigScreen
 from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
+from settings.restartScreen import RestartOnlyScreen
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from device_heartbeat_service import send_device_heartbeat_async
@@ -263,7 +264,10 @@ KV = r"""
     size_hint: None, None
     size: dp(100), dp(100)
     padding: dp(6)
-    on_release: app.root.current = "pin_code"
+    on_touch_down:
+        app.handle_settings_badge_touch_down(self, args[1]) if self.collide_point(*args[1].pos) else None
+    on_touch_up:
+        app.handle_settings_badge_touch_up(self, args[1]) if self.collide_point(*args[1].pos) else None
     canvas.before:
         Color:
             rgba: 1, 1, 1, BUTTON_ALPHA
@@ -2048,6 +2052,7 @@ class MyApp(App):
     weather_icon = StringProperty("data/images/sol.png")
     mic_icon = StringProperty("data/images/voice.png")
     settings_icon = StringProperty("data/images/settings.png")
+    SETTINGS_BADGE_LONG_PRESS_SEC = 1.2
 
     def _start_orchestrator(self):
         script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")
@@ -2093,6 +2098,49 @@ class MyApp(App):
                 p2.terminate()
             except Exception:
                 pass
+
+    def _cancel_settings_badge_long_press(self):
+        event = getattr(self, "_settings_badge_long_press_event", None)
+        if event is not None:
+            try:
+                event.cancel()
+            except Exception:
+                pass
+        self._settings_badge_long_press_event = None
+
+    def _open_standard_admin_pin(self):
+        self.root.current = "pin_code"
+
+    def _open_reboot_admin_pin(self):
+        self.root.current = "pin_code_reboot"
+
+    def handle_settings_badge_touch_down(self, widget, touch):
+        if not self.root:
+            return False
+        touch.ud["cobien_settings_badge_handled"] = True
+        touch.ud["cobien_settings_badge_long_press"] = False
+        self._cancel_settings_badge_long_press()
+
+        def _trigger_long_press(_dt):
+            touch.ud["cobien_settings_badge_long_press"] = True
+            print("[APP] Settings badge long press detected -> reboot PIN")
+            self._open_reboot_admin_pin()
+
+        self._settings_badge_long_press_event = Clock.schedule_once(
+            _trigger_long_press,
+            self.SETTINGS_BADGE_LONG_PRESS_SEC,
+        )
+        return True
+
+    def handle_settings_badge_touch_up(self, widget, touch):
+        if not touch.ud.get("cobien_settings_badge_handled"):
+            return False
+        was_long_press = bool(touch.ud.get("cobien_settings_badge_long_press"))
+        self._cancel_settings_badge_long_press()
+        if not was_long_press:
+            print("[APP] Settings badge tap detected -> settings PIN")
+            self._open_standard_admin_pin()
+        return True
 
     def on_start(self):
         self._start_orchestrator()
@@ -2305,21 +2353,9 @@ class MyApp(App):
             self._close_reboot_popup()
 
         def _confirm(*_args):
-            commands = [
-                ["systemctl", "reboot"],
-                ["loginctl", "reboot"],
-                ["reboot"],
-            ]
-
-            for cmd in commands:
-                try:
-                    subprocess.Popen(cmd)
-                    print(f"[APP] Reboot command launched: {' '.join(cmd)}")
-                    self._close_reboot_popup()
-                    return
-                except Exception as exc:
-                    print(f"[APP] Reboot command failed ({' '.join(cmd)}): {exc}")
-
+            if self.perform_system_reboot():
+                self._close_reboot_popup()
+                return
             feedback.text = _("No se ha podido reiniciar Ubuntu. Revisa los permisos del sistema.")
 
         btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
@@ -2428,6 +2464,22 @@ class MyApp(App):
 
         self._exit_pin_popup = popup
         popup.open()
+
+    def perform_system_reboot(self):
+        commands = [
+            ["systemctl", "reboot"],
+            ["loginctl", "reboot"],
+            ["reboot"],
+        ]
+
+        for cmd in commands:
+            try:
+                subprocess.Popen(cmd)
+                print(f"[APP] Reboot command launched: {' '.join(cmd)}")
+                return True
+            except Exception as exc:
+                print(f"[APP] Reboot command failed ({' '.join(cmd)}): {exc}")
+        return False
 
     def _handle_escape_request(self, *args):
         keycode = self._extract_window_keycode(*args)
@@ -2598,6 +2650,17 @@ class MyApp(App):
 
         pin_screen = PinCodeScreen(sm=sm, cfg=self.cfg, target_screen="settings", name="pin_code")
         sm.add_widget(pin_screen)
+        reboot_pin_screen = PinCodeScreen(
+            sm=sm,
+            cfg=self.cfg,
+            target_screen="restart_only",
+            security_key="restart_pin",
+            pin_env_var="COBIEN_RESTART_PIN",
+            default_pin="4321",
+            name="pin_code_reboot",
+        )
+        sm.add_widget(reboot_pin_screen)
+        sm.add_widget(RestartOnlyScreen(sm, self.cfg, name='restart_only'))
 
         self.main_ref = main_screen_widget
         sm.current = 'main'
@@ -2646,7 +2709,8 @@ class MyApp(App):
             'settings', 'button_colors', 'settings_notifications',
             'settings_logs_menu', 'settings_logs_can', 'settings_logs_bridge', 'settings_logs_app',
             'settings_launcher',
-            'settings_rfid', 'weather_choice', 'joke_category', 'jokes' , 'pin_code'
+            'settings_rfid', 'weather_choice', 'joke_category', 'jokes', 'pin_code',
+            'pin_code_reboot', 'restart_only'
         ]
         
         for screen_name in screens_to_update:
