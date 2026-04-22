@@ -339,60 +339,6 @@ class NotificationPopup(ModalView):
         
         return main_layout
 
-
-class CallLaunchingPopup(ModalView):
-    """Blocking progress popup shown while the external videocall window starts."""
-
-    def __init__(self, caller: str = "", **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.size_hint = (0.72, 0.34)
-        self.auto_dismiss = False
-        self.background = ""
-        self.background_color = (0, 0, 0, 0)
-        self.overlay_color = (0, 0, 0, 0.45)
-
-        main_layout = BoxLayout(orientation="vertical", padding=dp(28), spacing=dp(18))
-        with main_layout.canvas.before:
-            Color(0.97, 0.98, 1, 1)
-            self.bg_rect = RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(22)])
-        main_layout.bind(pos=self._update_rect, size=self._update_rect)
-
-        title = Label(
-            text=_("Abriendo videollamada"),
-            font_size=sp(36),
-            bold=True,
-            color=(0.1, 0.1, 0.1, 1),
-            size_hint_y=None,
-            height=dp(52),
-        )
-        subtitle = Label(
-            text=_("Espera unos segundos, no pulses ningún botón."),
-            font_size=sp(24),
-            color=(0.25, 0.25, 0.25, 1),
-            size_hint_y=None,
-            height=dp(44),
-        )
-        detail_text = _("Conectando con {}...").format(caller) if caller else _("Preparando la llamada...")
-        detail = Label(
-            text=detail_text,
-            font_size=sp(22),
-            color=(0.35, 0.35, 0.35, 1),
-            size_hint_y=None,
-            height=dp(40),
-        )
-
-        main_layout.add_widget(BoxLayout())
-        main_layout.add_widget(title)
-        main_layout.add_widget(subtitle)
-        main_layout.add_widget(detail)
-        main_layout.add_widget(BoxLayout())
-
-        self.add_widget(main_layout)
-
-    def _update_rect(self, instance: Any, _value: Any) -> None:
-        self.bg_rect.pos = instance.pos
-        self.bg_rect.size = instance.size
-    
     def _build_videocall_content(self, main_layout: BoxLayout) -> BoxLayout:
         """Build popup content for an incoming video call."""
         caller = self.data.get('caller', _('Desconocido'))
@@ -667,6 +613,61 @@ class CallLaunchingPopup(ModalView):
             self.callback(action, self.data)
         
         self.dismiss()
+
+
+class CallLaunchingPopup(ModalView):
+    """Blocking progress popup shown while the external videocall window starts."""
+
+    def __init__(self, caller: str = "", **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.size_hint = (0.72, 0.34)
+        self.auto_dismiss = False
+        self.background = ""
+        self.background_color = (0, 0, 0, 0)
+        self.overlay_color = (0, 0, 0, 0.45)
+
+        main_layout = BoxLayout(orientation="vertical", padding=dp(28), spacing=dp(18))
+        with main_layout.canvas.before:
+            Color(0.97, 0.98, 1, 1)
+            self.bg_rect = RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(22)])
+        main_layout.bind(pos=self._update_rect, size=self._update_rect)
+
+        title = Label(
+            text=_("Abriendo videollamada"),
+            font_size=sp(36),
+            bold=True,
+            color=(0.1, 0.1, 0.1, 1),
+            size_hint_y=None,
+            height=dp(52),
+        )
+        subtitle = Label(
+            text=_("Espera unos segundos, no pulses ningún botón."),
+            font_size=sp(24),
+            color=(0.25, 0.25, 0.25, 1),
+            size_hint_y=None,
+            height=dp(44),
+        )
+        detail_text = _("Conectando con {}...").format(caller) if caller else _("Preparando la llamada...")
+        detail = Label(
+            text=detail_text,
+            font_size=sp(22),
+            color=(0.35, 0.35, 0.35, 1),
+            size_hint_y=None,
+            height=dp(40),
+        )
+
+        main_layout.add_widget(BoxLayout())
+        main_layout.add_widget(title)
+        main_layout.add_widget(subtitle)
+        main_layout.add_widget(detail)
+        main_layout.add_widget(BoxLayout())
+
+        self.add_widget(main_layout)
+
+    def _update_rect(self, instance: Any, _value: Any) -> None:
+        self.bg_rect.pos = instance.pos
+        self.bg_rect.size = instance.size
+
 
 class NotificationManager:
     """Central runtime manager for all user-facing notifications.

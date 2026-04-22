@@ -892,9 +892,11 @@ class MainScreen(Screen):
         print(f"[MQTT LOCAL] Message received on {topic}: {message[:50]}...")
         Clock.schedule_once(lambda dt: self._process_safe(message, topic))
 
-    def _process_safe (self, message, topic):
-        self.process_mqtt_message(message, topic)
-        self._processing_mqtt = False
+    def _process_safe(self, message, topic):
+        try:
+            self.process_mqtt_message(message, topic)
+        finally:
+            self._processing_mqtt = False
 
     # ========== Backend Polling (notifications du site web) ==========
     def _start_backend_polling(self):
