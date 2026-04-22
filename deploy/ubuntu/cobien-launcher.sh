@@ -325,14 +325,15 @@ run_full_install_plan() {
 
   if detect_requested_python; then
     echo "Python ${PYTHON_REQUEST} detected: $(command -v "python${PYTHON_REQUEST}")"
-  elif detect_python311; then
-    echo "Python ${PYTHON_REQUEST} is not installed, but Python 3.11 is available as compatibility fallback: $(command -v python3.11)"
+  elif detect_python_fallback; then
+    local fb; fb="$(python_fallback_bin)"
+    echo "Python ${PYTHON_REQUEST} is not installed, but ${fb} is available as compatibility fallback: $(command -v "$fb")"
   else
     echo "Python ${PYTHON_REQUEST} is not installed."
     if ask_yes_no "Should the script try to install Python ${PYTHON_REQUEST} and system dependencies" "y"; then
       INSTALL_SYSTEM_DEPS="1"
     else
-      echo "Cannot continue without Python ${PYTHON_REQUEST} or the Python 3.11 compatibility fallback."
+      echo "Cannot continue without Python ${PYTHON_REQUEST} or a compatible fallback (3.12 / 3.11)."
       exit 1
     fi
   fi
@@ -1402,6 +1403,22 @@ detect_python311() {
   command -v python3.11 >/dev/null 2>&1
 }
 
+detect_python_fallback() {
+  command -v python3.12 >/dev/null 2>&1 || command -v python3.11 >/dev/null 2>&1
+}
+
+python_fallback_bin() {
+  if command -v python3.12 >/dev/null 2>&1; then echo "python3.12"
+  elif command -v python3.11 >/dev/null 2>&1; then echo "python3.11"
+  fi
+}
+
+python_fallback_apt_pkg() {
+  if apt-cache show python3.12 >/dev/null 2>&1; then echo "3.12"
+  elif apt-cache show python3.11 >/dev/null 2>&1; then echo "3.11"
+  fi
+}
+
 check_paths() {
   resolve_paths
   [[ -d "$FRONTEND_REPO/.git" ]] || { log "Frontend repository not found: $FRONTEND_REPO"; exit 1; }
@@ -1441,8 +1458,12 @@ install_system_deps_fn() {
 
   if apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
     sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
-  elif apt-cache show python3.11 >/dev/null 2>&1; then
-    sudo apt install -y python3.11 python3.11-venv python3.11-dev
+  else
+    local fb_ver
+    fb_ver="$(python_fallback_apt_pkg)"
+    if [[ -n "$fb_ver" ]]; then
+      sudo apt install -y "python${fb_ver}" "python${fb_ver}-venv" "python${fb_ver}-dev"
+    fi
   fi
 }
 
@@ -1474,20 +1495,20 @@ ensure_runtime_dependencies() {
     sudo apt install -y "${missing_packages[@]}"
   fi
 
-  if ! detect_requested_python && apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
-    log "Python ${PYTHON_REQUEST} not found. Installing runtime Python dependencies..."
-    if [[ "$apt_updated" != "1" ]]; then
-      sudo apt update
-      apt_updated="1"
+  if ! detect_requested_python; then
+    if apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
+      log "Python ${PYTHON_REQUEST} not found. Installing runtime Python dependencies..."
+      if [[ "$apt_updated" != "1" ]]; then sudo apt update; apt_updated="1"; fi
+      sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
+    elif ! detect_python_fallback; then
+      local fb_ver
+      fb_ver="$(python_fallback_apt_pkg)"
+      if [[ -n "$fb_ver" ]]; then
+        log "Python ${PYTHON_REQUEST} not available. Installing compatibility fallback python${fb_ver}..."
+        if [[ "$apt_updated" != "1" ]]; then sudo apt update; apt_updated="1"; fi
+        sudo apt install -y "python${fb_ver}" "python${fb_ver}-venv" "python${fb_ver}-dev"
+      fi
     fi
-    sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
-  elif ! command -v python3.11 >/dev/null 2>&1 && apt-cache show python3.11 >/dev/null 2>&1; then
-    log "Python 3.11 fallback not found. Installing compatibility fallback..."
-    if [[ "$apt_updated" != "1" ]]; then
-      sudo apt update
-      apt_updated="1"
-    fi
-    sudo apt install -y python3.11 python3.11-venv python3.11-dev
   fi
 }
 
@@ -2248,10 +2269,10 @@ resolve_python_bin() {
 
   if command -v "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
     PYTHON_BIN="python${PYTHON_REQUEST}"
-  elif command -v python3.11 >/dev/null 2>&1; then
-    PYTHON_BIN="python3.11"
   else
-    PYTHON_BIN="python3"
+    local fb
+    fb="$(python_fallback_bin)"
+    PYTHON_BIN="${fb:-python3}"
   fi
 }
 
@@ -3051,14 +3072,15 @@ run_full_flow() {
 
   if detect_requested_python; then
     echo "Python ${PYTHON_REQUEST} detected: $(command -v "python${PYTHON_REQUEST}")"
-  elif detect_python311; then
-    echo "Python ${PYTHON_REQUEST} is not installed, but Python 3.11 is available as compatibility fallback: $(command -v python3.11)"
+  elif detect_python_fallback; then
+    local fb; fb="$(python_fallback_bin)"
+    echo "Python ${PYTHON_REQUEST} is not installed, but ${fb} is available as compatibility fallback: $(command -v "$fb")"
   else
     echo "Python ${PYTHON_REQUEST} is not installed."
     if ask_yes_no "Should the script try to install Python ${PYTHON_REQUEST} and system dependencies" "y"; then
       INSTALL_SYSTEM_DEPS="1"
     else
-      echo "Cannot continue without Python ${PYTHON_REQUEST} or the Python 3.11 compatibility fallback."
+      echo "Cannot continue without Python ${PYTHON_REQUEST} or a compatible fallback (3.12 / 3.11)."
       exit 1
     fi
   fi
