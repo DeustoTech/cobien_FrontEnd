@@ -19,6 +19,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.image import Image
 from translation import _
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from kivy.app import App
@@ -45,6 +46,13 @@ class ImageButton(ButtonBehavior, AnchorLayout):
     """Clickable image button used for board navigation controls."""
 
     src = StringProperty("")
+
+
+class AvatarCircle(Widget):
+    """Circular sender avatar that can fall back to an initial."""
+
+    source = StringProperty("")
+    initial = StringProperty("")
 
 
 KV = r"""
@@ -105,6 +113,56 @@ KV = r"""
         mipmap: True
         size_hint: None, None
         size: dp(42), dp(42)
+
+<AvatarCircle>:
+    size_hint: None, None
+    size: dp(74), dp(74)
+    canvas.before:
+        StencilPush
+        Ellipse:
+            pos: self.pos
+            size: self.size
+        StencilUse
+    Image:
+        source: root.source
+        allow_stretch: True
+        keep_ratio: False
+        opacity: 1 if root.source else 0
+        size: root.size
+        pos: root.pos
+    canvas:
+        Color:
+            rgba: 0.95, 0.77, 0.48, 1 if not root.source else 0
+        Ellipse:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgba: 0, 0, 0, 0.92 if not root.source else 0
+        Line:
+            circle: (self.center_x, self.center_y, self.width / 2)
+            width: 1.4
+        Color:
+            rgba: 0, 0, 0, 1 if not root.source else 0
+    Label:
+        text: root.initial
+        font_size: sp(28)
+        bold: True
+        color: 0,0,0,1
+        opacity: 1 if not root.source else 0
+        center: root.center
+        size_hint: None, None
+        size: root.size
+        halign: "center"
+        valign: "middle"
+        text_size: self.size
+    canvas.after:
+        StencilUnUse
+        Color:
+            rgba: 0, 0, 0, 0.18
+        Line:
+            circle: (self.center_x, self.center_y, self.width / 2)
+            width: 1.8
+        StencilPop
 
 <BoardRoot@FloatLayout>:
     canvas.before:
@@ -243,30 +301,37 @@ KV = r"""
                                 radius: [dp(16),]
 
                         # Text
-                        BoxLayout:
-                            orientation: "vertical"
-                            size_hint_x: 0.45
-                            spacing: dp(12)
+                            BoxLayout:
+                                orientation: "vertical"
+                                size_hint_x: 0.45
+                                spacing: dp(12)
                             BoxLayout:
                                 size_hint_y: None
-                                height: dp(58)
-                                spacing: dp(10)
-                                Label:
-                                    id: lbl_from
-                                    text: "De —:"
-                                    font_size: sp(38)
-                                    bold: True
-                                    color: C_BLACK
-                                    halign: "left"
-                                    valign: "middle"
-                                    text_size: self.size
-                                IconBadge:
-                                    id: btn_delete
-                                    size: dp(58), dp(58)
-                                    icon_source: "data/images/trash.png"
-                                    opacity: 0.4
-                                    disabled: True
-                                    on_release: root.parent_widget.confirm_delete_current()
+                                height: dp(94)
+                                spacing: dp(14)
+                                AvatarCircle:
+                                    id: sender_avatar
+                                BoxLayout:
+                                    orientation: "vertical"
+                                    spacing: dp(4)
+                                    Label:
+                                        id: lbl_from
+                                        text: "De —:"
+                                        font_size: sp(38)
+                                        bold: True
+                                        color: C_BLACK
+                                        halign: "left"
+                                        valign: "middle"
+                                        text_size: self.size
+                                    Label:
+                                        id: lbl_sent_at
+                                        text: ""
+                                        font_size: sp(20)
+                                        color: 0, 0, 0, 0.72
+                                        halign: "left"
+                                        valign: "middle"
+                                        text_size: self.size
+                                Widget:
                             Label:
                                 id: lbl_body
                                 text: ""
@@ -275,6 +340,18 @@ KV = r"""
                                 halign: "left"
                                 valign: "top"
                                 text_size: self.size
+                            AnchorLayout:
+                                anchor_x: "right"
+                                anchor_y: "bottom"
+                                size_hint_y: None
+                                height: dp(72)
+                                IconBadge:
+                                    id: btn_delete
+                                    size: dp(58), dp(58)
+                                    icon_source: "data/images/trash.png"
+                                    opacity: 0.4
+                                    disabled: True
+                                    on_release: root.parent_widget.confirm_delete_current()
 
                         # Image
                         AnchorLayout:
@@ -424,12 +501,16 @@ class BoardScreen(Screen):
         Returns:
             None.
         """
-        if not self._have_ids("lbl_from", "lbl_body", "img_photo", "btn_delete", "btn_prev", "btn_next"):
+        if not self._have_ids("lbl_from", "lbl_sent_at", "sender_avatar", "lbl_body", "img_photo", "btn_delete", "btn_prev", "btn_next"):
             return
         if not self.items:
             ids = self.root_view.ids
             ids.lbl_from.text = ""
             ids.lbl_from.opacity = 0
+            ids.lbl_sent_at.text = ""
+            ids.lbl_sent_at.opacity = 0
+            ids.sender_avatar.source = ""
+            ids.sender_avatar.initial = ""
             ids.lbl_body.text = _("No hay mensajes por ahora.")
             ids.img_photo.source = ""
             ids.btn_delete.disabled = True
@@ -444,14 +525,27 @@ class BoardScreen(Screen):
         ids = self.root_view.ids
         ids.lbl_from.text = f"{_('De')} {item.get('author','—')}:"
         ids.lbl_from.opacity = 1
+        created_at_human = str(item.get("created_at_human") or "").strip()
+        if not created_at_human and item.get("created_at"):
+            try:
+                created_dt = item["created_at"]
+                created_at_human = created_dt.strftime("%d/%m/%Y %H:%M")
+            except Exception:
+                created_at_human = ""
+        ids.lbl_sent_at.text = created_at_human
+        ids.lbl_sent_at.opacity = 1 if created_at_human else 0
+        ids.sender_avatar.source = item.get("author_avatar", "") or ""
+        author_name = str(item.get("author", "—") or "—").strip()
+        ids.sender_avatar.initial = (author_name[:1] or "?").upper()
         ids.lbl_body.text = item.get("text","")
         ids.img_photo.source = item.get("image","") or ""
         ids.btn_delete.disabled = not bool(item.get("id"))
         ids.btn_delete.opacity = 1 if item.get("id") else 0.4
-        ids.btn_prev.disabled = False
-        ids.btn_prev.opacity = 1
-        ids.btn_next.disabled = False
-        ids.btn_next.opacity = 1
+        can_navigate = len(self.items) > 1
+        ids.btn_prev.disabled = not can_navigate
+        ids.btn_prev.opacity = 1 if can_navigate else 0
+        ids.btn_next.disabled = not can_navigate
+        ids.btn_next.opacity = 1 if can_navigate else 0
 
     def delete_current(self) -> None:
         """Delete the currently selected message and refresh local view state.
@@ -473,7 +567,7 @@ class BoardScreen(Screen):
             return
 
         try:
-            ok = delete_board_item(post_id)
+            ok = delete_board_item(post_id, source="device")
             if not ok:
                 print(f"[BOARD] Could not delete message {post_id}")
                 return

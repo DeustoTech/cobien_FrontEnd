@@ -255,22 +255,13 @@ KV = r"""
 
 <DayAudienceMarker@BoxLayout>:
     dot_rgba: 0.15, 0.55, 0.95, 1
-    count_text: ""
     size_hint: None, None
-    height: dp(36)
+    height: dp(29)
     width: self.minimum_width
-    spacing: dp(6)
+    spacing: dp(0)
     LegendDot:
-        size: dp(36), dp(36)
+        size: dp(29), dp(29)
         rgba: root.dot_rgba
-    Label:
-        text: root.count_text
-        font_size: sp(18)
-        bold: True
-        color: C_BLACK
-        size_hint: None, None
-        size: self.texture_size if self.text else (0, 0)
-        opacity: 1 if self.text else 0
 
 <DayCell@ButtonBehavior+BoxLayout>:
     day_num: 0
@@ -764,12 +755,10 @@ class EventsScreen(Screen):
                 if audience_counts["all"]:
                     marker = Factory.DayAudienceMarker()
                     marker.dot_rgba = [0.15, 0.55, 0.95, 1]
-                    marker.count_text = str(audience_counts["all"]) if audience_counts["all"] > 1 else ""
                     cell.ids.dots_box.add_widget(marker)
                 if audience_counts["device"]:
                     marker = Factory.DayAudienceMarker()
                     marker.dot_rgba = [1, 0.23, 0.18, 1]
-                    marker.count_text = str(audience_counts["device"]) if audience_counts["device"] > 1 else ""
                     cell.ids.dots_box.add_widget(marker)
 
             def _open_day(_inst, _d=day_date):

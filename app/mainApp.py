@@ -1703,6 +1703,16 @@ class MainScreen(Screen):
                 sender_msg, has_image, has_text
             )
             return
+
+        elif notif_type == "board_reload":
+            print("[BACKEND_NOTIF] 🔄 Board reload requested")
+            try:
+                board_screen = self.sm.get_screen('board')
+                if hasattr(board_screen, 'refresh_from_mongo'):
+                    board_screen.refresh_from_mongo()
+            except Exception as e:
+                print(f"[BACKEND_NOTIF] ⚠️ Board reload error: {e}")
+            return
         
         # ✅ NEW EVENT
         elif notif_type == "new_event":

@@ -320,15 +320,21 @@ class ContactCard(ButtonBehavior, BoxLayout):
         ))
         
         # Name
-        self.add_widget(Label(
+        name_label = Label(
             text=display_name,
             font_size=sp(75),
             color=(0, 0, 0, 1),
             size_hint=(1, 0.25),
             halign="center",
             valign="middle",
-            text_size=(None, None),
-        ))
+            shorten=True,
+            shorten_from="right",
+            max_lines=2,
+        )
+        name_label.bind(
+            size=lambda inst, value: setattr(inst, "text_size", (max(value[0] - dp(12), 0), value[1]))
+        )
+        self.add_widget(name_label)
     
     def _update_bg(self, *args: Any) -> None:
         """Keep the rounded background rectangle aligned with widget geometry."""

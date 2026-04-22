@@ -329,13 +329,16 @@ def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
 
         item_id = raw.get("id", "message")
         image_path = _fetch_image_from_url(raw.get("image", "") or raw.get("image_url", ""), item_id) or ""
+        avatar_path = _fetch_image_from_url(raw.get("author_avatar_url", ""), f"{item_id}_avatar") or ""
         items.append(
             {
                 "id": raw.get("id", ""),
                 "author": raw.get("author_name") or raw.get("author", "—"),
                 "text": raw.get("text", ""),
                 "image": image_path,
+                "author_avatar": avatar_path,
                 "created_at": created,
+                "created_at_human": raw.get("created_at_human", ""),
             }
         )
     return items
@@ -468,7 +471,7 @@ def fetch_board_items_from_mongo(recipient_key: str = "CoBien1", limit: int = 50
     return items
 
 
-def delete_board_item(post_id: str) -> bool:
+def delete_board_item(post_id: str, source: str = "device") -> bool:
     """Delete a board message through the backend API.
 
     Args:
@@ -499,7 +502,12 @@ def delete_board_item(post_id: str) -> bool:
     if api_key:
         headers["X-API-KEY"] = api_key
 
-    response = requests.post(url, headers=headers, timeout=8)
+    payload = {}
+    if source:
+        payload["source"] = source
+        headers["X-DELETE-SOURCE"] = source
+
+    response = requests.post(url, headers=headers, data=payload, timeout=8)
     response.raise_for_status()
     payload = response.json()
     return bool(payload.get("ok"))
