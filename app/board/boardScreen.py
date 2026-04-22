@@ -123,13 +123,6 @@ KV = r"""
             pos: self.pos
             size: self.size
         StencilUse
-    Image:
-        source: root.source
-        allow_stretch: True
-        keep_ratio: False
-        opacity: 1 if root.source else 0
-        size: root.size
-        pos: root.pos
     canvas:
         Color:
             rgba: 0.95, 0.77, 0.48, 1 if not root.source else 0
@@ -143,6 +136,21 @@ KV = r"""
             width: 1.4
         Color:
             rgba: 0, 0, 0, 1 if not root.source else 0
+    canvas.after:
+        StencilUnUse
+        Color:
+            rgba: 0, 0, 0, 0.18
+        Line:
+            circle: (self.center_x, self.center_y, self.width / 2)
+            width: 1.8
+        StencilPop
+    Image:
+        source: root.source
+        allow_stretch: True
+        keep_ratio: False
+        opacity: 1 if root.source else 0
+        size: root.size
+        pos: root.pos
     Label:
         text: root.initial
         font_size: sp(28)
@@ -155,14 +163,6 @@ KV = r"""
         halign: "center"
         valign: "middle"
         text_size: self.size
-    canvas.after:
-        StencilUnUse
-        Color:
-            rgba: 0, 0, 0, 0.18
-        Line:
-            circle: (self.center_x, self.center_y, self.width / 2)
-            width: 1.8
-        StencilPop
 
 <BoardRoot@FloatLayout>:
     canvas.before:
