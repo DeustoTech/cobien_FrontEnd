@@ -10,7 +10,7 @@ Este launcher se encarga de:
 - instalar dependencias del sistema si faltan
 - generar/actualizar `deploy/ubuntu/cobien-update.env`
 - lanzar CAN + bridge + app
-- vigilar actualizaciones en Git y relanzar limpio
+- comprobar actualizaciones en Git antes de lanzar el runtime
 - deduplicar procesos/runtime previos
 
 ## Modalidades de lanzamiento

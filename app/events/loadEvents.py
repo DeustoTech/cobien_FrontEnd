@@ -168,6 +168,47 @@ def _is_locationless(value: Optional[str]) -> bool:
     """Return True when an event location is missing or blank."""
     return not str(value or "").strip()
 
+
+def _device_event_preferences(device_name: str, fallback_location: str) -> Dict[str, Any]:
+    scope = "all"
+    regions: List[str] = []
+    try:
+        client = get_mongo_client()
+        db = client["LabasAppDB"]
+        doc = db["devices"].find_one(
+            {"device_id": device_name},
+            {"event_visibility_scope": 1, "event_regions": 1},
+        ) or {}
+        raw_scope = str(doc.get("event_visibility_scope") or "all").strip().lower()
+        if raw_scope == "region":
+            scope = "region"
+        raw_regions = doc.get("event_regions") or []
+        if isinstance(raw_regions, str):
+            raw_regions = raw_regions.splitlines()
+        for item in raw_regions:
+            value = str(item or "").strip()
+            if value:
+                regions.append(value)
+    except Exception:
+        pass
+
+    if scope == "region" and not regions and fallback_location:
+        regions = [fallback_location]
+    return {"scope": scope, "regions": regions}
+
+
+def _public_event_matches_preferences(raw_location: Optional[str], preferences: Dict[str, Any], fallback_location: str) -> bool:
+    if _is_locationless(raw_location):
+        return True
+
+    scope = preferences.get("scope", "all")
+    if scope != "region":
+        return True
+
+    allowed_regions = preferences.get("regions") or [fallback_location]
+    normalized_allowed = {_normalize_location_text(item) for item in allowed_regions if str(item or "").strip()}
+    return _normalize_location_text(raw_location) in normalized_allowed
+
 def guardar_eventos_localmente(eventos: List[Dict[str, Any]]) -> None:
     """Persist sanitized event list in local JSON cache.
 
@@ -201,17 +242,21 @@ def cargar_eventos_locales(location_name: Optional[str] = None) -> List[Dict[str
 
     # Aplica filtro de ciudad
     target_location = location_name or _current_location_name()
+    target_device = _current_device_name()
+    event_preferences = _device_event_preferences(target_device, target_location)
     filtered_events: List[Dict[str, Any]] = []
     for event in eventos:
         audience = _normalize_audience(event.get("audience"))
         loc = event.get("location")
+        if audience == "all" and _public_event_matches_preferences(loc, event_preferences, target_location):
+            event = dict(event)
+            if _is_locationless(loc):
+                event["location"] = target_location
+            filtered_events.append(event)
+            continue
         if _match_location(loc, target_location):
             filtered_events.append(event)
             continue
-        if audience == "all" and _is_locationless(loc):
-            event = dict(event)
-            event["location"] = target_location
-            filtered_events.append(event)
 
     eventos = filtered_events
 
@@ -281,6 +326,7 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
     try:
         target_device = device_name or _current_device_name()
         target_location = location_name or _current_location_name()
+        event_preferences = _device_event_preferences(target_device, target_location)
         client = get_mongo_client()
         client.server_info()
 
@@ -334,6 +380,9 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
             # Permite eventos generales sin localización explícita como fallback global.
             if audience == "all" and _is_locationless(raw_loc):
                 loc = target_location
+            elif audience == "all":
+                if not _public_event_matches_preferences(raw_loc, event_preferences, target_location):
+                    continue
             elif not _match_location(loc, target_location):
                 continue
 

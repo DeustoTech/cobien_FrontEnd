@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -122,6 +122,7 @@ MASTER_ENV_FILE=""
 LOCK_FILE="${COBIEN_LAUNCHER_LOCK_FILE:-/tmp/cobien-launcher.lock}"
 LOCK_DIR="${LOCK_FILE}.d"
 LOCK_PID_FILE="$LOCK_DIR/pid"
+CURRENT_PHASE="bootstrap"
 
 usage() {
   cat <<EOF
@@ -189,6 +190,8 @@ COLOR_CYAN=""
 COLOR_GREEN=""
 COLOR_YELLOW=""
 COLOR_RED=""
+COLOR_MAGENTA=""
+COLOR_PANEL=""
 
 init_colors() {
   if [[ -t 1 && "${NO_COLOR:-0}" != "1" ]]; then
@@ -200,6 +203,8 @@ init_colors() {
     COLOR_GREEN=$'\033[32m'
     COLOR_YELLOW=$'\033[33m'
     COLOR_RED=$'\033[31m'
+    COLOR_MAGENTA=$'\033[35m'
+    COLOR_PANEL=$'\033[48;5;255m'
   fi
 }
 
@@ -217,6 +222,73 @@ log() {
 log_section() {
   printf '\n%b%s%b\n' "$COLOR_BOLD$COLOR_BLUE" "$*" "$COLOR_RESET"
 }
+
+log_phase_banner() {
+  local title="$1"
+  local detail="${2:-}"
+  printf '\n%b%s%b\n' "$COLOR_BOLD$COLOR_MAGENTA" "=== $title ===" "$COLOR_RESET"
+  if [[ -n "$detail" ]]; then
+    printf '%b%s%b\n' "$COLOR_DIM" "$detail" "$COLOR_RESET"
+  fi
+}
+
+animate_status() {
+  local message="$1"
+  local dots="${2:-3}"
+  local i
+  printf '%b[COBIEN]%b %s' "$COLOR_CYAN" "$COLOR_RESET" "$message"
+  if [[ -t 1 && "$NON_INTERACTIVE" != "1" ]]; then
+    for ((i = 0; i < dots; i++)); do
+      printf '.'
+      sleep 0.12
+    done
+  else
+    printf '...'
+  fi
+  printf '\n'
+}
+
+set_phase() {
+  CURRENT_PHASE="$1"
+}
+
+print_file_status() {
+  local label="$1"
+  local path="$2"
+  local kind="${3:-file}"
+  local status="missing"
+  if [[ "$kind" == "dir" ]]; then
+    [[ -d "$path" ]] && status="ok"
+  else
+    [[ -f "$path" ]] && status="ok"
+  fi
+  printf '  %-24s %-8s %s\n' "$label" "$status" "$path"
+}
+
+emit_failure_context() {
+  local line_no="${1:-?}"
+  local exit_code="${2:-1}"
+  echo
+  log_section "Launcher failure context"
+  log "ERROR: launcher failed at phase='$CURRENT_PHASE' line=$line_no exit_code=$exit_code"
+  log "MODE=$MODE"
+  log "WORKSPACE_ROOT=$WORKSPACE_ROOT"
+  log "FRONTEND_REPO=${FRONTEND_REPO:-unresolved}"
+  log "MQTT_REPO=${MQTT_REPO:-unresolved}"
+  log "ENV_FILE=${ENV_FILE:-unresolved}"
+  log "MASTER_ENV_FILE=${MASTER_ENV_FILE:-unresolved}"
+  log "PYTHON_REQUEST=${PYTHON_REQUEST:-unset}"
+  log "UV_BIN=${UV_BIN:-unset}"
+}
+
+on_launcher_error() {
+  local exit_code="$1"
+  local line_no="$2"
+  emit_failure_context "$line_no" "$exit_code"
+  exit "$exit_code"
+}
+
+trap 'on_launcher_error $? $LINENO' ERR
 
 print_banner() {
   cat <<EOF
@@ -286,6 +358,8 @@ print_runtime_summary() {
   echo
   echo "Deployment summary"
   echo "------------------"
+  print_key_value "Phase" "$CURRENT_PHASE"
+  print_key_value "Mode" "$MODE"
   print_key_value "Workspace" "$WORKSPACE_ROOT"
   if [[ "${force_full_install_from_master_env:-0}" == "1" ]]; then
     print_key_value "Deployment env" "$MASTER_ENV_FILE"
@@ -307,20 +381,37 @@ print_runtime_summary() {
   print_key_value "Location" "$DEVICE_LOCATION"
   print_key_value "Hardware mode" "$HARDWARE_MODE"
   print_key_value "TTS engine" "$TTS_ENGINE"
+  print_key_value "Python" "${PYTHON_REQUEST:-unset}"
+  print_key_value "UV" "${UV_BIN:-auto}"
   print_key_value "Install cron" "$INSTALL_CRON"
   if [[ "$INSTALL_CRON" == "1" ]]; then
     print_key_value "Cron schedule" "$CRON_SCHEDULE"
   fi
   print_key_value "Install systemd" "$INSTALL_SYSTEMD_USER"
   echo
+
+  echo "Resolved files"
+  echo "--------------"
+  print_file_status "Deployment env" "${MASTER_ENV_FILE:-unresolved}"
+  print_file_status "Runtime env" "${ENV_FILE:-unresolved}"
+  print_file_status "Unified config" "${FRONTEND_APP_DIR:-}/config/config.local.json"
+  print_file_status "Version" "${FRONTEND_APP_DIR:-}/VERSION"
+  print_file_status "Pyproject" "${FRONTEND_APP_DIR:-}/pyproject.toml"
+  print_file_status "Launcher contract" "${FRONTEND_APP_DIR:-}/config_runtime.py"
+  print_file_status "Main app" "${FRONTEND_APP_DIR:-}/mainApp.py"
+  print_file_status "Bridge dir" "${BRIDGE_DIR:-unresolved}" dir
+  print_file_status "CAN config" "${CAN_CONFIG:-unresolved}"
+  echo
 }
 
 run_full_install_plan() {
   local reuse_existing_installation="${1:-0}"
+  set_phase "full-install-plan"
 
   set_service_defaults
   validate_current_runtime_config
   resolve_paths
+  validate_runtime_file_dependencies
 
   if [[ "$force_full_install_from_master_env" == "1" ]]; then
     reuse_existing_installation="0"
@@ -345,18 +436,10 @@ run_full_install_plan() {
   [[ -d "$MQTT_REPO/.git" ]] || { echo "MQTT repository not found at: $MQTT_REPO"; exit 1; }
 
   if detect_requested_python; then
-    echo "Python ${PYTHON_REQUEST} detected: $(command -v "python${PYTHON_REQUEST}")"
-  elif detect_python_fallback; then
-    local fb; fb="$(python_fallback_bin)"
-    echo "Python ${PYTHON_REQUEST} is not installed, but ${fb} is available as compatibility fallback: $(command -v "$fb")"
+    echo "Python ${PYTHON_REQUEST} detected on the host: $(command -v "python${PYTHON_REQUEST}")"
   else
-    echo "Python ${PYTHON_REQUEST} is not installed."
-    if ask_yes_no "Should the script try to install Python ${PYTHON_REQUEST} and system dependencies" "y"; then
-      INSTALL_SYSTEM_DEPS="1"
-    else
-      echo "Cannot continue without Python ${PYTHON_REQUEST} or a compatible fallback (3.12 / 3.11)."
-      exit 1
-    fi
+    echo "Python ${PYTHON_REQUEST} is not currently installed on the host."
+    echo "The launcher will provision it inside uv automatically before creating the furniture venv."
   fi
 
   print_runtime_summary
@@ -372,41 +455,52 @@ run_full_install_plan() {
   fi
 
   if [[ "$reuse_existing_installation" == "1" ]]; then
+    set_phase "reuse-existing-installation"
     log_section "[1/4] Reusing existing installation"
   else
+    set_phase "prepare-environment"
     log_section "[1/4] Preparing environment"
     setup_environment
   fi
 
+  set_phase "load-configuration"
   log_section "[2/4] Loading configuration"
   load_env_file
 
+  set_phase "verify-configuration"
   log_section "[3/4] Verifying configuration"
   print_dry_run
 
   if [[ "$RUN_UPDATE_ONCE" == "1" ]]; then
+    set_phase "update-once"
     log_section "[3b/4] Running one-shot update"
     run_update_once
   fi
 
   if [[ "$INSTALL_CRON" == "1" ]]; then
+    set_phase "install-cron"
     log_section "[3c/4] Installing cron job"
     install_cron_job
   fi
 
   if [[ "$INSTALL_SYSTEMD_USER" == "1" ]]; then
+    set_phase "install-systemd"
     log_section "[3d/4] Installing systemd user services"
     install_systemd_user_services
+    set_phase "verify-systemd"
     log_section "[3e/4] Verifying systemd user services"
     verify_systemd_user_services
   fi
 
+  set_phase "save-last-run-config"
   save_last_run_config
 
+  set_phase "launch-runtime"
   log_section "[4/4] Launching furniture system"
   restart_software
 
   if [[ "$ENABLE_WATCH" == "1" ]]; then
+    set_phase "watch-loop"
     log "Starting watch mode..."
     run_watch_loop
   fi
@@ -1267,7 +1361,10 @@ is_frontend_runtime_running() {
 
 launch_runtime() {
   local relaunch_after_update="${1:-0}"
+  set_phase "launch-runtime"
+  log_phase_banner "Runtime launch" "Building the final runtime state and starting the furniture application."
   check_paths
+  validate_runtime_file_dependencies
   normalize_device_identity
   ensure_runtime_dependencies
   configure_tts_runtime
@@ -1276,6 +1373,7 @@ launch_runtime() {
   resolve_python_bin
   resolve_uv_bin
   mkdir -p "$LOG_DIR"
+  animate_status "Starting runtime services"
   ensure_mosquitto_running
   clear_launcher_stop_request
 
@@ -1498,11 +1596,30 @@ python_fallback_apt_pkg() {
 }
 
 check_paths() {
+  set_phase "check-paths"
   resolve_paths
   [[ -d "$FRONTEND_REPO/.git" ]] || { log "Frontend repository not found: $FRONTEND_REPO"; exit 1; }
   [[ -d "$MQTT_REPO/.git" ]] || { log "MQTT repository not found: $MQTT_REPO"; exit 1; }
   [[ -d "$FRONTEND_APP_DIR" ]] || { log "Frontend app directory not found: $FRONTEND_APP_DIR"; exit 1; }
   [[ -d "$BRIDGE_DIR" ]] || { log "Bridge directory not found: $BRIDGE_DIR"; exit 1; }
+  [[ -f "$SELF_SCRIPT" ]] || { log "Launcher script not found: $SELF_SCRIPT"; exit 1; }
+  [[ -f "$FRONTEND_APP_DIR/mainApp.py" ]] || { log "Frontend entrypoint missing: $FRONTEND_APP_DIR/mainApp.py"; exit 1; }
+  [[ -f "$FRONTEND_APP_DIR/pyproject.toml" ]] || { log "Pyproject missing: $FRONTEND_APP_DIR/pyproject.toml"; exit 1; }
+  [[ -f "$FRONTEND_APP_DIR/config/config.default.json" ]] || { log "Default unified config missing: $FRONTEND_APP_DIR/config/config.default.json"; exit 1; }
+  [[ -f "$FRONTEND_APP_DIR/config_runtime.py" ]] || { log "Launcher config contract missing: $FRONTEND_APP_DIR/config_runtime.py"; exit 1; }
+  [[ -f "$FRONTEND_APP_DIR/VERSION" ]] || { log "Version file missing: $FRONTEND_APP_DIR/VERSION"; exit 1; }
+  [[ -f "$CAN_CONFIG" ]] || { log "CAN conversion config missing: $CAN_CONFIG"; exit 1; }
+  [[ -f "$BRIDGE_DIR/Makefile" ]] || { log "Bridge Makefile missing: $BRIDGE_DIR/Makefile"; exit 1; }
+}
+
+validate_runtime_file_dependencies() {
+  set_phase "validate-runtime-files"
+  check_paths
+  local service_dir="$FRONTEND_REPO/deploy/ubuntu/systemd"
+  [[ -f "$FRONTEND_REPO/deploy/ubuntu/install-systemd-user.sh" ]] || { log "systemd installer missing: $FRONTEND_REPO/deploy/ubuntu/install-systemd-user.sh"; exit 1; }
+  [[ -f "$service_dir/cobien-launcher.service" ]] || { log "systemd launcher unit missing: $service_dir/cobien-launcher.service"; exit 1; }
+  [[ -f "$service_dir/cobien-update.service" ]] || { log "systemd update unit missing: $service_dir/cobien-update.service"; exit 1; }
+  [[ -f "$service_dir/cobien-update.timer" ]] || { log "systemd update timer missing: $service_dir/cobien-update.timer"; exit 1; }
 }
 
 checkout_branch() {
@@ -1516,7 +1633,10 @@ install_system_deps_fn() {
     return
   fi
 
+  log_phase_banner "System dependencies" "Installing OS packages required by the launcher, audio stack, GTK/WebRTC runtime and build tools."
+  animate_status "Refreshing apt metadata"
   sudo apt update
+  animate_status "Installing base runtime packages"
   sudo apt install -y \
     git curl wget build-essential cmake pkg-config \
     python3 python3-venv python3-pip \
@@ -1533,16 +1653,7 @@ install_system_deps_fn() {
     libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 \
     libxcomposite1 libxdamage1 libxrandr2 libnss3 \
     libatk-bridge2.0-0 libgtk-3-0
-
-  if apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
-    sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
-  else
-    local fb_ver
-    fb_ver="$(python_fallback_apt_pkg)"
-    if [[ -n "$fb_ver" ]]; then
-      sudo apt install -y "python${fb_ver}" "python${fb_ver}-venv" "python${fb_ver}-dev"
-    fi
-  fi
+  log "OK: System dependencies installed. Python runtime version selection is handled by uv."
 }
 
 ensure_runtime_dependencies() {
@@ -1573,20 +1684,10 @@ ensure_runtime_dependencies() {
     sudo apt install -y "${missing_packages[@]}"
   fi
 
-  if ! detect_requested_python; then
-    if apt-cache show "python${PYTHON_REQUEST}" >/dev/null 2>&1; then
-      log "Python ${PYTHON_REQUEST} not found. Installing runtime Python dependencies..."
-      if [[ "$apt_updated" != "1" ]]; then sudo apt update; apt_updated="1"; fi
-      sudo apt install -y "python${PYTHON_REQUEST}" "python${PYTHON_REQUEST}-venv" "python${PYTHON_REQUEST}-dev"
-    elif ! detect_python_fallback; then
-      local fb_ver
-      fb_ver="$(python_fallback_apt_pkg)"
-      if [[ -n "$fb_ver" ]]; then
-        log "Python ${PYTHON_REQUEST} not available. Installing compatibility fallback python${fb_ver}..."
-        if [[ "$apt_updated" != "1" ]]; then sudo apt update; apt_updated="1"; fi
-        sudo apt install -y "python${fb_ver}" "python${fb_ver}-venv" "python${fb_ver}-dev"
-      fi
-    fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    log "Python 3 base runtime missing. Installing generic python3 package so uv can bootstrap the requested interpreter."
+    if [[ "$apt_updated" != "1" ]]; then sudo apt update; apt_updated="1"; fi
+    sudo apt install -y python3 python3-venv python3-pip
   fi
 }
 
@@ -2407,7 +2508,8 @@ prepare_venv() {
   resolve_python_bin
   resolve_uv_bin
 
-  log "Ensuring Python with uv: $PYTHON_REQUEST"
+  log_phase_banner "Python and virtualenv" "The requested interpreter is always provisioned through uv, and the furniture venv is rebuilt from there."
+  animate_status "Ensuring Python ${PYTHON_REQUEST} with uv"
   "$UV_BIN" python install "$PYTHON_REQUEST"
 
   if [[ "$RECREATE_VENV" == "1" && -d "$VENV_DIR" ]]; then
@@ -2415,11 +2517,13 @@ prepare_venv() {
     rm -rf "$VENV_DIR"
   fi
 
+  animate_status "Preparing the CoBien virtual environment"
   if [[ -d "$VENV_DIR" ]]; then
     "$UV_BIN" venv --clear --python "$PYTHON_REQUEST" "$VENV_DIR"
   else
     "$UV_BIN" venv --python "$PYTHON_REQUEST" "$VENV_DIR"
   fi
+  animate_status "Synchronizing Python dependencies with uv"
   "$UV_BIN" sync --python "$PYTHON_REQUEST" --project "$FRONTEND_APP_DIR"
 }
 
@@ -2580,14 +2684,18 @@ is_existing_installation_ready() {
 }
 
 setup_environment() {
+  log_phase_banner "Full setup" "Preparing repositories, uv, Python, voice runtime and the generated local config."
   check_paths
   install_system_deps_fn
   install_can_sudoers_rule
+  animate_status "Switching both repositories to the requested branch"
   checkout_branch "$FRONTEND_REPO"
   checkout_branch "$MQTT_REPO"
   prepare_venv
   # Ensure Piper runtime and models are installed so ENV_FILE contains correct paths
+  animate_status "Configuring the Piper runtime and voice assets"
   configure_tts_runtime
+  animate_status "Writing runtime env and config.local.json"
   write_env_file
 }
 
@@ -2765,6 +2873,7 @@ run_update_once() {
     manual_reload_requested="1"
     log "Manual update requested from furniture administration; runtime will be relaunched even if repositories are already up to date."
   fi
+  log_phase_banner "Repository update" "Refreshing cobien_FrontEnd and cobien_MQTT_Dictionnary before continuing with the runtime."
   log "Preparing update handoff: ensuring only one launcher/runtime instance remains before updating."
 
   if ! is_running_inside_systemd_user_service && has_active_systemd_user_launcher_service; then
@@ -2809,9 +2918,7 @@ run_watch_loop() {
   normalize_device_identity
   log "Watch mode enabled; interval ${POLL_INTERVAL_SEC}s"
   while true; do
-    if ! run_update_once watch; then
-      log "Execution failed; retrying in ${POLL_INTERVAL_SEC}s"
-    fi
+    run_update_once watch
     elapsed=0
     while [[ "$elapsed" -lt "$POLL_INTERVAL_SEC" ]]; do
       ensure_runtime_supervision
@@ -2905,9 +3012,11 @@ verify_systemd_user_services() {
 }
 
 print_dry_run() {
+  set_phase "dry-run"
   check_paths
   load_env_file
   normalize_device_identity
+  validate_runtime_file_dependencies
   log "MODE=$MODE"
   log "WORKSPACE_ROOT=$WORKSPACE_ROOT"
   log "FRONTEND_REPO=$FRONTEND_REPO"
@@ -2935,16 +3044,20 @@ print_dry_run() {
   log "TTS_PIPER_VOICE_ES=${TTS_PIPER_VOICE_ES:-male}"
   log "TTS_PIPER_VOICE_FR=${TTS_PIPER_VOICE_FR:-male}"
   log "ENV_FILE=$ENV_FILE"
+  log "MASTER_ENV_FILE=$MASTER_ENV_FILE"
   log "UV_BIN=${UV_BIN:-unresolved}"
   log "PYTHON_REQUEST=$PYTHON_REQUEST"
+  print_runtime_summary
 }
 
 print_diagnostics() {
   # Non-destructive diagnostics to help debug Piper/install/runtime issues
+  set_phase "diagnostics"
   set +e
   check_paths || true
   load_env_file || true
   normalize_device_identity || true
+  validate_runtime_file_dependencies || true
 
   log_section "Diagnostics"
   log "User: $(id -un 2>/dev/null || true) (uid=$(id -u 2>/dev/null || true))"
@@ -2953,6 +3066,21 @@ print_diagnostics() {
   log "Which piper: $(command -v piper 2>/dev/null || echo 'not found')"
   log "TTS_PIPER_BIN: ${TTS_PIPER_BIN:-unset}"
   log "ENV_FILE: $ENV_FILE"
+  log "MASTER_ENV_FILE: $MASTER_ENV_FILE"
+  log "FRONTEND_REPO: ${FRONTEND_REPO:-unresolved}"
+  log "MQTT_REPO: ${MQTT_REPO:-unresolved}"
+
+  log "--- critical file dependency status ---"
+  print_file_status "Deployment env" "${MASTER_ENV_FILE:-unresolved}"
+  print_file_status "Runtime env" "${ENV_FILE:-unresolved}"
+  print_file_status "Unified config" "$FRONTEND_APP_DIR/config/config.local.json"
+  print_file_status "Default config" "$FRONTEND_APP_DIR/config/config.default.json"
+  print_file_status "Launcher contract" "$FRONTEND_APP_DIR/config_runtime.py"
+  print_file_status "Main app" "$FRONTEND_APP_DIR/mainApp.py"
+  print_file_status "Pyproject" "$FRONTEND_APP_DIR/pyproject.toml"
+  print_file_status "Bridge dir" "$BRIDGE_DIR" dir
+  print_file_status "CAN config" "$CAN_CONFIG"
+  print_file_status "Systemd installer" "$FRONTEND_REPO/deploy/ubuntu/install-systemd-user.sh"
 
   if [[ -f "$ENV_FILE" ]]; then
     log "--- ENV_FILE contents ---"
@@ -3191,18 +3319,10 @@ run_full_flow() {
   fi
 
   if detect_requested_python; then
-    echo "Python ${PYTHON_REQUEST} detected: $(command -v "python${PYTHON_REQUEST}")"
-  elif detect_python_fallback; then
-    local fb; fb="$(python_fallback_bin)"
-    echo "Python ${PYTHON_REQUEST} is not installed, but ${fb} is available as compatibility fallback: $(command -v "$fb")"
+    echo "Python ${PYTHON_REQUEST} detected on the host: $(command -v "python${PYTHON_REQUEST}")"
   else
-    echo "Python ${PYTHON_REQUEST} is not installed."
-    if ask_yes_no "Should the script try to install Python ${PYTHON_REQUEST} and system dependencies" "y"; then
-      INSTALL_SYSTEM_DEPS="1"
-    else
-      echo "Cannot continue without Python ${PYTHON_REQUEST} or a compatible fallback (3.12 / 3.11)."
-      exit 1
-    fi
+    echo "Python ${PYTHON_REQUEST} is not currently installed on the host."
+    echo "The launcher will provision it inside uv automatically before creating the furniture venv."
   fi
 
   if [[ "$force_full_install_from_master_env" != "1" && "$NON_INTERACTIVE" != "1" && "$reuse_existing_installation" == "1" ]]; then
@@ -3236,9 +3356,7 @@ run_full_flow() {
 
   if [[ "$NON_INTERACTIVE" != "1" ]]; then
     print_question_group "Deployment Options"
-  fi
-  if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to run an update check before launch" "n"; then
-    RUN_UPDATE_ONCE="1"
+    echo "Git repository updates may run automatically before launch so the furniture starts on the newest deployed app version."
   fi
 
   if [[ "$NON_INTERACTIVE" != "1" ]] && ask_yes_no "Do you want to keep a watcher that checks for changes every minute" "y"; then
