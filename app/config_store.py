@@ -42,6 +42,7 @@ DEFAULT_UNIFIED_CONFIG = {
         "button_colors": {},
         "rfid_actions": {},
         "microphone_device": "",
+        "audio_output_device": "",
         "device_id": os.getenv("COBIEN_DEVICE_ID", "CoBien1"),
         "videocall_room": os.getenv("COBIEN_VIDEOCALL_ROOM", os.getenv("COBIEN_DEVICE_ID", "CoBien1")),
         "device_location": os.getenv("COBIEN_DEVICE_LOCATION", "Bilbao"),

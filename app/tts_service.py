@@ -187,6 +187,22 @@ class TTSService:
             return config_path
         return None
 
+    def _build_aplay_cmd(self, wav_path):
+        """Build the aplay command, routing through the configured output device."""
+        from config_store import load_section
+        settings = load_section("settings", {})
+        output_device = (settings.get("audio_output_device") or "").strip()
+        cmd = ["aplay", "-q"]
+        if output_device:
+            # Use the configured device if aplay can route it (ALSA or pulse)
+            # If the stored name looks like a PA sink, use pulse as ALSA device
+            # and rely on the PA default sink already being set at startup.
+            if shutil.which("paplay") and not output_device.startswith("hw:"):
+                # PulseAudio available: use paplay which honours PA default sink
+                return ["paplay", "--raw", wav_path]
+        cmd.append(wav_path)
+        return cmd
+
     def _speak_with_piper(self, text, language="es", runtime_cfg=None):
         runtime_cfg = runtime_cfg or self._load_runtime_tts_config()
         piper_bin = self._resolve_piper_bin(configured_bin=runtime_cfg["piper_bin"])
@@ -216,7 +232,8 @@ class TTSService:
                 else:
                     print("[TTS] Piper failed with a non-zero exit code.")
                 return False
-            play = subprocess.run(["aplay", "-q", wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            aplay_cmd = self._build_aplay_cmd(wav_path)
+            play = subprocess.run(aplay_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
             return play.returncode == 0
         except Exception:
             return False

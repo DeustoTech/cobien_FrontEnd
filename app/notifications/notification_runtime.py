@@ -29,14 +29,66 @@ pygame = None
 playsound = None
 _active_audio_thread = None
 _audio_stop_event = threading.Event()
+_current_output_device: str = ""
+
+
+def _init_pygame(pulse_sink: str = "") -> bool:
+    """Initialise (or re-initialise) pygame.mixer, optionally routing to a PA sink.
+
+    Args:
+        pulse_sink: PulseAudio sink name.  Empty string = system default.
+
+    Returns:
+        True when mixer initialised successfully.
+    """
+    global pygame, AUDIO_AVAILABLE, AUDIO_BACKEND
+    if pygame is None:
+        return False
+    try:
+        if pygame.mixer.get_init():
+            pygame.mixer.quit()
+        if pulse_sink:
+            os.environ["PULSE_SINK"] = pulse_sink
+        elif "PULSE_SINK" in os.environ:
+            del os.environ["PULSE_SINK"]
+        pygame.mixer.init()
+        AUDIO_AVAILABLE = True
+        AUDIO_BACKEND = "pygame"
+        return True
+    except Exception as exc:
+        print(f"[RINGTONE] pygame.mixer init failed: {exc}")
+        AUDIO_AVAILABLE = False
+        return False
+
+
+def apply_output_device(device_name: str) -> None:
+    """Switch the ringtone output device at runtime.
+
+    Reinitialises pygame.mixer so the next ringtone plays through the
+    chosen PulseAudio sink.  Safe to call from any thread.
+
+    Args:
+        device_name: PulseAudio sink name to use, or empty for system default.
+    """
+    global _current_output_device
+    _current_output_device = device_name or ""
+    if AUDIO_BACKEND == "pygame" and pygame is not None:
+        _init_pygame(pulse_sink=_current_output_device)
+        print(f"[RINGTONE] Output device applied: {_current_output_device!r}")
+
 
 try:
     import pygame as _pygame
 
-    _pygame.mixer.init()
     pygame = _pygame
-    AUDIO_AVAILABLE = True
-    AUDIO_BACKEND = "pygame"
+    # Apply saved output device preference before first mixer init
+    try:
+        from config_store import load_section as _load_section
+        _saved_sink = (_load_section("settings", {}) or {}).get("audio_output_device", "")
+    except Exception:
+        _saved_sink = ""
+    _init_pygame(pulse_sink=_saved_sink)
+    _current_output_device = _saved_sink
 except Exception:
     try:
         from playsound import playsound as _playsound

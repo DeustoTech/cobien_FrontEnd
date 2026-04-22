@@ -9,18 +9,28 @@ import os
 import json
 import datetime
 from urllib.parse import urlencode
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 from icso_data.videocall_logger import log_call_end
-from config_store import load_section
+from config_store import load_section, save_section
+from audio.audio_devices import (
+    apply_system_audio_devices,
+    pa_get_default_sink,
+    pa_get_default_source,
+    pa_list_sinks,
+    pa_list_sources,
+    pa_set_default_sink,
+    play_test_beep,
+)
 
 from PyQt5.QtCore import QUrl, Qt
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
+    QPushButton, QDialog, QComboBox, QLabel,
 )
 from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEnginePage, QWebEngineProfile, QWebEngineSettings
@@ -213,6 +223,142 @@ def request_device_session(room_name: str, device_name: str) -> Optional[Dict[st
     return None
 
 # ================================================================
+class AudioDialog(QDialog):
+    """Modal dialog for audio device selection during a video call.
+
+    Lets the operator pick a PA output sink and input source, test the
+    speaker with a beep, and persist the choice back to config so the
+    next app start picks it up automatically.
+    """
+
+    _STYLE = """
+        QDialog  { background:#1e1e1e; color:#eeeeee; font-family:Arial,Helvetica,sans-serif; }
+        QLabel   { font-size:16px; }
+        QComboBox {
+            background:#2d2d2d; color:#eeeeee; border:1px solid #555;
+            border-radius:6px; padding:6px 10px; font-size:15px; min-height:36px;
+        }
+        QComboBox::drop-down { border:none; width:28px; }
+        QPushButton {
+            border-radius:6px; font-weight:bold; font-size:15px;
+            min-height:40px; padding:4px 18px;
+        }
+        QPushButton#btn_beep  { background:#1565C0; color:white; }
+        QPushButton#btn_save  { background:#2E7D32; color:white; }
+        QPushButton#btn_close { background:#555;    color:white; }
+    """
+
+    def __init__(self, parent: Optional[Any] = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Configuración de audio")
+        self.setModal(True)
+        self.setMinimumWidth(560)
+        self.setStyleSheet(self._STYLE)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+        layout.setContentsMargins(24, 20, 24, 20)
+
+        # ── Output (sink) ──────────────────────────────────────────
+        layout.addWidget(QLabel("Salida de audio (altavoz):"))
+        self._combo_out = QComboBox()
+        layout.addWidget(self._combo_out)
+
+        self._btn_beep = QPushButton("▶  Probar altavoz")
+        self._btn_beep.setObjectName("btn_beep")
+        self._btn_beep.clicked.connect(self._test_beep)
+        layout.addWidget(self._btn_beep)
+
+        layout.addSpacing(10)
+
+        # ── Input (source) ─────────────────────────────────────────
+        layout.addWidget(QLabel("Entrada de audio (micrófono):"))
+        self._combo_in = QComboBox()
+        layout.addWidget(self._combo_in)
+
+        layout.addSpacing(16)
+
+        # ── Buttons ────────────────────────────────────────────────
+        btn_row = QHBoxLayout()
+        self._btn_save = QPushButton("Guardar y aplicar")
+        self._btn_save.setObjectName("btn_save")
+        self._btn_save.clicked.connect(self._save)
+
+        self._btn_close = QPushButton("Cerrar")
+        self._btn_close.setObjectName("btn_close")
+        self._btn_close.clicked.connect(self.reject)
+
+        btn_row.addWidget(self._btn_save)
+        btn_row.addWidget(self._btn_close)
+        layout.addLayout(btn_row)
+
+        self._sinks: List[Dict[str, str]] = []
+        self._sources: List[Dict[str, str]] = []
+        self._populate()
+
+    def _populate(self) -> None:
+        """Fill combos with current PA sinks/sources; mark active device with ★."""
+        try:
+            current_sink = pa_get_default_sink()
+        except Exception:
+            current_sink = ""
+        try:
+            current_source = pa_get_default_source()
+        except Exception:
+            current_source = ""
+
+        self._sinks = pa_list_sinks()
+        selected_out = 0
+        for i, s in enumerate(self._sinks):
+            label = f"★ {s['name']}" if s["name"] == current_sink else s["name"]
+            self._combo_out.addItem(label, s["name"])
+            if s["name"] == current_sink:
+                selected_out = i
+        self._combo_out.setCurrentIndex(selected_out)
+
+        self._sources = pa_list_sources()
+        selected_in = 0
+        for i, s in enumerate(self._sources):
+            label = f"★ {s['name']}" if s["name"] == current_source else s["name"]
+            self._combo_in.addItem(label, s["name"])
+            if s["name"] == current_source:
+                selected_in = i
+        self._combo_in.setCurrentIndex(selected_in)
+
+    def _selected_sink(self) -> str:
+        return self._combo_out.currentData() or ""
+
+    def _selected_source(self) -> str:
+        return self._combo_in.currentData() or ""
+
+    def _test_beep(self) -> None:
+        """Apply the chosen output sink and play a short test beep."""
+        sink = self._selected_sink()
+        if sink:
+            pa_set_default_sink(sink)
+        play_test_beep()
+
+    def _save(self) -> None:
+        """Apply and persist the selected devices."""
+        sink = self._selected_sink()
+        source = self._selected_source()
+        apply_system_audio_devices(sink, source)
+
+        settings = load_section("settings", {}) or {}
+        if sink:
+            settings["audio_output_device"] = sink
+        if source:
+            settings["microphone_device"] = source
+        try:
+            save_section("settings", settings)
+            print(f"[VIDEOCALL] Audio saved: out={sink!r} in={source!r}")
+        except Exception as exc:
+            print(f"[VIDEOCALL] Warning: could not save audio config: {exc}")
+
+        self.accept()
+
+
+# ================================================================
 class CustomWebEnginePage(QWebEnginePage):
     """QWebEngine page overriding prompts for room/device auto-fill."""
 
@@ -294,11 +440,32 @@ class MainWindow(QMainWindow):
         )
         self.button.clicked.connect(self._quit_app)
 
+        # Audio settings button.
+        self._btn_audio = QPushButton("🎧  Audio")
+        self._btn_audio.setMinimumHeight(70)
+        self._btn_audio.setFont(QFont("Arial", 18, QFont.Bold))
+        self._btn_audio.setStyleSheet(
+            "background-color:#1565C0; color:white; font-weight:bold; border:none; border-radius:6px; padding:0 18px;"
+        )
+        self._btn_audio.clicked.connect(self._open_audio_dialog)
+
+        # Toolbar row: audio button on the left, exit on the right.
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar.setSpacing(4)
+        toolbar.addWidget(self._btn_audio)
+        toolbar.addStretch()
+        toolbar.addWidget(self.button)
+
+        toolbar_widget = QWidget()
+        toolbar_widget.setLayout(toolbar)
+        toolbar_widget.setFixedHeight(74)
+
         # Main layout.
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self.button)
+        layout.addWidget(toolbar_widget)
         layout.addWidget(self.web_view)
 
         container = QWidget()
@@ -313,6 +480,11 @@ class MainWindow(QMainWindow):
 
         # Load portal URL.
         self._load_videocall()
+
+    def _open_audio_dialog(self) -> None:
+        """Open the audio device selection dialog."""
+        dlg = AudioDialog(self)
+        dlg.exec_()
 
     def keyPressEvent(self, event: Any) -> None:
         """Ignore Escape so the embedded call remains in kiosk flow."""
@@ -376,6 +548,18 @@ class MainWindow(QMainWindow):
 
 def main() -> None:
     """Entrypoint for launching full-screen video-call runtime window."""
+    # Apply saved audio device routing before Qt/WebEngine initialises so the
+    # browser's WebRTC stack sees the correct PulseAudio default sink/source.
+    try:
+        _settings = load_section("settings", {}) or {}
+        _output_dev = (_settings.get("audio_output_device") or "").strip()
+        _input_dev = (_settings.get("microphone_device") or "").strip()
+        if _output_dev or _input_dev:
+            apply_system_audio_devices(_output_dev, _input_dev)
+            print(f"[VIDEOCALL] Audio routing: out={_output_dev!r} in={_input_dev!r}")
+    except Exception as _ae:
+        print(f"[VIDEOCALL] Warning: could not apply audio devices: {_ae}")
+
     config, room_name, device_name = resolve_runtime_config()
     session_data = request_device_session(room_name, device_name)
     print(f"[VIDEOCALL] ========================================")

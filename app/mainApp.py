@@ -53,6 +53,8 @@ from settings.launcherConfigScreen import LauncherConfigScreen
 from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from settings.restartScreen import RestartOnlyScreen
+from settings.audioScreen import AudioScreen
+from audio.audio_devices import apply_system_audio_devices
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from device_heartbeat_service import send_device_heartbeat_async
@@ -2664,6 +2666,16 @@ class MyApp(App):
         lang = self.cfg.data.get("language", "es")
         change_language(lang)
         print(f"[APP] 🌍 Langue chargée: {lang}")
+
+        # Apply saved audio routing at startup so all subsystems use the right device
+        _output_dev = self.cfg.get_audio_output_device()
+        _input_dev = self.cfg.get_microphone_device()
+        if _output_dev or _input_dev:
+            try:
+                apply_system_audio_devices(_output_dev, _input_dev)
+                print(f"[APP] Audio devices applied: out={_output_dev!r} in={_input_dev!r}")
+            except Exception as _e:
+                print(f"[APP] Warning: could not apply audio devices: {_e}")
         
         self.has_header_bg = os.path.exists(self.header_bg)
         self.has_bg_image = os.path.exists(self.bg_image)
@@ -2752,7 +2764,10 @@ class MyApp(App):
         
         sm.add_widget(Screen(name='settings_rfid'))
         sm.get_screen('settings_rfid').add_widget(RFIDActionsScreen(sm, self.cfg))
-        
+
+        sm.add_widget(Screen(name='settings_audio'))
+        sm.get_screen('settings_audio').add_widget(AudioScreen(sm, self.cfg))
+
         weather_choice_screen = WeatherChoice(sm, self.cfg)
         weather_choice = Screen(name='weather_choice')
         weather_choice.add_widget(weather_choice_screen)
@@ -2819,7 +2834,7 @@ class MyApp(App):
             'settings', 'button_colors', 'settings_notifications',
             'settings_logs_menu', 'settings_logs_can', 'settings_logs_bridge', 'settings_logs_app',
             'settings_launcher',
-            'settings_rfid', 'weather_choice', 'joke_category', 'jokes', 'pin_code',
+            'settings_rfid', 'settings_audio', 'weather_choice', 'joke_category', 'jokes', 'pin_code',
             'pin_code_reboot', 'restart_only'
         ]
         

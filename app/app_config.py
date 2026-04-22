@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     "button_colors": {},
     "rfid_actions": {},
     "microphone_device": "",
+    "audio_output_device": "",
     "device_id": DEFAULT_DEVICE_ID,
     "videocall_room": DEFAULT_VIDEOCALL_ROOM,
     "device_location": DEFAULT_DEVICE_LOCATION,
@@ -40,6 +41,7 @@ def _clone_default_config():
         "button_colors": dict(DEFAULT_CONFIG["button_colors"]),
         "rfid_actions": dict(DEFAULT_CONFIG["rfid_actions"]),
         "microphone_device": DEFAULT_CONFIG["microphone_device"],
+        "audio_output_device": DEFAULT_CONFIG["audio_output_device"],
         "device_id": DEFAULT_CONFIG["device_id"],
         "videocall_room": DEFAULT_CONFIG["videocall_room"],
         "device_location": DEFAULT_CONFIG["device_location"],
@@ -159,4 +161,11 @@ class AppConfig(EventDispatcher):
 
     def set_microphone_device(self, device_name):
         self.data["microphone_device"] = device_name or ""
+        self.save()
+
+    def get_audio_output_device(self):
+        return self.data.get("audio_output_device", "")
+
+    def set_audio_output_device(self, device_name):
+        self.data["audio_output_device"] = device_name or ""
         self.save()

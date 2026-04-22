@@ -292,6 +292,12 @@ KV = """
                     height: dp(140)
 
                     SettingsNavButton:
+                        id: btn_audio
+                        icon_source: "data/images/audio.png"
+                        text: ""
+                        on_release: app.root.current = "settings_audio"
+
+                    SettingsNavButton:
                         id: btn_logs
                         icon_source: "data/images/logs.png"
                         text: ""
@@ -372,6 +378,7 @@ class SettingsScreen(Screen):
         self.root_view.ids.btn_rfid.text = _("Tarjetas RFID")
         self.root_view.ids.btn_logs.text = _("Logs del sistema")
         self.root_view.ids.btn_launcher.text = _("Parámetros Launcher")
+        self.root_view.ids.btn_audio.text = _("Audio")
         self.root_view.ids.btn_reboot.text = _("Reiniciar")
         self.root_view.ids.btn_exit.text = _("Salir")
         
