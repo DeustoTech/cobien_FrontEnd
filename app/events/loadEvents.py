@@ -274,7 +274,14 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
         query = {
             "$or": [
                 {"audience": "all", "location": target_location},
-                {"audience": "device", "target_device": target_device, "location": target_location}
+                {
+                    "audience": "device",
+                    "location": target_location,
+                    "$or": [
+                        {"target_device": target_device},
+                        {"target_devices": target_device},
+                    ],
+                },
             ]
         }
 
