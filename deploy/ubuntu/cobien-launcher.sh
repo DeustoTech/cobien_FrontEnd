@@ -41,11 +41,24 @@ DEVICE_LOCATION="${COBIEN_DEVICE_LOCATION:-}"
 HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-auto}"
 SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-}"
 RESTART_PIN="${COBIEN_RESTART_PIN:-}"
+WEATHER_CITIES_JSON="${COBIEN_WEATHER_CITIES_JSON:-[\"Bilbao\",\"Toulouse\",\"Logroño\"]}"
+WEATHER_CITY_CATALOG_JSON="${COBIEN_WEATHER_CITY_CATALOG_JSON:-}"
+WEATHER_PRIMARY_CITY="${COBIEN_WEATHER_PRIMARY_CITY:-Bilbao}"
+BUTTON_COLORS_JSON="${COBIEN_BUTTON_COLORS_JSON:-{}}"
+RFID_ACTIONS_JSON="${COBIEN_RFID_ACTIONS_JSON:-{}}"
+MICROPHONE_DEVICE="${COBIEN_MICROPHONE_DEVICE:-}"
+AUDIO_OUTPUT_DEVICE="${COBIEN_AUDIO_OUTPUT_DEVICE:-}"
+JOKE_CATEGORY="${COBIEN_JOKE_CATEGORY:-general}"
+IDLE_TIMEOUT_SEC="${COBIEN_IDLE_TIMEOUT_SEC:-60}"
+NOTIFICATIONS_JSON="${COBIEN_NOTIFICATIONS_JSON:-}"
 BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-https://portal.co-bien.eu}"
 DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-}"
 DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-5}"
 DEVICE_HEARTBEAT_URL="${COBIEN_DEVICE_HEARTBEAT_URL:-}"
 DEVICE_HEARTBEAT_INTERVAL_SEC="${COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC:-60}"
+OWM_API_KEY="${OWM_API_KEY:-}"
+NEWS_API_KEY="${NEWS_API_KEY:-}"
+MONGO_URI="${MONGO_URI:-}"
 PIZARRA_NOTIFY_URL="${COBIEN_PIZARRA_NOTIFY_URL:-}"
 PIZARRA_API_URL="${COBIEN_PIZARRA_API_URL:-}"
 PIZARRA_DELETE_URL_TEMPLATE="${COBIEN_PIZARRA_DELETE_URL_TEMPLATE:-}"
@@ -60,6 +73,8 @@ MQTT_LOCAL_BROKER="${COBIEN_MQTT_LOCAL_BROKER:-localhost}"
 MQTT_LOCAL_PORT="${COBIEN_MQTT_LOCAL_PORT:-1883}"
 HTTP_TIMEOUT_SEC="${COBIEN_HTTP_TIMEOUT:-8}"
 TTS_ENGINE="${COBIEN_TTS_ENGINE:-piper}"
+TTS_RATE="${COBIEN_TTS_RATE:-155}"
+TTS_VOLUME="${COBIEN_TTS_VOLUME:-0.85}"
 TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-}"
 TTS_PIPER_PROVIDER="${COBIEN_TTS_PIPER_PROVIDER:-}"
 TTS_PIPER_VERSION="${COBIEN_TTS_PIPER_VERSION:-}"
@@ -86,6 +101,12 @@ TTS_PIPER_MODEL_ES_MALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_MALE_URL:-$TTS_PIPER_DE
 TTS_PIPER_MODEL_ES_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL:-$TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL}"
 TTS_PIPER_MODEL_FR_MALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_MALE_URL:-$TTS_PIPER_DEFAULT_MODEL_FR_MALE_URL}"
 TTS_PIPER_MODEL_FR_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL:-$TTS_PIPER_DEFAULT_MODEL_FR_FEMALE_URL}"
+DISABLE_SYSTEM_SLEEP="${COBIEN_DISABLE_SYSTEM_SLEEP:-0}"
+OPENWEATHER_CURRENT_URL="${COBIEN_OPENWEATHER_CURRENT_URL:-https://api.openweathermap.org/data/2.5/weather}"
+OPENWEATHER_FORECAST_URL="${COBIEN_OPENWEATHER_FORECAST_URL:-https://api.openweathermap.org/data/2.5/forecast}"
+NEWS_API_URL="${COBIEN_NEWS_API_URL:-https://newsapi.org/v2/top-headlines}"
+OPEN_METEO_URL="${COBIEN_OPEN_METEO_URL:-https://api.open-meteo.com/v1/forecast}"
+NOMINATIM_SEARCH_URL="${COBIEN_NOMINATIM_SEARCH_URL:-https://nominatim.openstreetmap.org/search}"
 TTS_PIPER_RELEASE_TAG_DEFAULT="2023.11.14-2"
 [[ -z "$TTS_PIPER_MODEL_ES_MALE_URL" ]] && TTS_PIPER_MODEL_ES_MALE_URL="$TTS_PIPER_DEFAULT_MODEL_ES_MALE_URL"
 [[ -z "$TTS_PIPER_MODEL_ES_FEMALE_URL" ]] && TTS_PIPER_MODEL_ES_FEMALE_URL="$TTS_PIPER_DEFAULT_MODEL_ES_FEMALE_URL"
@@ -732,11 +753,24 @@ load_last_run_config() {
   HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
   SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-$SETTINGS_PIN}"
   RESTART_PIN="${COBIEN_RESTART_PIN:-$RESTART_PIN}"
+  WEATHER_CITIES_JSON="${COBIEN_WEATHER_CITIES_JSON:-$WEATHER_CITIES_JSON}"
+  WEATHER_CITY_CATALOG_JSON="${COBIEN_WEATHER_CITY_CATALOG_JSON:-$WEATHER_CITY_CATALOG_JSON}"
+  WEATHER_PRIMARY_CITY="${COBIEN_WEATHER_PRIMARY_CITY:-$WEATHER_PRIMARY_CITY}"
+  BUTTON_COLORS_JSON="${COBIEN_BUTTON_COLORS_JSON:-$BUTTON_COLORS_JSON}"
+  RFID_ACTIONS_JSON="${COBIEN_RFID_ACTIONS_JSON:-$RFID_ACTIONS_JSON}"
+  MICROPHONE_DEVICE="${COBIEN_MICROPHONE_DEVICE:-$MICROPHONE_DEVICE}"
+  AUDIO_OUTPUT_DEVICE="${COBIEN_AUDIO_OUTPUT_DEVICE:-$AUDIO_OUTPUT_DEVICE}"
+  JOKE_CATEGORY="${COBIEN_JOKE_CATEGORY:-$JOKE_CATEGORY}"
+  IDLE_TIMEOUT_SEC="${COBIEN_IDLE_TIMEOUT_SEC:-$IDLE_TIMEOUT_SEC}"
+  NOTIFICATIONS_JSON="${COBIEN_NOTIFICATIONS_JSON:-$NOTIFICATIONS_JSON}"
   BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-$BACKEND_BASE_URL}"
   DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-$DEVICE_POLL_URL}"
   DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-$DEVICE_POLL_INTERVAL_SEC}"
   DEVICE_HEARTBEAT_URL="${COBIEN_DEVICE_HEARTBEAT_URL:-$DEVICE_HEARTBEAT_URL}"
   DEVICE_HEARTBEAT_INTERVAL_SEC="${COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC:-$DEVICE_HEARTBEAT_INTERVAL_SEC}"
+  OWM_API_KEY="${OWM_API_KEY:-$OWM_API_KEY}"
+  NEWS_API_KEY="${NEWS_API_KEY:-$NEWS_API_KEY}"
+  MONGO_URI="${MONGO_URI:-$MONGO_URI}"
   PIZARRA_NOTIFY_URL="${COBIEN_PIZARRA_NOTIFY_URL:-$PIZARRA_NOTIFY_URL}"
   PIZARRA_API_URL="${COBIEN_PIZARRA_API_URL:-$PIZARRA_API_URL}"
   PIZARRA_DELETE_URL_TEMPLATE="${COBIEN_PIZARRA_DELETE_URL_TEMPLATE:-$PIZARRA_DELETE_URL_TEMPLATE}"
@@ -751,6 +785,8 @@ load_last_run_config() {
   MQTT_LOCAL_PORT="${COBIEN_MQTT_LOCAL_PORT:-$MQTT_LOCAL_PORT}"
   HTTP_TIMEOUT_SEC="${COBIEN_HTTP_TIMEOUT:-$HTTP_TIMEOUT_SEC}"
   TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
+  TTS_RATE="${COBIEN_TTS_RATE:-$TTS_RATE}"
+  TTS_VOLUME="${COBIEN_TTS_VOLUME:-$TTS_VOLUME}"
   TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
   TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
   TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-$TTS_PIPER_MODEL_FR}"
@@ -766,6 +802,12 @@ load_last_run_config() {
   TTS_PIPER_MODEL_FR_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL:-$TTS_PIPER_MODEL_FR_FEMALE_URL}"
   TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-$TTS_PIPER_VOICE_ES}"
   TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-$TTS_PIPER_VOICE_FR}"
+  DISABLE_SYSTEM_SLEEP="${COBIEN_DISABLE_SYSTEM_SLEEP:-$DISABLE_SYSTEM_SLEEP}"
+  OPENWEATHER_CURRENT_URL="${COBIEN_OPENWEATHER_CURRENT_URL:-$OPENWEATHER_CURRENT_URL}"
+  OPENWEATHER_FORECAST_URL="${COBIEN_OPENWEATHER_FORECAST_URL:-$OPENWEATHER_FORECAST_URL}"
+  NEWS_API_URL="${COBIEN_NEWS_API_URL:-$NEWS_API_URL}"
+  OPEN_METEO_URL="${COBIEN_OPEN_METEO_URL:-$OPEN_METEO_URL}"
+  NOMINATIM_SEARCH_URL="${COBIEN_NOMINATIM_SEARCH_URL:-$NOMINATIM_SEARCH_URL}"
   CRON_SCHEDULE="${COBIEN_CRON_SCHEDULE:-$CRON_SCHEDULE}"
   INSTALL_SYSTEMD_USER="${COBIEN_INSTALL_SYSTEMD_USER:-$INSTALL_SYSTEMD_USER}"
   INSTALL_CRON="${COBIEN_INSTALL_CRON:-$INSTALL_CRON}"
@@ -904,11 +946,24 @@ load_master_env_if_present() {
   HARDWARE_MODE="${COBIEN_HARDWARE_MODE:-$HARDWARE_MODE}"
   SETTINGS_PIN="${COBIEN_SETTINGS_PIN:-$SETTINGS_PIN}"
   RESTART_PIN="${COBIEN_RESTART_PIN:-$RESTART_PIN}"
+  WEATHER_CITIES_JSON="${COBIEN_WEATHER_CITIES_JSON:-$WEATHER_CITIES_JSON}"
+  WEATHER_CITY_CATALOG_JSON="${COBIEN_WEATHER_CITY_CATALOG_JSON:-$WEATHER_CITY_CATALOG_JSON}"
+  WEATHER_PRIMARY_CITY="${COBIEN_WEATHER_PRIMARY_CITY:-$WEATHER_PRIMARY_CITY}"
+  BUTTON_COLORS_JSON="${COBIEN_BUTTON_COLORS_JSON:-$BUTTON_COLORS_JSON}"
+  RFID_ACTIONS_JSON="${COBIEN_RFID_ACTIONS_JSON:-$RFID_ACTIONS_JSON}"
+  MICROPHONE_DEVICE="${COBIEN_MICROPHONE_DEVICE:-$MICROPHONE_DEVICE}"
+  AUDIO_OUTPUT_DEVICE="${COBIEN_AUDIO_OUTPUT_DEVICE:-$AUDIO_OUTPUT_DEVICE}"
+  JOKE_CATEGORY="${COBIEN_JOKE_CATEGORY:-$JOKE_CATEGORY}"
+  IDLE_TIMEOUT_SEC="${COBIEN_IDLE_TIMEOUT_SEC:-$IDLE_TIMEOUT_SEC}"
+  NOTIFICATIONS_JSON="${COBIEN_NOTIFICATIONS_JSON:-$NOTIFICATIONS_JSON}"
   BACKEND_BASE_URL="${COBIEN_BACKEND_BASE_URL:-$BACKEND_BASE_URL}"
   DEVICE_POLL_URL="${COBIEN_DEVICE_POLL_URL:-$DEVICE_POLL_URL}"
   DEVICE_POLL_INTERVAL_SEC="${COBIEN_DEVICE_POLL_INTERVAL_SEC:-$DEVICE_POLL_INTERVAL_SEC}"
   DEVICE_HEARTBEAT_URL="${COBIEN_DEVICE_HEARTBEAT_URL:-$DEVICE_HEARTBEAT_URL}"
   DEVICE_HEARTBEAT_INTERVAL_SEC="${COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC:-$DEVICE_HEARTBEAT_INTERVAL_SEC}"
+  OWM_API_KEY="${OWM_API_KEY:-$OWM_API_KEY}"
+  NEWS_API_KEY="${NEWS_API_KEY:-$NEWS_API_KEY}"
+  MONGO_URI="${MONGO_URI:-$MONGO_URI}"
   PIZARRA_NOTIFY_URL="${COBIEN_PIZARRA_NOTIFY_URL:-$PIZARRA_NOTIFY_URL}"
   PIZARRA_API_URL="${COBIEN_PIZARRA_API_URL:-$PIZARRA_API_URL}"
   PIZARRA_DELETE_URL_TEMPLATE="${COBIEN_PIZARRA_DELETE_URL_TEMPLATE:-$PIZARRA_DELETE_URL_TEMPLATE}"
@@ -923,6 +978,29 @@ load_master_env_if_present() {
   MQTT_LOCAL_PORT="${COBIEN_MQTT_LOCAL_PORT:-$MQTT_LOCAL_PORT}"
   HTTP_TIMEOUT_SEC="${COBIEN_HTTP_TIMEOUT:-$HTTP_TIMEOUT_SEC}"
   TTS_ENGINE="${COBIEN_TTS_ENGINE:-$TTS_ENGINE}"
+  TTS_RATE="${COBIEN_TTS_RATE:-$TTS_RATE}"
+  TTS_VOLUME="${COBIEN_TTS_VOLUME:-$TTS_VOLUME}"
+  TTS_PIPER_BIN="${COBIEN_TTS_PIPER_BIN:-$TTS_PIPER_BIN}"
+  TTS_PIPER_MODEL_ES="${COBIEN_TTS_PIPER_MODEL_ES:-$TTS_PIPER_MODEL_ES}"
+  TTS_PIPER_MODEL_FR="${COBIEN_TTS_PIPER_MODEL_FR:-$TTS_PIPER_MODEL_FR}"
+  TTS_PIPER_MODEL_ES_MALE="${COBIEN_TTS_PIPER_MODEL_ES_MALE:-$TTS_PIPER_MODEL_ES_MALE}"
+  TTS_PIPER_MODEL_ES_FEMALE="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE:-$TTS_PIPER_MODEL_ES_FEMALE}"
+  TTS_PIPER_MODEL_FR_MALE="${COBIEN_TTS_PIPER_MODEL_FR_MALE:-$TTS_PIPER_MODEL_FR_MALE}"
+  TTS_PIPER_MODEL_FR_FEMALE="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE:-$TTS_PIPER_MODEL_FR_FEMALE}"
+  TTS_PIPER_MODEL_ES_URL="${COBIEN_TTS_PIPER_MODEL_ES_URL:-$TTS_PIPER_MODEL_ES_URL}"
+  TTS_PIPER_MODEL_FR_URL="${COBIEN_TTS_PIPER_MODEL_FR_URL:-$TTS_PIPER_MODEL_FR_URL}"
+  TTS_PIPER_MODEL_ES_MALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_MALE_URL:-$TTS_PIPER_MODEL_ES_MALE_URL}"
+  TTS_PIPER_MODEL_ES_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL:-$TTS_PIPER_MODEL_ES_FEMALE_URL}"
+  TTS_PIPER_MODEL_FR_MALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_MALE_URL:-$TTS_PIPER_MODEL_FR_MALE_URL}"
+  TTS_PIPER_MODEL_FR_FEMALE_URL="${COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL:-$TTS_PIPER_MODEL_FR_FEMALE_URL}"
+  TTS_PIPER_VOICE_ES="${COBIEN_TTS_PIPER_VOICE_ES:-$TTS_PIPER_VOICE_ES}"
+  TTS_PIPER_VOICE_FR="${COBIEN_TTS_PIPER_VOICE_FR:-$TTS_PIPER_VOICE_FR}"
+  DISABLE_SYSTEM_SLEEP="${COBIEN_DISABLE_SYSTEM_SLEEP:-$DISABLE_SYSTEM_SLEEP}"
+  OPENWEATHER_CURRENT_URL="${COBIEN_OPENWEATHER_CURRENT_URL:-$OPENWEATHER_CURRENT_URL}"
+  OPENWEATHER_FORECAST_URL="${COBIEN_OPENWEATHER_FORECAST_URL:-$OPENWEATHER_FORECAST_URL}"
+  NEWS_API_URL="${COBIEN_NEWS_API_URL:-$NEWS_API_URL}"
+  OPEN_METEO_URL="${COBIEN_OPEN_METEO_URL:-$OPEN_METEO_URL}"
+  NOMINATIM_SEARCH_URL="${COBIEN_NOMINATIM_SEARCH_URL:-$NOMINATIM_SEARCH_URL}"
   normalize_device_identity
   set_service_defaults
   resolve_paths
@@ -1914,209 +1992,242 @@ ensure_device_identity_config() {
     return
   fi
 
-  python3 - \
-    "$unified_config_file" \
-    "$APP_LANGUAGE" \
-    "$DEVICE_ID" \
-    "$VIDEOCALL_ROOM" \
-    "$VIDEOCALL_DEVICE_API_KEY" \
-    "$DEVICE_LOCATION" \
-    "$TTS_ENGINE" \
-    "$TTS_PIPER_BIN" \
-    "$TTS_PIPER_MODEL_ES" \
-    "$TTS_PIPER_MODEL_FR" \
-    "$TTS_PIPER_MODEL_ES_URL" \
-    "$TTS_PIPER_MODEL_FR_URL" \
-    "$TTS_PIPER_VOICE_ES" \
-    "$TTS_PIPER_VOICE_FR" \
-    "$TTS_PIPER_MODEL_ES_MALE" \
-    "$TTS_PIPER_MODEL_ES_FEMALE" \
-    "$TTS_PIPER_MODEL_FR_MALE" \
-    "$TTS_PIPER_MODEL_FR_FEMALE" \
-    "$TTS_PIPER_MODEL_ES_MALE_URL" \
-    "$TTS_PIPER_MODEL_ES_FEMALE_URL" \
-    "$TTS_PIPER_MODEL_FR_MALE_URL" \
-    "$TTS_PIPER_MODEL_FR_FEMALE_URL" \
-    "$NOTIFY_API_KEY" \
-    "$SETTINGS_PIN" \
-    "$RESTART_PIN" \
-    "$BACKEND_BASE_URL" \
-    "$DEVICE_POLL_URL" \
-    "$DEVICE_POLL_INTERVAL_SEC" \
-    "$DEVICE_HEARTBEAT_URL" \
-    "$DEVICE_HEARTBEAT_INTERVAL_SEC" \
-    "$PIZARRA_NOTIFY_URL" \
-    "$PIZARRA_API_URL" \
-    "$PIZARRA_DELETE_URL_TEMPLATE" \
-    "$CONTACTS_API_URL" \
-    "$ICSO_TELEMETRY_URL" \
-    "$ICSO_EVENTS_URL" \
-    "$DEVICE_VIDEOCALL_SESSION_URL" \
-    "$PORTAL_VIDEOCALL_URL" \
-    "$PORTAL_VIDEOCALL_DEVICE_URL" \
-    "$PORTAL_CALL_ANSWERED_URL" \
-    "$MQTT_LOCAL_BROKER" \
-    "$MQTT_LOCAL_PORT" \
-    "$HTTP_TIMEOUT_SEC" <<'PY'
+  COBIEN_APP_LANGUAGE="$APP_LANGUAGE" \
+  COBIEN_DEVICE_ID="$DEVICE_ID" \
+  COBIEN_VIDEOCALL_ROOM="$VIDEOCALL_ROOM" \
+  COBIEN_DEVICE_LOCATION="$DEVICE_LOCATION" \
+  COBIEN_WEATHER_CITIES_JSON="$WEATHER_CITIES_JSON" \
+  COBIEN_WEATHER_CITY_CATALOG_JSON="$WEATHER_CITY_CATALOG_JSON" \
+  COBIEN_WEATHER_PRIMARY_CITY="$WEATHER_PRIMARY_CITY" \
+  COBIEN_BUTTON_COLORS_JSON="$BUTTON_COLORS_JSON" \
+  COBIEN_RFID_ACTIONS_JSON="$RFID_ACTIONS_JSON" \
+  COBIEN_MICROPHONE_DEVICE="$MICROPHONE_DEVICE" \
+  COBIEN_AUDIO_OUTPUT_DEVICE="$AUDIO_OUTPUT_DEVICE" \
+  COBIEN_JOKE_CATEGORY="$JOKE_CATEGORY" \
+  COBIEN_IDLE_TIMEOUT_SEC="$IDLE_TIMEOUT_SEC" \
+  COBIEN_NOTIFICATIONS_JSON="$NOTIFICATIONS_JSON" \
+  COBIEN_SETTINGS_PIN="$SETTINGS_PIN" \
+  COBIEN_RESTART_PIN="$RESTART_PIN" \
+  COBIEN_NOTIFY_API_KEY="$NOTIFY_API_KEY" \
+  COBIEN_VIDEOCALL_DEVICE_API_KEY="$VIDEOCALL_DEVICE_API_KEY" \
+  COBIEN_BACKEND_BASE_URL="$BACKEND_BASE_URL" \
+  COBIEN_DEVICE_POLL_URL="$DEVICE_POLL_URL" \
+  COBIEN_DEVICE_POLL_INTERVAL_SEC="$DEVICE_POLL_INTERVAL_SEC" \
+  COBIEN_DEVICE_HEARTBEAT_URL="$DEVICE_HEARTBEAT_URL" \
+  COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC="$DEVICE_HEARTBEAT_INTERVAL_SEC" \
+  COBIEN_PIZARRA_NOTIFY_URL="$PIZARRA_NOTIFY_URL" \
+  COBIEN_PIZARRA_API_URL="$PIZARRA_API_URL" \
+  COBIEN_PIZARRA_DELETE_URL_TEMPLATE="$PIZARRA_DELETE_URL_TEMPLATE" \
+  COBIEN_CONTACTS_API_URL="$CONTACTS_API_URL" \
+  COBIEN_ICSO_TELEMETRY_URL="$ICSO_TELEMETRY_URL" \
+  COBIEN_ICSO_EVENTS_URL="$ICSO_EVENTS_URL" \
+  COBIEN_DEVICE_VIDEOCALL_SESSION_URL="$DEVICE_VIDEOCALL_SESSION_URL" \
+  COBIEN_PORTAL_VIDEOCALL_URL="$PORTAL_VIDEOCALL_URL" \
+  COBIEN_PORTAL_VIDEOCALL_DEVICE_URL="$PORTAL_VIDEOCALL_DEVICE_URL" \
+  COBIEN_PORTAL_CALL_ANSWERED_URL="$PORTAL_CALL_ANSWERED_URL" \
+  COBIEN_MQTT_LOCAL_BROKER="$MQTT_LOCAL_BROKER" \
+  COBIEN_MQTT_LOCAL_PORT="$MQTT_LOCAL_PORT" \
+  COBIEN_HTTP_TIMEOUT="$HTTP_TIMEOUT_SEC" \
+  OWM_API_KEY="$OWM_API_KEY" \
+  NEWS_API_KEY="$NEWS_API_KEY" \
+  MONGO_URI="$MONGO_URI" \
+  COBIEN_TTS_ENGINE="$TTS_ENGINE" \
+  COBIEN_TTS_RATE="$TTS_RATE" \
+  COBIEN_TTS_VOLUME="$TTS_VOLUME" \
+  COBIEN_TTS_PIPER_BIN="$TTS_PIPER_BIN" \
+  COBIEN_TTS_PIPER_MODEL_ES="$TTS_PIPER_MODEL_ES" \
+  COBIEN_TTS_PIPER_MODEL_FR="$TTS_PIPER_MODEL_FR" \
+  COBIEN_TTS_PIPER_MODEL_ES_MALE="$TTS_PIPER_MODEL_ES_MALE" \
+  COBIEN_TTS_PIPER_MODEL_ES_FEMALE="$TTS_PIPER_MODEL_ES_FEMALE" \
+  COBIEN_TTS_PIPER_MODEL_FR_MALE="$TTS_PIPER_MODEL_FR_MALE" \
+  COBIEN_TTS_PIPER_MODEL_FR_FEMALE="$TTS_PIPER_MODEL_FR_FEMALE" \
+  COBIEN_TTS_PIPER_MODEL_ES_URL="$TTS_PIPER_MODEL_ES_URL" \
+  COBIEN_TTS_PIPER_MODEL_FR_URL="$TTS_PIPER_MODEL_FR_URL" \
+  COBIEN_TTS_PIPER_MODEL_ES_MALE_URL="$TTS_PIPER_MODEL_ES_MALE_URL" \
+  COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL="$TTS_PIPER_MODEL_ES_FEMALE_URL" \
+  COBIEN_TTS_PIPER_MODEL_FR_MALE_URL="$TTS_PIPER_MODEL_FR_MALE_URL" \
+  COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL="$TTS_PIPER_MODEL_FR_FEMALE_URL" \
+  COBIEN_TTS_PIPER_VOICE_ES="$TTS_PIPER_VOICE_ES" \
+  COBIEN_TTS_PIPER_VOICE_FR="$TTS_PIPER_VOICE_FR" \
+  COBIEN_DISABLE_SYSTEM_SLEEP="$DISABLE_SYSTEM_SLEEP" \
+  COBIEN_OPENWEATHER_CURRENT_URL="$OPENWEATHER_CURRENT_URL" \
+  COBIEN_OPENWEATHER_FORECAST_URL="$OPENWEATHER_FORECAST_URL" \
+  COBIEN_NEWS_API_URL="$NEWS_API_URL" \
+  COBIEN_OPEN_METEO_URL="$OPEN_METEO_URL" \
+  COBIEN_NOMINATIM_SEARCH_URL="$NOMINATIM_SEARCH_URL" \
+  python3 - "$unified_config_file" "$FRONTEND_APP_DIR/VERSION" <<'PY'
 import json
 import os
 import sys
 
-(
-    config_file,
-    app_language,
-    device_id,
-    videocall_room,
-    videocall_device_api_key,
-    device_location,
-    tts_engine,
-    tts_piper_bin,
-    tts_piper_model_es,
-    tts_piper_model_fr,
-    tts_piper_model_es_url,
-    tts_piper_model_fr_url,
-    tts_piper_voice_es,
-    tts_piper_voice_fr,
-    tts_piper_model_es_male,
-    tts_piper_model_es_female,
-    tts_piper_model_fr_male,
-    tts_piper_model_fr_female,
-    tts_piper_model_es_male_url,
-    tts_piper_model_es_female_url,
-    tts_piper_model_fr_male_url,
-    tts_piper_model_fr_female_url,
-    notify_api_key,
-    settings_pin,
-    restart_pin,
-    backend_base_url,
-    device_poll_url,
-    device_poll_interval_sec,
-    device_heartbeat_url,
-    device_heartbeat_interval_sec,
-    pizarra_notify_url,
-    pizarra_api_url,
-    pizarra_delete_url_template,
-    contacts_api_url,
-    icso_telemetry_url,
-    icso_events_url,
-    device_videocall_session_url,
-    portal_videocall_url,
-    portal_videocall_device_url,
-    portal_call_answered_url,
-    mqtt_local_broker,
-    mqtt_local_port,
-    http_timeout_sec,
-) = sys.argv[1:44]
-data = {}
-if os.path.exists(config_file):
+config_file, version_file = sys.argv[1:3]
+
+def env(name, default=""):
+    return os.getenv(name, default)
+
+def env_int(name, default):
     try:
-        with open(config_file, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
+        return int(float(env(name, str(default))))
     except Exception:
-        data = {}
+        return default
 
-if not isinstance(data, dict):
-    data = {}
+def env_float(name, default):
+    try:
+        return float(env(name, str(default)))
+    except Exception:
+        return default
 
-settings = data.get("settings")
-if not isinstance(settings, dict):
-    settings = {}
-data["settings"] = settings
+def env_json(name, default):
+    raw = env(name, "")
+    if not raw:
+        return default
+    try:
+        value = json.loads(raw)
+        return value
+    except Exception:
+        return default
 
-if app_language:
-    settings["language"] = app_language
-elif not settings.get("language"):
-    settings["language"] = "es"
+def load_existing_config(path):
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
-if device_id:
-    settings["device_id"] = device_id
-elif not settings.get("device_id"):
-    settings["device_id"] = "CoBien1"
+def ensure_dict(root, key):
+    current = root.get(key)
+    if isinstance(current, dict):
+        return current
+    current = {}
+    root[key] = current
+    return current
 
-if videocall_room:
-    settings["videocall_room"] = videocall_room
-elif not settings.get("videocall_room"):
-    settings["videocall_room"] = settings.get("device_id", "CoBien1")
+def preserve_existing(target, existing, section, key):
+    section_data = existing.get(section)
+    if not isinstance(section_data, dict) or key not in section_data:
+        return
+    ensure_dict(target, section)[key] = section_data[key]
 
-if device_location:
-    settings["device_location"] = device_location
+weather_cities = env_json("COBIEN_WEATHER_CITIES_JSON", ["Bilbao", "Toulouse", "Logroño"])
+weather_city_catalog = env_json("COBIEN_WEATHER_CITY_CATALOG_JSON", weather_cities)
+notifications = env_json("COBIEN_NOTIFICATIONS_JSON", {
+    "videollamada": {"group": 1, "intensity": 255, "color": "#00FF00", "mode": "ON", "ringtone": ""},
+    "nuevo_evento": {"group": 2, "intensity": 255, "color": "#FF0000", "mode": "ON", "ringtone": ""},
+    "nueva_foto": {"group": 3, "intensity": 255, "color": "#0000FF", "mode": "BLINK", "ringtone": ""},
+})
 
-services = data.get("services")
-if not isinstance(services, dict):
-    services = {}
-data["services"] = services
-security = data.get("security")
-if not isinstance(security, dict):
-    security = {}
-data["security"] = security
-if tts_engine:
-    services["tts_engine"] = tts_engine
-elif not services.get("tts_engine"):
-    services["tts_engine"] = "piper"
+software_version = ""
+try:
+    with open(version_file, "r", encoding="utf-8") as fh:
+        software_version = fh.read().strip()
+except Exception:
+    software_version = ""
 
-if notify_api_key:
-    services["notify_api_key"] = notify_api_key
-if videocall_device_api_key:
-    services["videocall_device_api_key"] = videocall_device_api_key
-if settings_pin:
-    security["settings_pin"] = settings_pin
-if restart_pin:
-    security["restart_pin"] = restart_pin
+existing_data = load_existing_config(config_file)
 
-service_values = {
-    "backend_base_url": backend_base_url,
-    "device_poll_url": device_poll_url,
-    "device_poll_interval_sec": device_poll_interval_sec,
-    "device_heartbeat_url": device_heartbeat_url,
-    "device_heartbeat_interval_sec": device_heartbeat_interval_sec,
-    "pizarra_notify_url": pizarra_notify_url,
-    "pizarra_messages_url": pizarra_api_url,
-    "pizarra_delete_url_template": pizarra_delete_url_template,
-    "contacts_api_url": contacts_api_url,
-    "icso_telemetry_url": icso_telemetry_url,
-    "icso_events_url": icso_events_url,
-    "device_videocall_session_url": device_videocall_session_url,
-    "portal_videocall_url": portal_videocall_url,
-    "portal_videocall_device_url": portal_videocall_device_url,
-    "portal_call_answered_url": portal_call_answered_url,
-    "mqtt_local_broker": mqtt_local_broker,
-    "mqtt_local_port": mqtt_local_port,
-    "http_timeout_sec": http_timeout_sec,
+data = {
+    "meta": {
+        "schema_version": 1,
+        "updated_at": "",
+    },
+    "settings": {
+        "language": env("COBIEN_APP_LANGUAGE", "es"),
+        "weather_cities": weather_cities,
+        "weather_city_catalog": weather_city_catalog,
+        "weather_primary_city": env("COBIEN_WEATHER_PRIMARY_CITY", "Bilbao"),
+        "button_colors": env_json("COBIEN_BUTTON_COLORS_JSON", {}),
+        "rfid_actions": env_json("COBIEN_RFID_ACTIONS_JSON", {}),
+        "microphone_device": env("COBIEN_MICROPHONE_DEVICE", ""),
+        "audio_output_device": env("COBIEN_AUDIO_OUTPUT_DEVICE", ""),
+        "device_id": env("COBIEN_DEVICE_ID", "CoBien1"),
+        "videocall_room": env("COBIEN_VIDEOCALL_ROOM", env("COBIEN_DEVICE_ID", "CoBien1")),
+        "device_location": env("COBIEN_DEVICE_LOCATION", "Bilbao"),
+        "joke_category": env("COBIEN_JOKE_CATEGORY", "general"),
+        "idle_timeout_sec": env_int("COBIEN_IDLE_TIMEOUT_SEC", 60),
+    },
+    "notifications": notifications,
+    "security": {
+        "settings_pin": env("COBIEN_SETTINGS_PIN", ""),
+        "restart_pin": env("COBIEN_RESTART_PIN", ""),
+    },
+    "services": {
+        "mqtt_local_broker": env("COBIEN_MQTT_LOCAL_BROKER", "localhost"),
+        "mqtt_local_port": env_int("COBIEN_MQTT_LOCAL_PORT", 1883),
+        "backend_base_url": env("COBIEN_BACKEND_BASE_URL", "https://portal.co-bien.eu"),
+        "device_poll_url": env("COBIEN_DEVICE_POLL_URL", "https://portal.co-bien.eu/pizarra/api/device/poll/"),
+        "device_poll_interval_sec": env_int("COBIEN_DEVICE_POLL_INTERVAL_SEC", 5),
+        "owm_api_key": env("OWM_API_KEY", ""),
+        "news_api_key": env("NEWS_API_KEY", ""),
+        "mongo_uri": env("MONGO_URI", ""),
+        "http_timeout_sec": env_float("COBIEN_HTTP_TIMEOUT", 8.0),
+        "tts_engine": env("COBIEN_TTS_ENGINE", "piper"),
+        "tts_rate": env_int("COBIEN_TTS_RATE", 155),
+        "tts_volume": env_float("COBIEN_TTS_VOLUME", 0.85),
+        "tts_piper_bin": env("COBIEN_TTS_PIPER_BIN", ""),
+        "tts_piper_model_es": env("COBIEN_TTS_PIPER_MODEL_ES", ""),
+        "tts_piper_model_fr": env("COBIEN_TTS_PIPER_MODEL_FR", ""),
+        "tts_piper_model_es_male": env("COBIEN_TTS_PIPER_MODEL_ES_MALE", ""),
+        "tts_piper_model_es_female": env("COBIEN_TTS_PIPER_MODEL_ES_FEMALE", ""),
+        "tts_piper_model_fr_male": env("COBIEN_TTS_PIPER_MODEL_FR_MALE", ""),
+        "tts_piper_model_fr_female": env("COBIEN_TTS_PIPER_MODEL_FR_FEMALE", ""),
+        "tts_piper_model_es_url": env("COBIEN_TTS_PIPER_MODEL_ES_URL", ""),
+        "tts_piper_model_fr_url": env("COBIEN_TTS_PIPER_MODEL_FR_URL", ""),
+        "tts_piper_model_es_male_url": env("COBIEN_TTS_PIPER_MODEL_ES_MALE_URL", ""),
+        "tts_piper_model_es_female_url": env("COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL", ""),
+        "tts_piper_model_fr_male_url": env("COBIEN_TTS_PIPER_MODEL_FR_MALE_URL", ""),
+        "tts_piper_model_fr_female_url": env("COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL", ""),
+        "tts_piper_voice_es": env("COBIEN_TTS_PIPER_VOICE_ES", "male"),
+        "tts_piper_voice_fr": env("COBIEN_TTS_PIPER_VOICE_FR", "male"),
+        "disable_system_sleep": env("COBIEN_DISABLE_SYSTEM_SLEEP", "0"),
+        "notify_api_key": env("COBIEN_NOTIFY_API_KEY", ""),
+        "videocall_device_api_key": env("COBIEN_VIDEOCALL_DEVICE_API_KEY", ""),
+        "pizarra_notify_url": env("COBIEN_PIZARRA_NOTIFY_URL", "https://portal.co-bien.eu/pizarra/api/notify/"),
+        "pizarra_messages_url": env("COBIEN_PIZARRA_API_URL", "https://portal.co-bien.eu/pizarra/api/messages/"),
+        "pizarra_delete_url_template": env("COBIEN_PIZARRA_DELETE_URL_TEMPLATE", "https://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/"),
+        "contacts_api_url": env("COBIEN_CONTACTS_API_URL", "https://portal.co-bien.eu/pizarra/api/contacts/"),
+        "device_heartbeat_url": env("COBIEN_DEVICE_HEARTBEAT_URL", "https://portal.co-bien.eu/pizarra/api/devices/heartbeat/"),
+        "device_heartbeat_interval_sec": env_int("COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC", 60),
+        "icso_telemetry_url": env("COBIEN_ICSO_TELEMETRY_URL", "https://portal.co-bien.eu/pizarra/api/icso/telemetry/"),
+        "icso_events_url": env("COBIEN_ICSO_EVENTS_URL", "https://portal.co-bien.eu/pizarra/api/icso/events/"),
+        "portal_videocall_url": env("COBIEN_PORTAL_VIDEOCALL_URL", "https://portal.co-bien.eu/videocall/"),
+        "portal_videocall_device_url": env("COBIEN_PORTAL_VIDEOCALL_DEVICE_URL", "https://portal.co-bien.eu/videocall/device/"),
+        "device_videocall_session_url": env("COBIEN_DEVICE_VIDEOCALL_SESSION_URL", "https://portal.co-bien.eu/api/device-videocall-session/"),
+        "portal_call_answered_url": env("COBIEN_PORTAL_CALL_ANSWERED_URL", "https://portal.co-bien.eu/api/call-answered/"),
+        "openweather_current_url": env("COBIEN_OPENWEATHER_CURRENT_URL", "https://api.openweathermap.org/data/2.5/weather"),
+        "openweather_forecast_url": env("COBIEN_OPENWEATHER_FORECAST_URL", "https://api.openweathermap.org/data/2.5/forecast"),
+        "news_api_url": env("COBIEN_NEWS_API_URL", "https://newsapi.org/v2/top-headlines"),
+        "open_meteo_url": env("COBIEN_OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast"),
+        "nominatim_search_url": env("COBIEN_NOMINATIM_SEARCH_URL", "https://nominatim.openstreetmap.org/search"),
+    },
+    "software": {
+        "version": software_version,
+    },
 }
-for key, value in service_values.items():
-    if value not in ("", None):
-        if key in {"device_poll_interval_sec", "device_heartbeat_interval_sec", "mqtt_local_port"}:
-            try:
-                services[key] = int(float(value))
-            except Exception:
-                services[key] = value
-        elif key == "http_timeout_sec":
-            try:
-                services[key] = float(value)
-            except Exception:
-                services[key] = value
-        else:
-            services[key] = value
 
-for key, value in (
-    ("tts_piper_bin", tts_piper_bin),
-    ("tts_piper_model_es", tts_piper_model_es),
-    ("tts_piper_model_fr", tts_piper_model_fr),
-    ("tts_piper_model_es_male", tts_piper_model_es_male),
-    ("tts_piper_model_es_female", tts_piper_model_es_female),
-    ("tts_piper_model_fr_male", tts_piper_model_fr_male),
-    ("tts_piper_model_fr_female", tts_piper_model_fr_female),
-    ("tts_piper_model_es_url", tts_piper_model_es_url),
-    ("tts_piper_model_fr_url", tts_piper_model_fr_url),
-    ("tts_piper_model_es_male_url", tts_piper_model_es_male_url),
-    ("tts_piper_model_es_female_url", tts_piper_model_es_female_url),
-    ("tts_piper_model_fr_male_url", tts_piper_model_fr_male_url),
-    ("tts_piper_model_fr_female_url", tts_piper_model_fr_female_url),
-    ("tts_piper_voice_es", tts_piper_voice_es),
-    ("tts_piper_voice_fr", tts_piper_voice_fr),
-):
-    if value:
-        services[key] = value
+# Keep user-managed values once they have been created locally on the furniture.
+# The deployment env remains authoritative for identity, security, backend endpoints
+# and runtime wiring, but these interactive settings are only seeded on first run.
+for section, keys in {
+    "settings": [
+        "weather_cities",
+        "weather_city_catalog",
+        "weather_primary_city",
+        "button_colors",
+        "rfid_actions",
+        "microphone_device",
+        "audio_output_device",
+        "joke_category",
+        "idle_timeout_sec",
+    ],
+    "notifications": [
+        "videollamada",
+        "nuevo_evento",
+        "nueva_foto",
+    ],
+}.items():
+    for key in keys:
+        preserve_existing(data, existing_data, section, key)
 
 with open(config_file, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=4, ensure_ascii=False)
@@ -2171,8 +2282,9 @@ configure_audio_input_defaults() {
   fi
 
   if [[ -f "$unified_config_file" ]] && command -v python3 >/dev/null 2>&1; then
-    python3 - "$unified_config_file" <<'PY'
+    COBIEN_MICROPHONE_DEVICE="$MICROPHONE_DEVICE" python3 - "$unified_config_file" <<'PY'
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -2190,10 +2302,10 @@ if not isinstance(settings, dict):
     settings = {}
     data["settings"] = settings
 
-settings["microphone_device"] = ""
+settings["microphone_device"] = os.getenv("COBIEN_MICROPHONE_DEVICE", "")
 config_file.write_text(json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")
 PY
-    log "Audio: reset microphone_device in unified config to use system default source"
+    log "Audio: synced microphone_device in unified config with launcher env"
   fi
 }
 
@@ -2365,11 +2477,24 @@ write_env_file() {
     echo "COBIEN_VIDEOCALL_DEVICE_API_KEY=$(shell_quote_env_value "$VIDEOCALL_DEVICE_API_KEY")"
     echo "COBIEN_DEVICE_LOCATION=$(shell_quote_env_value "$DEVICE_LOCATION")"
     echo "COBIEN_HARDWARE_MODE=$(shell_quote_env_value "$HARDWARE_MODE")"
+    echo "COBIEN_WEATHER_CITIES_JSON=$(shell_quote_env_value "$WEATHER_CITIES_JSON")"
+    echo "COBIEN_WEATHER_CITY_CATALOG_JSON=$(shell_quote_env_value "$WEATHER_CITY_CATALOG_JSON")"
+    echo "COBIEN_WEATHER_PRIMARY_CITY=$(shell_quote_env_value "$WEATHER_PRIMARY_CITY")"
+    echo "COBIEN_BUTTON_COLORS_JSON=$(shell_quote_env_value "$BUTTON_COLORS_JSON")"
+    echo "COBIEN_RFID_ACTIONS_JSON=$(shell_quote_env_value "$RFID_ACTIONS_JSON")"
+    echo "COBIEN_MICROPHONE_DEVICE=$(shell_quote_env_value "$MICROPHONE_DEVICE")"
+    echo "COBIEN_AUDIO_OUTPUT_DEVICE=$(shell_quote_env_value "$AUDIO_OUTPUT_DEVICE")"
+    echo "COBIEN_JOKE_CATEGORY=$(shell_quote_env_value "$JOKE_CATEGORY")"
+    echo "COBIEN_IDLE_TIMEOUT_SEC=$(shell_quote_env_value "$IDLE_TIMEOUT_SEC")"
+    echo "COBIEN_NOTIFICATIONS_JSON=$(shell_quote_env_value "$NOTIFICATIONS_JSON")"
     echo "COBIEN_BACKEND_BASE_URL=$(shell_quote_env_value "$BACKEND_BASE_URL")"
     echo "COBIEN_DEVICE_POLL_URL=$(shell_quote_env_value "$DEVICE_POLL_URL")"
     echo "COBIEN_DEVICE_POLL_INTERVAL_SEC=$(shell_quote_env_value "$DEVICE_POLL_INTERVAL_SEC")"
     echo "COBIEN_DEVICE_HEARTBEAT_URL=$(shell_quote_env_value "$DEVICE_HEARTBEAT_URL")"
     echo "COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC=$(shell_quote_env_value "$DEVICE_HEARTBEAT_INTERVAL_SEC")"
+    echo "OWM_API_KEY=$(shell_quote_env_value "$OWM_API_KEY")"
+    echo "NEWS_API_KEY=$(shell_quote_env_value "$NEWS_API_KEY")"
+    echo "MONGO_URI=$(shell_quote_env_value "$MONGO_URI")"
     echo "COBIEN_PIZARRA_NOTIFY_URL=$(shell_quote_env_value "$PIZARRA_NOTIFY_URL")"
     echo "COBIEN_PIZARRA_API_URL=$(shell_quote_env_value "$PIZARRA_API_URL")"
     echo "COBIEN_PIZARRA_DELETE_URL_TEMPLATE=$(shell_quote_env_value "$PIZARRA_DELETE_URL_TEMPLATE")"
@@ -2384,6 +2509,8 @@ write_env_file() {
     echo "COBIEN_MQTT_LOCAL_PORT=$(shell_quote_env_value "$MQTT_LOCAL_PORT")"
     echo "COBIEN_HTTP_TIMEOUT=$(shell_quote_env_value "$HTTP_TIMEOUT_SEC")"
     echo "COBIEN_TTS_ENGINE=$(shell_quote_env_value "$TTS_ENGINE")"
+    echo "COBIEN_TTS_RATE=$(shell_quote_env_value "$TTS_RATE")"
+    echo "COBIEN_TTS_VOLUME=$(shell_quote_env_value "$TTS_VOLUME")"
     echo "COBIEN_TTS_PIPER_BIN=$(shell_quote_env_value "$TTS_PIPER_BIN")"
     echo "COBIEN_TTS_PIPER_MODEL_ES=$(shell_quote_env_value "$TTS_PIPER_MODEL_ES")"
     echo "COBIEN_TTS_PIPER_MODEL_FR=$(shell_quote_env_value "$TTS_PIPER_MODEL_FR")"
@@ -2399,6 +2526,12 @@ write_env_file() {
     echo "COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL=$(shell_quote_env_value "$TTS_PIPER_MODEL_FR_FEMALE_URL")"
     echo "COBIEN_TTS_PIPER_VOICE_ES=$(shell_quote_env_value "$TTS_PIPER_VOICE_ES")"
     echo "COBIEN_TTS_PIPER_VOICE_FR=$(shell_quote_env_value "$TTS_PIPER_VOICE_FR")"
+    echo "COBIEN_DISABLE_SYSTEM_SLEEP=$(shell_quote_env_value "$DISABLE_SYSTEM_SLEEP")"
+    echo "COBIEN_OPENWEATHER_CURRENT_URL=$(shell_quote_env_value "$OPENWEATHER_CURRENT_URL")"
+    echo "COBIEN_OPENWEATHER_FORECAST_URL=$(shell_quote_env_value "$OPENWEATHER_FORECAST_URL")"
+    echo "COBIEN_NEWS_API_URL=$(shell_quote_env_value "$NEWS_API_URL")"
+    echo "COBIEN_OPEN_METEO_URL=$(shell_quote_env_value "$OPEN_METEO_URL")"
+    echo "COBIEN_NOMINATIM_SEARCH_URL=$(shell_quote_env_value "$NOMINATIM_SEARCH_URL")"
     echo "COBIEN_INSTALL_SYSTEMD_USER=$(shell_quote_env_value "$INSTALL_SYSTEMD_USER")"
     echo "COBIEN_INSTALL_CRON=$(shell_quote_env_value "$INSTALL_CRON")"
     echo "COBIEN_CRON_SCHEDULE=$(shell_quote_env_value "$CRON_SCHEDULE")"
