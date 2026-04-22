@@ -294,10 +294,10 @@ KV = r"""
                                 radius: [dp(16),]
 
                         # Text
-                            BoxLayout:
-                                orientation: "vertical"
-                                size_hint_x: 0.45
-                                spacing: dp(12)
+                        BoxLayout:
+                            orientation: "vertical"
+                            size_hint_x: 0.45
+                            spacing: dp(12)
                             BoxLayout:
                                 size_hint_y: None
                                 height: dp(94)
