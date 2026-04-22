@@ -9,6 +9,12 @@ AUTOSTART_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/cobien-launcher.desk
 
 mkdir -p "$SYSTEMD_USER_DIR"
 
+# Enable linger so user services survive without an active login session
+if command -v loginctl >/dev/null 2>&1; then
+  loginctl enable-linger "$USER" || true
+  echo "[OK] Enabled linger for user: $USER"
+fi
+
 install -m 0644 "$SYSTEMD_SRC_DIR/cobien-launcher.service" "$SYSTEMD_USER_DIR/cobien-launcher.service"
 install -m 0644 "$SYSTEMD_SRC_DIR/cobien-update.service" "$SYSTEMD_USER_DIR/cobien-update.service"
 install -m 0644 "$SYSTEMD_SRC_DIR/cobien-update.timer" "$SYSTEMD_USER_DIR/cobien-update.timer"
