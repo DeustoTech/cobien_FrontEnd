@@ -12,6 +12,7 @@ from kivy.clock import Clock
 from kivy.properties import ListProperty, StringProperty
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.factory import Factory
 from kivy.metrics import dp, sp
@@ -48,7 +49,7 @@ class ImageButton(ButtonBehavior, AnchorLayout):
     src = StringProperty("")
 
 
-class AvatarCircle(Widget):
+class AvatarCircle(FloatLayout):
     """Circular sender avatar that can fall back to an initial."""
 
     source = StringProperty("")
@@ -123,19 +124,11 @@ KV = r"""
             pos: self.pos
             size: self.size
         StencilUse
-    canvas:
         Color:
             rgba: 0.95, 0.77, 0.48, 1 if not root.source else 0
         Ellipse:
             pos: self.pos
             size: self.size
-        Color:
-            rgba: 0, 0, 0, 0.92 if not root.source else 0
-        Line:
-            circle: (self.center_x, self.center_y, self.width / 2)
-            width: 1.4
-        Color:
-            rgba: 0, 0, 0, 1 if not root.source else 0
     canvas.after:
         StencilUnUse
         Color:
