@@ -57,11 +57,26 @@ Ver configuración resuelta:
 bash deploy/ubuntu/cobien-launcher.sh --mode dry-run --workspace "$HOME/cobien"
 ```
 
-## Configuración editable (launcher)
+## Modelo de configuración
 
-Archivo principal:
+Fuente humana principal:
+
+- `deploy/ubuntu/cobien.env`
+
+Artefactos generados:
 
 - `deploy/ubuntu/cobien-update.env`
+- `app/config/config.local.json`
+
+Reglas del sistema:
+
+- el humano edita `cobien.env`
+- `cobien-launcher.sh` expande ese archivo a `cobien-update.env`
+- el launcher regenera `app/config/config.local.json` completo en cada arranque/instalación
+- `config.local.json` es un artefacto local del mueble, no un archivo manual
+- la app sólo modifica desde UI el subconjunto de claves pensado para gestión local del mueble
+
+## Configuración editable (launcher)
 
 Parámetros relevantes:
 
@@ -83,9 +98,26 @@ Parámetros relevantes:
 - `COBIEN_CAN_BITRATE`: bitrate CAN (por defecto `500000`).
 - `COBIEN_CAN_LOG_ENABLE`: `1`/`0` para activar/desactivar `candump`.
 
-La app también permite editar estos parámetros desde:
+La app también permite editar algunos parámetros locales desde:
 
 - Administración -> Parámetros Launcher
+
+Esos cambios se guardan en `app/config/config.local.json`. El launcher respeta en siguientes arranques los ajustes locales interactivos definidos en `app/config_runtime.py`, por ejemplo:
+
+- `settings.weather_cities`
+- `settings.weather_city_catalog`
+- `settings.weather_primary_city`
+- `settings.button_colors`
+- `settings.rfid_actions`
+- `settings.microphone_device`
+- `settings.audio_output_device`
+- `settings.joke_category`
+- `settings.idle_timeout_sec`
+- `notifications.videollamada`
+- `notifications.nuevo_evento`
+- `notifications.nueva_foto`
+
+Todo lo demás sigue viniendo siempre del despliegue (`cobien.env`).
 
 ## systemd (recomendado)
 
@@ -193,5 +225,7 @@ bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --wo
 ## Notas importantes
 
 - `cobien-launcher.sh` es el único punto de entrada operativo.
+- `deploy/ubuntu/cobien.env` es el único archivo humano de despliegue.
+- `app/config/config.local.json` no debe editarse a mano; es estado local generado.
 - Evitar lanzar en paralelo scripts antiguos (`start_cobien.sh`, autostart legacy, cron duplicado).
 - El sistema actualiza solo si la rama activa del repo coincide con la configurada.

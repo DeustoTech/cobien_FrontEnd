@@ -1988,7 +1988,7 @@ ensure_device_identity_config() {
   mkdir -p "$(dirname "$unified_config_file")"
 
   if ! command -v python3 >/dev/null 2>&1; then
-    log "Device identity: python3 unavailable, skipping settings.json identity sync"
+    log "Device identity: python3 unavailable, skipping config.local.json generation"
     return
   fi
 
@@ -2061,6 +2061,11 @@ import os
 import sys
 
 config_file, version_file = sys.argv[1:3]
+app_dir = os.path.dirname(os.path.dirname(config_file))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+
+from config_runtime import PRESERVED_LOCAL_CONFIG_KEYS
 
 def env(name, default=""):
     return os.getenv(name, default)
@@ -2206,26 +2211,8 @@ data = {
 }
 
 # Keep user-managed values once they have been created locally on the furniture.
-# The deployment env remains authoritative for identity, security, backend endpoints
-# and runtime wiring, but these interactive settings are only seeded on first run.
-for section, keys in {
-    "settings": [
-        "weather_cities",
-        "weather_city_catalog",
-        "weather_primary_city",
-        "button_colors",
-        "rfid_actions",
-        "microphone_device",
-        "audio_output_device",
-        "joke_category",
-        "idle_timeout_sec",
-    ],
-    "notifications": [
-        "videollamada",
-        "nuevo_evento",
-        "nueva_foto",
-    ],
-}.items():
+# The authoritative policy lives in `app/config_runtime.py`.
+for section, keys in PRESERVED_LOCAL_CONFIG_KEYS.items():
     for key in keys:
         preserve_existing(data, existing_data, section, key)
 

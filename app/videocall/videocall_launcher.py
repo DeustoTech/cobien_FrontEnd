@@ -30,7 +30,7 @@ from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
-    QPushButton, QDialog, QComboBox, QLabel,
+    QPushButton, QDialog, QComboBox, QLabel, QSizePolicy,
 )
 from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEnginePage, QWebEngineProfile, QWebEngineSettings
@@ -423,6 +423,9 @@ class MainWindow(QMainWindow):
         self.web_view = QWebEngineView()
         self.page = CustomWebEnginePage(self.room_name, self.device_name, self.web_view)
         self.web_view.setPage(self.page)
+        self.page.loadStarted.connect(self._show_loading_overlay)
+        self.page.loadProgress.connect(self._handle_load_progress)
+        self.page.loadFinished.connect(self._handle_load_finished)
 
         # Grant media permissions automatically.
         self.page.featurePermissionRequested.connect(
@@ -443,30 +446,62 @@ class MainWindow(QMainWindow):
         # Audio settings button.
         self._btn_audio = QPushButton("🎧  Audio")
         self._btn_audio.setMinimumHeight(70)
+        self._btn_audio.setFixedWidth(220)
         self._btn_audio.setFont(QFont("Arial", 18, QFont.Bold))
         self._btn_audio.setStyleSheet(
             "background-color:#1565C0; color:white; font-weight:bold; border:none; border-radius:6px; padding:0 18px;"
         )
         self._btn_audio.clicked.connect(self._open_audio_dialog)
 
-        # Toolbar row: audio button on the left, exit on the right.
+        # Toolbar row: compact audio button and expanding exit button.
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.setSpacing(4)
         toolbar.addWidget(self._btn_audio)
-        toolbar.addStretch()
         toolbar.addWidget(self.button)
+        self.button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         toolbar_widget = QWidget()
         toolbar_widget.setLayout(toolbar)
         toolbar_widget.setFixedHeight(74)
+        toolbar_widget.setStyleSheet("background:#111111;")
+
+        self._web_stack = QWidget()
+        self._web_stack.setAttribute(Qt.WA_StyledBackground, True)
+        self._web_stack.setStyleSheet("background:#000000;")
+
+        self._loading_overlay = QWidget(self._web_stack)
+        self._loading_overlay.setStyleSheet("background:rgba(8, 12, 20, 0.88);")
+        overlay_layout = QVBoxLayout(self._loading_overlay)
+        overlay_layout.setContentsMargins(48, 48, 48, 48)
+        overlay_layout.setSpacing(16)
+        overlay_layout.addStretch()
+
+        self._loading_title = QLabel("Conectando videollamada...")
+        self._loading_title.setAlignment(Qt.AlignCenter)
+        self._loading_title.setFont(QFont("Arial", 28, QFont.Bold))
+        self._loading_title.setStyleSheet("color:white;")
+        overlay_layout.addWidget(self._loading_title)
+
+        self._loading_subtitle = QLabel("Espera unos segundos. No pulses ningún botón.")
+        self._loading_subtitle.setAlignment(Qt.AlignCenter)
+        self._loading_subtitle.setFont(QFont("Arial", 18))
+        self._loading_subtitle.setStyleSheet("color:#D7E3F4;")
+        overlay_layout.addWidget(self._loading_subtitle)
+
+        self._loading_progress = QLabel("Preparando sala...")
+        self._loading_progress.setAlignment(Qt.AlignCenter)
+        self._loading_progress.setFont(QFont("Arial", 16))
+        self._loading_progress.setStyleSheet("color:#8FC3FF;")
+        overlay_layout.addWidget(self._loading_progress)
+        overlay_layout.addStretch()
 
         # Main layout.
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(toolbar_widget)
-        layout.addWidget(self.web_view)
+        layout.addWidget(self._web_stack)
 
         container = QWidget()
         container.setLayout(layout)
@@ -480,6 +515,7 @@ class MainWindow(QMainWindow):
 
         # Load portal URL.
         self._load_videocall()
+        self._resize_overlay()
 
     def _open_audio_dialog(self) -> None:
         """Open the audio device selection dialog."""
@@ -505,6 +541,44 @@ class MainWindow(QMainWindow):
             log_call_end(duration)
         
         QApplication.instance().quit()
+
+    def resizeEvent(self, event: Any) -> None:
+        """Keep stacked browser widgets sized to the available space."""
+        super().resizeEvent(event)
+        self._resize_overlay()
+
+    def _resize_overlay(self) -> None:
+        """Resize browser and loading overlay to the central stack area."""
+        if not hasattr(self, "_web_stack"):
+            return
+        rect = self._web_stack.rect()
+        self.web_view.setParent(self._web_stack)
+        self.web_view.setGeometry(rect)
+        self._loading_overlay.setGeometry(rect)
+        self._loading_overlay.raise_()
+
+    def _show_loading_overlay(self) -> None:
+        """Display in-window loading feedback while the portal opens."""
+        self._loading_title.setText("Conectando videollamada...")
+        self._loading_subtitle.setText("Espera unos segundos. No pulses ningún botón.")
+        self._loading_progress.setText("Cargando interfaz de videollamada...")
+        self._loading_overlay.show()
+        self._loading_overlay.raise_()
+
+    def _handle_load_progress(self, progress: int) -> None:
+        """Update loading percentage while the portal page is loading."""
+        self._loading_progress.setText(f"Cargando interfaz de videollamada... {progress}%")
+
+    def _handle_load_finished(self, ok: bool) -> None:
+        """Hide loading feedback or show an error state if the load fails."""
+        if ok:
+            self._loading_overlay.hide()
+            return
+        self._loading_title.setText("No se pudo abrir la videollamada")
+        self._loading_subtitle.setText("Comprueba la conexión y vuelve a intentarlo.")
+        self._loading_progress.setText("La sala no ha terminado de cargar.")
+        self._loading_overlay.show()
+        self._loading_overlay.raise_()
 
     def _load_videocall(self) -> None:
         """Load portal video-call URL into embedded browser."""

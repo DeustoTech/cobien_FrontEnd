@@ -163,6 +163,11 @@ def _match_location(loc: Optional[str], location_name: Optional[str] = None) -> 
     target_location = location_name or _current_location_name()
     return _normalize_location_text(loc) == _normalize_location_text(target_location)
 
+
+def _is_locationless(value: Optional[str]) -> bool:
+    """Return True when an event location is missing or blank."""
+    return not str(value or "").strip()
+
 def guardar_eventos_localmente(eventos: List[Dict[str, Any]]) -> None:
     """Persist sanitized event list in local JSON cache.
 
@@ -196,7 +201,19 @@ def cargar_eventos_locales(location_name: Optional[str] = None) -> List[Dict[str
 
     # Aplica filtro de ciudad
     target_location = location_name or _current_location_name()
-    eventos = [e for e in eventos if _match_location(e.get("location"), target_location)]
+    filtered_events: List[Dict[str, Any]] = []
+    for event in eventos:
+        audience = _normalize_audience(event.get("audience"))
+        loc = event.get("location")
+        if _match_location(loc, target_location):
+            filtered_events.append(event)
+            continue
+        if audience == "all" and _is_locationless(loc):
+            event = dict(event)
+            event["location"] = target_location
+            filtered_events.append(event)
+
+    eventos = filtered_events
 
     print(f"{len(eventos)} eventos cargados desde archivo local (location='{target_location}').")
     return eventos
@@ -273,7 +290,25 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
         # Filtro por ciudad en ambos casos
         query = {
             "$or": [
-                {"audience": "all", "location": target_location},
+                {
+                    "$and": [
+                        {
+                            "$or": [
+                                {"audience": "all"},
+                                {"audience": {"$exists": False}},
+                                {"audience": None},
+                            ]
+                        },
+                        {
+                            "$or": [
+                                {"location": target_location},
+                                {"location": {"$exists": False}},
+                                {"location": ""},
+                                {"location": None},
+                            ]
+                        },
+                    ],
+                },
                 {
                     "audience": "device",
                     "location": target_location,
@@ -293,10 +328,13 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
             fecha_str = _formatea_fecha(event.get("date") or event.get("fecha_inicio"))
             audience = _normalize_audience(event.get("audience"))
             color = _audience_color(audience)
-            loc = _safe_str(event.get("location"), "Sin localización")
+            raw_loc = event.get("location")
+            loc = _safe_str(raw_loc, target_location if audience == "all" else "Sin localización")
 
-            # Seguridad extra por si algún documento se cuela sin location exacta
-            if not _match_location(loc, target_location):
+            # Permite eventos generales sin localización explícita como fallback global.
+            if audience == "all" and _is_locationless(raw_loc):
+                loc = target_location
+            elif not _match_location(loc, target_location):
                 continue
 
             eventos.append({

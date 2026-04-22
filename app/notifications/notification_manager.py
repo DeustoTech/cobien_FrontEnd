@@ -28,7 +28,7 @@ import paho.mqtt.publish as publish
 from icso_data.videocall_logger import log_call_start
 from icso_data.notification_logger import log_received_photos, log_added_events
 
-# Import app configuration values (settings.json)
+# Import app configuration values (config.local.json)
 from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 # ========== CENTRALIZED LED CONTROL ==========
@@ -338,6 +338,60 @@ class NotificationPopup(ModalView):
             return self._build_message_content(main_layout)
         
         return main_layout
+
+
+class CallLaunchingPopup(ModalView):
+    """Blocking progress popup shown while the external videocall window starts."""
+
+    def __init__(self, caller: str = "", **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.size_hint = (0.72, 0.34)
+        self.auto_dismiss = False
+        self.background = ""
+        self.background_color = (0, 0, 0, 0)
+        self.overlay_color = (0, 0, 0, 0.45)
+
+        main_layout = BoxLayout(orientation="vertical", padding=dp(28), spacing=dp(18))
+        with main_layout.canvas.before:
+            Color(0.97, 0.98, 1, 1)
+            self.bg_rect = RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(22)])
+        main_layout.bind(pos=self._update_rect, size=self._update_rect)
+
+        title = Label(
+            text=_("Abriendo videollamada"),
+            font_size=sp(36),
+            bold=True,
+            color=(0.1, 0.1, 0.1, 1),
+            size_hint_y=None,
+            height=dp(52),
+        )
+        subtitle = Label(
+            text=_("Espera unos segundos, no pulses ningún botón."),
+            font_size=sp(24),
+            color=(0.25, 0.25, 0.25, 1),
+            size_hint_y=None,
+            height=dp(44),
+        )
+        detail_text = _("Conectando con {}...").format(caller) if caller else _("Preparando la llamada...")
+        detail = Label(
+            text=detail_text,
+            font_size=sp(22),
+            color=(0.35, 0.35, 0.35, 1),
+            size_hint_y=None,
+            height=dp(40),
+        )
+
+        main_layout.add_widget(BoxLayout())
+        main_layout.add_widget(title)
+        main_layout.add_widget(subtitle)
+        main_layout.add_widget(detail)
+        main_layout.add_widget(BoxLayout())
+
+        self.add_widget(main_layout)
+
+    def _update_rect(self, instance: Any, _value: Any) -> None:
+        self.bg_rect.pos = instance.pos
+        self.bg_rect.size = instance.size
     
     def _build_videocall_content(self, main_layout: BoxLayout) -> BoxLayout:
         """Build popup content for an incoming video call."""
@@ -636,14 +690,14 @@ class NotificationManager:
         self.main_screen = main_screen
         self.active_notifications = []
         
-        # ✅ LOAD CONFIGURATION FROM settings.json
+        # ✅ LOAD CONFIGURATION FROM config.local.json
         self.cfg = AppConfig()
         self.device_id = self.cfg.get_device_id()
         self.videocall_room = self.cfg.get_videocall_room()
         self.device_location = self.cfg.get_device_location()
         
         print("[NOTIF_MANAGER] ========================================")
-        print("[NOTIF_MANAGER] 📋 Configuration loaded from settings.json:")
+        print("[NOTIF_MANAGER] 📋 Configuration loaded from config.local.json:")
         print(f"[NOTIF_MANAGER]    Device ID: {self.device_id}")
         print(f"[NOTIF_MANAGER]    Videocall Room: {self.videocall_room}")
         print(f"[NOTIF_MANAGER]    Location: {self.device_location}")
@@ -658,6 +712,7 @@ class NotificationManager:
         # Tracker for the active incoming call popup (case-sensitive)
         self.active_videocall_popup = None
         self.active_call_process = None
+        self.call_launching_popup = None
         
         print("[NOTIF_MANAGER] ✅ Notification manager initialized (CASE-SENSITIVE)")
 
@@ -909,15 +964,15 @@ class NotificationManager:
             caller = data.get('caller', 'Unknown')
             room = data.get('room')
             
-            # ✅ USE EXACT ROOM NAME FROM NOTIFICATION OR FALLBACK TO settings.json
+            # ✅ USE EXACT ROOM NAME FROM NOTIFICATION OR FALLBACK TO config.local.json
             if not room:
-                room = self.videocall_room  # ✅ From settings.json instead of hardcoded 'CoBien1'
-                print(f"[NOTIF] ⚠️ No room in notification, using settings.json: '{room}'")
+                room = self.videocall_room  # ✅ From config.local.json instead of hardcoded 'CoBien1'
+                print(f"[NOTIF] ⚠️ No room in notification, using config.local.json: '{room}'")
             
             print(f"[NOTIF] ========================================")
             print(f"[NOTIF] 📞 Call accepted")
             print(f"[NOTIF]    From: '{caller}'")
-            print(f"[NOTIF]    Room: '{room}' (case-sensitive from settings.json)")
+            print(f"[NOTIF]    Room: '{room}' (case-sensitive from config.local.json)")
             print(f"[NOTIF] ========================================")
             
             # ✅ CREATE TEMPORARY CONFIG FILE FOR LAUNCHER
@@ -942,7 +997,7 @@ class NotificationManager:
                     config_file = f.name
                 
                 print(f"[NOTIF] 📄 Config file created: {config_file}")
-                print(f"[NOTIF]    Room from settings.json: '{room}'")
+                print(f"[NOTIF]    Room from config.local.json: '{room}'")
                 
                 # Launch videocall_launcher.py with config file
                 import subprocess
@@ -963,16 +1018,19 @@ class NotificationManager:
                     return
                 
                 print(f"[NOTIF] 🚀 Launching videocall_launcher.py")
-                print(f"[NOTIF]    Room: '{room}' (from settings.json)")
+                print(f"[NOTIF]    Room: '{room}' (from config.local.json)")
 
+                self._show_videocall_launching_popup(caller)
                 self._prepare_runtime_for_videocall()
                 self.active_call_process = subprocess.Popen([sys.executable, launcher_path, config_file])
                 self._cleanup_videocall_temp_file_later(config_file, self.active_call_process)
+                Clock.schedule_once(lambda _dt: self._dismiss_videocall_launching_popup(), 1.8)
                 
                 print(f"[NOTIF] ✅ Videocall launcher started")
                 log_call_start()
                 
             except Exception as e:
+                self._dismiss_videocall_launching_popup()
                 print(f"[NOTIF] ❌ Error launching videocall_launcher: {e}")
                 import traceback
                 traceback.print_exc()
@@ -998,6 +1056,7 @@ class NotificationManager:
             except Exception:
                 pass
             self.active_call_process = None
+            Clock.schedule_once(lambda _dt: self._dismiss_videocall_launching_popup(), 0)
             try:
                 if temp_path and os.path.exists(temp_path):
                     os.remove(temp_path)
@@ -1027,12 +1086,38 @@ class NotificationManager:
         except Exception as exc:
             print(f"[NOTIF] ⚠️ Could not dismiss black overlay before videocall: {exc}")
 
+    def _show_videocall_launching_popup(self, caller: str) -> None:
+        """Show a blocking progress popup while the external call UI appears."""
+        def _open(_dt: float) -> None:
+            try:
+                self._dismiss_videocall_launching_popup()
+                popup = CallLaunchingPopup(caller=caller)
+                popup.open()
+                self.call_launching_popup = popup
+            except Exception as exc:
+                print(f"[NOTIF] ⚠️ Could not show videocall launching popup: {exc}")
+
+        Clock.schedule_once(_open, 0)
+
+    def _dismiss_videocall_launching_popup(self) -> None:
+        """Close the temporary progress popup if it is visible."""
+        popup = getattr(self, "call_launching_popup", None)
+        if not popup:
+            return
+        try:
+            popup.dismiss()
+        except Exception as exc:
+            print(f"[NOTIF] ⚠️ Could not dismiss videocall launching popup: {exc}")
+        self.call_launching_popup = None
+
     def _restore_runtime_after_videocall(self) -> None:
         """Restore Kivy visibility and idle handling once the call window closes."""
         def _restore(_dt: float) -> None:
             app = App.get_running_app()
             if not app:
                 return
+
+            self._dismiss_videocall_launching_popup()
 
             try:
                 if getattr(app, "black_overlay", None) and app.black_overlay.parent:

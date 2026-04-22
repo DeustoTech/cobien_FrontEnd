@@ -901,7 +901,7 @@ class RFIDActionsScreen(Screen):
         """Refresh language-dependent content before entering the screen."""
         print("[RFID] 🔄 on_pre_enter appelé")
         
-        # Force reload of language from settings.json.
+        # Force reload of language from config.local.json.
         app = App.get_running_app()
         if app and hasattr(app, 'cfg'):
             current_lang = app.cfg.data.get("language", "es")

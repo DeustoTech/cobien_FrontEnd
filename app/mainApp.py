@@ -602,13 +602,13 @@ class MainScreen(Screen):
         self.sm = sm
         self.cfg = AppConfig()
 
-        # Load device identity from settings.json
+        # Load device identity from config.local.json
         self.DEVICE_ID = self.cfg.get_device_id()
         self.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
         self.DEVICE_LOCATION = self.cfg.get_device_location()
         
         print(f"[MAIN] ========================================")
-        print(f"[MAIN] Device configuration loaded from settings.json:")
+        print(f"[MAIN] Device configuration loaded from config.local.json:")
         print(f"[MAIN]    Device ID: '{self.DEVICE_ID}' (case-sensitive)")
         print(f"[MAIN]    Videocall Room: '{self.VIDEOCALL_ROOM}' (case-sensitive)")
         print(f"[MAIN]    Location: '{self.DEVICE_LOCATION}'")
@@ -1680,7 +1680,7 @@ class MainScreen(Screen):
         # ✅ VIDEOCALL (CASE-SENSITIVE STRICT)
         if notif_type == "videocall":
             caller = data.get("from") or _("Desconocido")
-            room = data.get("room", self.VIDEOCALL_ROOM)  # ✅ Depuis settings.json
+            room = data.get("room", self.VIDEOCALL_ROOM)  # ✅ Depuis config.local.json
             
             print(f"[BACKEND_NOTIF] 📞 Videocall")
             print(f"[BACKEND_NOTIF]    From: '{caller}'")
@@ -2340,7 +2340,7 @@ class MyApp(App):
     def _reset_idle_timer(self, *args, **kwargs):
         """
         Réinitialise le timer de veille.
-        Recharge le timeout depuis settings.json à chaque appel.
+        Recharge le timeout depuis config.local.json à chaque appel.
         """
         if self._handle_escape_request(*args):
             return True
@@ -2353,7 +2353,7 @@ class MyApp(App):
         if getattr(self, "_idle_event", None):
             self._idle_event.cancel()
         
-        # RECHARGER le timeout depuis settings.json
+        # RECHARGER le timeout depuis config.local.json
         timeout = self.cfg.get_idle_timeout()
         
         # Logger UNIQUEMENT si le timeout a changé
@@ -2658,7 +2658,7 @@ class MyApp(App):
         # Charger config et traduction
         self.cfg = AppConfig()
 
-        # Charger timeout depuis settings.json
+        # Charger timeout depuis config.local.json
         self.IDLE_TIMEOUT_SEC = self.cfg.get_idle_timeout()
         print(f"[APP] ⏱️ Timeout veille: {self.IDLE_TIMEOUT_SEC}s")
         

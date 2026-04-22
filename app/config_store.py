@@ -1,19 +1,22 @@
+"""Unified configuration access for the furniture runtime.
+
+`config.local.json` is the only local runtime configuration file used by the
+application. Humans edit `deploy/ubuntu/cobien.env`; the launcher regenerates
+`config.local.json`, and the furniture UI only mutates the subset of values
+that are intended to remain device-local.
+"""
+
+from __future__ import annotations
+
 import copy
 import json
 import os
 import re
 from datetime import datetime
+from typing import Any, Dict
 
+from config_runtime import LOCAL_CONFIG_PATH, load_default_unified_config, read_version
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(BASE_DIR, "config")
-LOCAL_CONFIG_PATH = os.path.join(CONFIG_DIR, "config.local.json")
-LEGACY_UNIFIED_CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
-
-LEGACY_SETTINGS_PATH = os.path.join(BASE_DIR, "settings", "settings.json")
-LEGACY_NOTIFICATIONS_PATH = os.path.join(CONFIG_DIR, "notifications_config.json")
-LEGACY_PIN_PATH = os.path.join(BASE_DIR, "settings", "pin.txt")
-VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 
 SENSITIVE_CONFIG = {
     "security": {
@@ -26,103 +29,6 @@ SENSITIVE_CONFIG = {
         "mongo_uri": {"env": "MONGO_URI"},
         "notify_api_key": {"env": "COBIEN_NOTIFY_API_KEY"},
         "videocall_device_api_key": {"env": "COBIEN_VIDEOCALL_DEVICE_API_KEY"},
-    },
-}
-
-DEFAULT_UNIFIED_CONFIG = {
-    "meta": {
-        "schema_version": 1,
-        "updated_at": "",
-    },
-    "settings": {
-        "language": "es",
-        "weather_cities": ["Bilbao", "Toulouse", "Logroño"],
-        "weather_city_catalog": ["Bilbao", "Toulouse", "Logroño"],
-        "weather_primary_city": "Bilbao",
-        "button_colors": {},
-        "rfid_actions": {},
-        "microphone_device": "",
-        "audio_output_device": "",
-        "device_id": os.getenv("COBIEN_DEVICE_ID", "CoBien1"),
-        "videocall_room": os.getenv("COBIEN_VIDEOCALL_ROOM", os.getenv("COBIEN_DEVICE_ID", "CoBien1")),
-        "device_location": os.getenv("COBIEN_DEVICE_LOCATION", "Bilbao"),
-        "joke_category": "general",
-        "idle_timeout_sec": 60,
-    },
-    "notifications": {
-        "videollamada": {"group": 1, "intensity": 255, "color": "#00FF00", "mode": "ON", "ringtone": ""},
-        "nuevo_evento": {"group": 2, "intensity": 255, "color": "#FF0000", "mode": "ON", "ringtone": ""},
-        "nueva_foto": {"group": 3, "intensity": 255, "color": "#0000FF", "mode": "BLINK", "ringtone": ""},
-    },
-    "security": {
-        "settings_pin": "",
-        "restart_pin": "",
-    },
-    "services": {
-        "mqtt_local_broker": os.getenv("COBIEN_MQTT_LOCAL_BROKER", "localhost"),
-        "mqtt_local_port": int(os.getenv("COBIEN_MQTT_LOCAL_PORT", "1883")),
-        "backend_base_url": os.getenv("COBIEN_BACKEND_BASE_URL", "https://portal.co-bien.eu"),
-        "device_poll_url": os.getenv("COBIEN_DEVICE_POLL_URL", "https://portal.co-bien.eu/pizarra/api/device/poll/"),
-        "device_poll_interval_sec": int(os.getenv("COBIEN_DEVICE_POLL_INTERVAL_SEC", "5")),
-        "owm_api_key": "",
-        "news_api_key": "",
-        "mongo_uri": "",
-        "http_timeout_sec": float(os.getenv("COBIEN_HTTP_TIMEOUT", "8")),
-        "tts_engine": os.getenv("COBIEN_TTS_ENGINE", "pyttsx3"),
-        "tts_rate": int(os.getenv("COBIEN_TTS_RATE", "155")),
-        "tts_volume": float(os.getenv("COBIEN_TTS_VOLUME", "0.85")),
-        "tts_piper_bin": os.getenv("COBIEN_TTS_PIPER_BIN", ""),
-        "tts_piper_model_es": os.getenv("COBIEN_TTS_PIPER_MODEL_ES", ""),
-        "tts_piper_model_fr": os.getenv("COBIEN_TTS_PIPER_MODEL_FR", ""),
-        "tts_piper_model_es_male": os.getenv("COBIEN_TTS_PIPER_MODEL_ES_MALE", ""),
-        "tts_piper_model_es_female": os.getenv("COBIEN_TTS_PIPER_MODEL_ES_FEMALE", ""),
-        "tts_piper_model_fr_male": os.getenv("COBIEN_TTS_PIPER_MODEL_FR_MALE", ""),
-        "tts_piper_model_fr_female": os.getenv("COBIEN_TTS_PIPER_MODEL_FR_FEMALE", ""),
-        "tts_piper_model_es_male_url": os.getenv("COBIEN_TTS_PIPER_MODEL_ES_MALE_URL", ""),
-        "tts_piper_model_es_female_url": os.getenv("COBIEN_TTS_PIPER_MODEL_ES_FEMALE_URL", ""),
-        "tts_piper_model_fr_male_url": os.getenv("COBIEN_TTS_PIPER_MODEL_FR_MALE_URL", ""),
-        "tts_piper_model_fr_female_url": os.getenv("COBIEN_TTS_PIPER_MODEL_FR_FEMALE_URL", ""),
-        "disable_system_sleep": os.getenv("COBIEN_DISABLE_SYSTEM_SLEEP", "0"),
-        "notify_api_key": "",
-        "videocall_device_api_key": "",
-        "pizarra_notify_url": os.getenv("COBIEN_PIZARRA_NOTIFY_URL", "https://portal.co-bien.eu/pizarra/api/notify/"),
-        "pizarra_messages_url": os.getenv("COBIEN_PIZARRA_API_URL", "https://portal.co-bien.eu/pizarra/api/messages/"),
-        "pizarra_delete_url_template": os.getenv(
-            "COBIEN_PIZARRA_DELETE_URL_TEMPLATE",
-            "https://portal.co-bien.eu/pizarra/api/messages/{post_id}/delete/",
-        ),
-        "contacts_api_url": os.getenv("COBIEN_CONTACTS_API_URL", "https://portal.co-bien.eu/pizarra/api/contacts/"),
-        "device_heartbeat_url": os.getenv(
-            "COBIEN_DEVICE_HEARTBEAT_URL",
-            "https://portal.co-bien.eu/pizarra/api/devices/heartbeat/",
-        ),
-        "device_heartbeat_interval_sec": int(os.getenv("COBIEN_DEVICE_HEARTBEAT_INTERVAL_SEC", "60")),
-        "icso_telemetry_url": os.getenv(
-            "COBIEN_ICSO_TELEMETRY_URL",
-            "https://portal.co-bien.eu/pizarra/api/icso/telemetry/",
-        ),
-        "icso_events_url": os.getenv(
-            "COBIEN_ICSO_EVENTS_URL",
-            "https://portal.co-bien.eu/pizarra/api/icso/events/",
-        ),
-        "portal_videocall_url": os.getenv("COBIEN_PORTAL_VIDEOCALL_URL", "https://portal.co-bien.eu/videocall/"),
-        "portal_videocall_device_url": os.getenv("COBIEN_PORTAL_VIDEOCALL_DEVICE_URL", "https://portal.co-bien.eu/videocall/device/"),
-        "device_videocall_session_url": os.getenv(
-            "COBIEN_DEVICE_VIDEOCALL_SESSION_URL",
-            "https://portal.co-bien.eu/api/device-videocall-session/",
-        ),
-        "portal_call_answered_url": os.getenv(
-            "COBIEN_PORTAL_CALL_ANSWERED_URL",
-            "https://portal.co-bien.eu/api/call-answered/",
-        ),
-        "openweather_current_url": "https://api.openweathermap.org/data/2.5/weather",
-        "openweather_forecast_url": "https://api.openweathermap.org/data/2.5/forecast",
-        "news_api_url": "https://newsapi.org/v2/top-headlines",
-        "open_meteo_url": "https://api.open-meteo.com/v1/forecast",
-        "nominatim_search_url": "https://nominatim.openstreetmap.org/search",
-    },
-    "software": {
-        "version": "",
     },
 }
 
@@ -139,54 +45,15 @@ _INVALID_CITY_PATTERNS = (
 _CITY_ALLOWED_RE = re.compile(r"^[A-Za-zÀ-ÿ' .-]{2,60}$")
 
 
-def _normalize_weather_city_name(value):
-    city = " ".join(str(value or "").strip().split())
-    return city
+def _clone_default_config() -> Dict[str, Any]:
+    return load_default_unified_config()
 
 
-def _is_valid_weather_city(value):
-    city = _normalize_weather_city_name(value)
-    if not city:
-        return False
-    lowered = city.casefold()
-    if any(pattern in lowered for pattern in _INVALID_CITY_PATTERNS):
-        return False
-    if lowered.startswith("#") or lowered.startswith("[") or lowered.startswith("{"):
-        return False
-    if not _CITY_ALLOWED_RE.match(city):
-        return False
-    return True
+def _default_settings() -> Dict[str, Any]:
+    return copy.deepcopy(_clone_default_config()["settings"])
 
 
-def _sanitize_weather_city_list(values):
-    sanitized = []
-    seen = set()
-    for raw in values or []:
-        city = _normalize_weather_city_name(raw)
-        if not _is_valid_weather_city(city):
-            continue
-        key = city.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        sanitized.append(city)
-    return sanitized
-def _load_local_config():
-    if not os.path.exists(LOCAL_CONFIG_PATH):
-        return {}
-    try:
-        data = _read_json(LOCAL_CONFIG_PATH)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-def _save_local_config_overlay(config):
-    os.makedirs(os.path.dirname(LOCAL_CONFIG_PATH), exist_ok=True)
-    _write_json(LOCAL_CONFIG_PATH, config)
-
-
-def _ensure_nested_dict(root, key):
+def _ensure_nested_dict(root: Dict[str, Any], key: str) -> Dict[str, Any]:
     current = root.get(key)
     if isinstance(current, dict):
         return current
@@ -194,8 +61,38 @@ def _ensure_nested_dict(root, key):
     return root[key]
 
 
-def _extract_sensitive_values(config):
-    extracted = {}
+def _deep_merge_dict(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    for key, value in incoming.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge_dict(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def _read_json(path: str) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    return data if isinstance(data, dict) else {}
+
+
+def _write_json(path: str, data: Dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=4, ensure_ascii=False)
+
+
+def _load_local_config() -> Dict[str, Any]:
+    if not os.path.exists(LOCAL_CONFIG_PATH):
+        return {}
+    try:
+        return _read_json(LOCAL_CONFIG_PATH)
+    except Exception:
+        return {}
+
+
+def _extract_sensitive_values(config: Dict[str, Any]) -> Dict[str, Any]:
+    extracted: Dict[str, Any] = {}
     for section, keys in SENSITIVE_CONFIG.items():
         section_data = config.get(section)
         if not isinstance(section_data, dict):
@@ -208,17 +105,7 @@ def _extract_sensitive_values(config):
     return extracted
 
 
-def _scrub_sensitive_values(config):
-    for section, keys in SENSITIVE_CONFIG.items():
-        section_data = config.get(section)
-        if not isinstance(section_data, dict):
-            continue
-        for key in keys:
-            section_data[key] = ""
-    return config
-
-
-def _merge_secret_values(base, incoming):
+def _merge_secret_values(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
     for section, keys in SENSITIVE_CONFIG.items():
         incoming_section = incoming.get(section)
         if not isinstance(incoming_section, dict):
@@ -232,129 +119,61 @@ def _merge_secret_values(base, incoming):
     return base
 
 
-def _apply_legacy_local_secrets(config):
+def _apply_env_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
     resolved = copy.deepcopy(config)
-    local_secrets = _load_legacy_local_secrets()
-
-    for section, keys in SENSITIVE_CONFIG.items():
-        target_section = _ensure_nested_dict(resolved, section)
-        local_section = local_secrets.get(section, {}) if isinstance(local_secrets.get(section), dict) else {}
-
-        for key, meta in keys.items():
-            local_value = str(local_section.get(key, "")).strip()
-            if local_value:
-                target_section[key] = local_value
-
-    return resolved
-
-
-def _apply_env_overrides(config):
-    resolved = copy.deepcopy(config)
-
     for section, keys in SENSITIVE_CONFIG.items():
         target_section = _ensure_nested_dict(resolved, section)
         for key, meta in keys.items():
             env_value = os.getenv(meta["env"], "").strip()
             if env_value:
                 target_section[key] = env_value
-
     return resolved
 
 
-def _persist_extracted_secrets_to_local_config(config):
+def _persist_extracted_secrets_to_local_config(config: Dict[str, Any]) -> None:
     extracted = _extract_sensitive_values(config)
     if not extracted:
         return
-
     local_config = _load_local_config()
     merged = _merge_secret_values(local_config, extracted)
-    _save_local_config_overlay(merged)
+    _write_json(LOCAL_CONFIG_PATH, merged)
 
 
-def _apply_local_config_overlay(config):
-    resolved = copy.deepcopy(config)
-    resolved = _apply_legacy_local_secrets(resolved)
-    local_config = _load_local_config()
-    if isinstance(local_config, dict) and local_config:
-        _deep_merge_dict(resolved, local_config)
-    return resolved
-def _deep_merge_dict(base, incoming):
-    for key, value in incoming.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            _deep_merge_dict(base[key], value)
-        else:
-            base[key] = value
-    return base
+def _normalize_weather_city_name(value: Any) -> str:
+    return " ".join(str(value or "").strip().split())
 
 
-def _read_json(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+def _is_valid_weather_city(value: Any) -> bool:
+    city = _normalize_weather_city_name(value)
+    if not city:
+        return False
+    lowered = city.casefold()
+    if any(pattern in lowered for pattern in _INVALID_CITY_PATTERNS):
+        return False
+    if lowered.startswith("#") or lowered.startswith("[") or lowered.startswith("{"):
+        return False
+    return bool(_CITY_ALLOWED_RE.match(city))
 
 
-def _write_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+def _sanitize_weather_city_list(values: Any) -> list[str]:
+    sanitized: list[str] = []
+    seen: set[str] = set()
+    for raw in values or []:
+        city = _normalize_weather_city_name(raw)
+        if not _is_valid_weather_city(city):
+            continue
+        key = city.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        sanitized.append(city)
+    return sanitized
 
 
-def _read_version_file():
-    try:
-        with open(VERSION_PATH, "r", encoding="utf-8") as f:
-            return f.read().strip()
-    except Exception:
-        return ""
-
-
-def _build_initial_from_legacy():
-    config = copy.deepcopy(DEFAULT_UNIFIED_CONFIG)
-
-    if os.path.exists(LEGACY_UNIFIED_CONFIG_PATH):
-        try:
-            legacy_unified = _read_json(LEGACY_UNIFIED_CONFIG_PATH)
-            if isinstance(legacy_unified, dict):
-                _deep_merge_dict(config, legacy_unified)
-        except Exception:
-            pass
-
-    if os.path.exists(LEGACY_SETTINGS_PATH):
-        try:
-            settings_data = _read_json(LEGACY_SETTINGS_PATH)
-            if isinstance(settings_data, dict):
-                _deep_merge_dict(config["settings"], settings_data)
-        except Exception:
-            pass
-
-    if os.path.exists(LEGACY_NOTIFICATIONS_PATH):
-        try:
-            notifications_data = _read_json(LEGACY_NOTIFICATIONS_PATH)
-            if isinstance(notifications_data, dict):
-                _deep_merge_dict(config["notifications"], notifications_data)
-        except Exception:
-            pass
-
-    try:
-        pin_env = os.getenv("COBIEN_SETTINGS_PIN", "").strip()
-        if pin_env:
-            config["security"]["settings_pin"] = pin_env
-        elif os.path.exists(LEGACY_PIN_PATH):
-            with open(LEGACY_PIN_PATH, "r", encoding="utf-8") as f:
-                legacy_pin = f.read().strip()
-                if legacy_pin:
-                    config["security"]["settings_pin"] = legacy_pin
-    except Exception:
-        pass
-
-    config["software"]["version"] = _read_version_file()
-    config["meta"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    return config
-
-
-def _ensure_schema(data):
-    if not isinstance(data, dict):
-        data = copy.deepcopy(DEFAULT_UNIFIED_CONFIG)
-    merged = copy.deepcopy(DEFAULT_UNIFIED_CONFIG)
-    _deep_merge_dict(merged, data)
+def _ensure_schema(data: Dict[str, Any] | None) -> Dict[str, Any]:
+    merged = _clone_default_config()
+    if isinstance(data, dict):
+        _deep_merge_dict(merged, data)
 
     settings = merged["settings"]
     active_cities = _sanitize_weather_city_list(settings.get("weather_cities", []))
@@ -362,10 +181,8 @@ def _ensure_schema(data):
 
     if not catalog_cities:
         catalog_cities = list(active_cities)
-
     if not active_cities:
         active_cities = [city for city in DEFAULT_WEATHER_CITIES if city in catalog_cities] or list(DEFAULT_WEATHER_CITIES)
-
     if not catalog_cities:
         catalog_cities = list(DEFAULT_WEATHER_CITIES)
 
@@ -382,50 +199,56 @@ def _ensure_schema(data):
     settings["weather_primary_city"] = primary_city
 
     merged["meta"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    if not merged["software"].get("version"):
-        merged["software"]["version"] = _read_version_file()
+    merged["software"]["version"] = read_version()
     return merged
 
 
-def load_config():
-    if os.path.exists(LOCAL_CONFIG_PATH):
-        try:
-            data = _read_json(LOCAL_CONFIG_PATH)
-        except Exception:
-            data = _build_initial_from_legacy()
-    else:
-        data = _build_initial_from_legacy()
+def get_default_config() -> Dict[str, Any]:
+    """Return a copy of the canonical default unified configuration."""
+    return _ensure_schema(_clone_default_config())
 
-    normalized = _ensure_schema(data)
+
+def get_default_section(section_name: str, default: Any = None) -> Any:
+    """Return a copy of one section from the canonical default config."""
+    config = get_default_config()
+    if section_name in config:
+        return copy.deepcopy(config[section_name])
+    return copy.deepcopy(default)
+
+
+def load_config() -> Dict[str, Any]:
+    """Load, normalize, persist, and return the active unified config."""
+    normalized = _ensure_schema(_load_local_config())
     _persist_extracted_secrets_to_local_config(normalized)
-    _save_local_config_overlay(normalized)
+    _write_json(LOCAL_CONFIG_PATH, normalized)
     return _apply_env_overrides(copy.deepcopy(normalized))
 
 
-def save_config(config):
+def save_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize and persist the active unified config."""
     normalized = _ensure_schema(config)
     _persist_extracted_secrets_to_local_config(normalized)
-    _save_local_config_overlay(normalized)
+    _write_json(LOCAL_CONFIG_PATH, normalized)
     return _apply_env_overrides(copy.deepcopy(normalized))
 
 
-def load_section(section_name, default=None):
+def load_section(section_name: str, default: Any = None) -> Any:
     config = load_config()
     if section_name in config:
         return copy.deepcopy(config[section_name])
     return copy.deepcopy(default)
 
 
-def save_section(section_name, section_data):
+def save_section(section_name: str, section_data: Any) -> Dict[str, Any]:
     config = load_config()
     config[section_name] = copy.deepcopy(section_data)
     return save_config(config)
 
 
-def load_services():
+def load_services() -> Dict[str, Any]:
     return load_section("services", {})
 
 
-def get_service(key, default=None):
+def get_service(key: str, default: Any = None) -> Any:
     services = load_services()
     return services.get(key, default)
