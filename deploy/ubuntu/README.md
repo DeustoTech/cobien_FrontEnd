@@ -139,7 +139,8 @@ bash deploy/ubuntu/install-systemd-user.sh
 Este script hace automáticamente:
 
 - instala/actualiza unidades `systemd --user`
-- aplica override gráfico (`DISPLAY=:0`, `XAUTHORITY=%t/gdm/Xauthority`)
+- importa el entorno gráfico real de la sesión (`DISPLAY`, `XAUTHORITY`, `DBUS_SESSION_BUS_ADDRESS`, etc.)
+- funciona tanto en GNOME como en XFCE sin depender de `gdm`
 - elimina `~/.config/autostart/cobien-launcher.desktop` legacy
 - elimina entradas cron legacy `--mode update-once`
 - `daemon-reload`

@@ -5,9 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYSTEMD_SRC_DIR="$SCRIPT_DIR/systemd"
 SYSTEMD_USER_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SYSTEMD_OVERRIDE_DIR="$SYSTEMD_USER_DIR/cobien-launcher.service.d"
-AUTOSTART_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/cobien-launcher.desktop"
+AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+AUTOSTART_FILE="$AUTOSTART_DIR/cobien-import-session-env.desktop"
 
 mkdir -p "$SYSTEMD_USER_DIR"
+mkdir -p "$AUTOSTART_DIR"
 
 # Enable linger so user services survive without an active login session
 if command -v loginctl >/dev/null 2>&1; then
@@ -19,17 +21,23 @@ install -m 0644 "$SYSTEMD_SRC_DIR/cobien-launcher.service" "$SYSTEMD_USER_DIR/co
 install -m 0644 "$SYSTEMD_SRC_DIR/cobien-update.service" "$SYSTEMD_USER_DIR/cobien-update.service"
 install -m 0644 "$SYSTEMD_SRC_DIR/cobien-update.timer" "$SYSTEMD_USER_DIR/cobien-update.timer"
 
-mkdir -p "$SYSTEMD_OVERRIDE_DIR"
-cat > "$SYSTEMD_OVERRIDE_DIR/override.conf" <<'EOF'
-[Service]
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=%t/gdm/Xauthority
-EOF
+rm -rf "$SYSTEMD_OVERRIDE_DIR"
+echo "[OK] Removed legacy graphical override: $SYSTEMD_OVERRIDE_DIR"
 
-if [[ -f "$AUTOSTART_FILE" ]]; then
-  rm -f "$AUTOSTART_FILE"
-  echo "[OK] Removed legacy autostart file: $AUTOSTART_FILE"
-fi
+cat > "$AUTOSTART_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Name=CoBien Session Env Import
+Comment=Import GNOME/XFCE graphical environment into systemd user services
+Exec=/bin/bash $SCRIPT_DIR/import-systemd-user-env.sh
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
+X-XFCE-Autostart-enabled=true
+X-MATE-Autostart-enabled=true
+NoDisplay=true
+Terminal=false
+EOF
+echo "[OK] Installed session env autostart helper: $AUTOSTART_FILE"
 
 if crontab -l >/dev/null 2>&1; then
   crontab -l | grep -v 'cobien-launcher.sh --mode update-once' | crontab -
@@ -44,7 +52,7 @@ systemctl --user restart cobien-launcher.service
 echo "[OK] Installed systemd user units in: $SYSTEMD_USER_DIR"
 echo "[OK] Enabled: cobien-launcher.service"
 echo "[OK] Enabled: cobien-update.timer"
-echo "[OK] Applied graphical override: $SYSTEMD_OVERRIDE_DIR/override.conf"
+echo "[OK] Session env helper: $AUTOSTART_FILE"
 echo
 echo "Verification commands:"
 echo "  systemctl --user status cobien-launcher.service"
