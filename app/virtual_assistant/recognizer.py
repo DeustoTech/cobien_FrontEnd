@@ -103,7 +103,7 @@ class SpeechRecognizer:
             FileNotFoundError: If ``model_path`` does not exist.
         """
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"No se encontró el modelo Vosk en {model_path}")
+            raise FileNotFoundError(f"Vosk model not found at {model_path}")
         
         self.model = Model(model_path)
         self.recognizer = KaldiRecognizer(self.model, sample_rate)
@@ -240,7 +240,7 @@ class SpeechRecognizer:
             while True:
                 # timeout global de sécurité
                 if time.time() - start_time > timeout:
-                    print("[VOSK] Timeout écoute")
+                    print("[VOSK] Listening timeout")
                     break
 
                 try:

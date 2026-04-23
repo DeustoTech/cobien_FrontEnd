@@ -428,7 +428,7 @@ class CallConfirmationPopup(ModalView):
         Args:
             *args: Kivy event callback arguments.
         """
-        print("[POPUP] ⏱️ Timer auto-fermeture démarré (5s)")
+        print("[POPUP] Auto-close timer started (5s)")
         self.auto_close_timer = Clock.schedule_once(self._auto_close, 5)
     
     def _cancel_timer(self, *args: Any) -> None:
@@ -438,7 +438,7 @@ class CallConfirmationPopup(ModalView):
             *args: Kivy event callback arguments.
         """
         if self.auto_close_timer:
-            print("[POPUP] 🛑 Timer annulé")
+            print("[POPUP] Timer cancelled")
             self.auto_close_timer.cancel()
             self.auto_close_timer = None
     
@@ -448,7 +448,7 @@ class CallConfirmationPopup(ModalView):
         Args:
             dt: Elapsed scheduler time in seconds.
         """
-        print("[POPUP] ⏰ Auto-fermeture (5s écoulées)")
+        print("[POPUP] Auto-close triggered (5s elapsed)")
         self.dismiss()
     
     def _close(self, *args: Any) -> None:
@@ -457,7 +457,7 @@ class CallConfirmationPopup(ModalView):
         Args:
             *args: Kivy callback arguments.
         """
-        print("[POPUP] ✅ Fermeture manuelle (bouton OK)")
+        print("[POPUP] Manual close (OK button)")
         self.dismiss()
 
 

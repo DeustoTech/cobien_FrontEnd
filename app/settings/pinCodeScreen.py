@@ -207,14 +207,14 @@ class PinCodeScreen(Screen):
     
     def update_labels(self) -> None:
         """Refresh translated labels and helper text."""
-        print("[PIN] 🔄 Mise à jour labels...")
+        print("[PIN] Updating labels...")
         
         if not self.title_label or not self.message_label:
-            print("[PIN] ⚠️ Labels non initialisés")
+            print("[PIN] Labels not initialized")
             return
         
         lang = get_current_language()
-        print(f"[PIN] 🌐 Langue actuelle: {lang}")
+        print(f"[PIN] Current language: {lang}")
         
         # ✅ Traduire avec les clés EXACTES des .po
         # self.title_label.text = _("Código de Seguridad")
@@ -224,7 +224,7 @@ class PinCodeScreen(Screen):
             # self.message_label.text = _("Ingrese el código PIN")
             self.message_label.color = (0.4, 0.4, 0.4, 1)
         
-        print(f"[PIN] ✅ Labels mis à jour: '{self.title_label.text}'")
+        print(f"[PIN] Labels updated: '{self.title_label.text}'")
     
     def build_ui(self) -> None:
         """Build full PIN-entry layout and keypad controls."""
@@ -335,7 +335,7 @@ class PinCodeScreen(Screen):
     
     def grant_access(self) -> None:
         """Grant access and navigate to target screen."""
-        print(f"[PIN] Accès autorisé - Transition vers {self.target_screen}")
+        print(f"[PIN] Access granted - navigating to {self.target_screen}")
         self.sm.current = self.target_screen
         self.reset_pin()
     
@@ -345,13 +345,13 @@ class PinCodeScreen(Screen):
     
     def on_pre_enter(self) -> None:
         """Reset state and refresh labels before screen entry."""
-        print("[PIN] 📺 on_pre_enter() - Mise à jour traductions")
+        print("[PIN] on_pre_enter() - refreshing translations")
         self.reset_pin()
         self.update_labels()
     
     def on_enter(self) -> None:
         """Refresh labels when screen becomes visible."""
-        print("[PIN] 🔄 on_enter: réinitialisation du PIN")
+        print("[PIN] on_enter: resetting PIN")
         self.update_labels()
 
 

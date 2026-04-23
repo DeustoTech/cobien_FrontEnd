@@ -502,7 +502,7 @@ def add_personal_event_mongo(
             eventos = fetch_events_from_mongo(device_name=target_device)
             guardar_eventos_localmente(eventos)
         except Exception as cache_error:
-            print(f"[MONGO] No se pudo refrescar la caché local tras insertar: {cache_error}")
+            print(f"[MONGO] Could not refresh local cache after insert: {cache_error}")
         event_bus.notify_events_changed()
         return str(res.inserted_id)
     except Exception as e:

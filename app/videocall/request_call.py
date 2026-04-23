@@ -100,14 +100,14 @@ def send_pizarra_notification(
             return _build_result(False, f"VC-{r.status_code}", f"Backend devolvió HTTP {r.status_code}", r)
         return _build_result(True, "VC-200", "Solicitud enviada correctamente", r)
     except requests.exceptions.Timeout as e:
-        print("Erreur en envoyant la notification :", e)
+        print("Error sending notification:", e)
         return _build_result(False, "VC-TIMEOUT", "Tiempo de espera agotado")
     except requests.exceptions.ConnectionError as e:
-        print("Erreur en envoyant la notification :", e)
+        print("Error sending notification:", e)
         return _build_result(False, "VC-NET", "No se pudo conectar con el servidor")
     except requests.exceptions.RequestException as e:
-        print("Erreur en envoyant la notification :", e)
+        print("Error sending notification:", e)
         return _build_result(False, "VC-REQ", str(e))
     except Exception as e:
-        print("Erreur en envoyant la notification :", e)
+        print("Error sending notification:", e)
         return _build_result(False, "VC-UNK", str(e))

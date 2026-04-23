@@ -158,7 +158,7 @@ class JokesScreen(Screen):
             print(f"[JOKES] ✅ {len(self.jokes)} jokes loaded ({lang}, {category})")
         
         except Exception as e:
-            print(f"[JOKES] ❌ Erreur: {e}")
+            print(f"[JOKES] ❌ Error: {e}")
             import traceback
             traceback.print_exc()
             self.load_jokes_fallback()

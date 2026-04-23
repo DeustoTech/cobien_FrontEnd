@@ -279,19 +279,19 @@ class JokeCategoryScreen(Screen):
         old_category = self.cfg.data.get("joke_category", "general")
         self.cfg.data["joke_category"] = category_id
         self.cfg.save()
-        print(f"[JOKE_CATEGORY]    {old_category} → {category_id} (sauvegardé)")
+        print(f"[JOKE_CATEGORY]    {old_category} -> {category_id} (saved)")
         
         # 2️⃣ ✅ FORCE RELOAD of config in MainScreen
         app = App.get_running_app()
         if hasattr(app, 'main_ref'):
             # ✅ RELOAD the config from disk
             app.main_ref.cfg.load()
-            print(f"[JOKE_CATEGORY]    Config rechargée: {app.main_ref.cfg.data.get('joke_category')}")
+            print(f"[JOKE_CATEGORY]    Config reloaded: {app.main_ref.cfg.data.get('joke_category')}")
             
             # ✅ FORCE reload of joke
             if hasattr(app.main_ref, 'reload_joke'):
                 app.main_ref.reload_joke()
-                print("[JOKE_CATEGORY] ✅ MainScreen rechargé via reload_joke()")
+                print("[JOKE_CATEGORY] MainScreen reloaded via reload_joke()")
         
         # 3️⃣ Recharger JokesScreen
         if app.root.has_screen("jokes"):
@@ -304,12 +304,12 @@ class JokeCategoryScreen(Screen):
                     jokes_widget.load_jokes()
                     if hasattr(jokes_widget, 'show_random_joke'):
                         jokes_widget.show_random_joke()
-                    print("[JOKE_CATEGORY] ✅ JokesScreen rechargé")
+                    print("[JOKE_CATEGORY] JokesScreen reloaded")
         
         # 4️⃣ Rafraîchir l'affichage (catégorie en bleu)
         self.populate_categories()
         
-        print(f"[JOKE_CATEGORY] ✅ Catégorie changée : {category_id}")
+        print(f"[JOKE_CATEGORY] Category changed: {category_id}")
     
     def on_pre_enter(self) -> None:
         """Refresh labels every time the screen is entered.
@@ -317,5 +317,5 @@ class JokeCategoryScreen(Screen):
         Returns:
             None.
         """
-        print("[JOKE_CATEGORY] 📺 on_pre_enter() - Mise à jour traductions")
+        print("[JOKE_CATEGORY] on_pre_enter() - refreshing translations")
         self.update_labels()

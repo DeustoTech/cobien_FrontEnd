@@ -36,9 +36,9 @@ mqtt_client = mqtt.Client()
 try:
     mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
     mqtt_client.loop_start()
-    print("[MQTT_BUTTONS] ✓ Client MQTT démarré pour button/config")
+    print("[MQTT_BUTTONS] MQTT client started for button/config")
 except Exception as e:
-    print(f"[MQTT_BUTTONS] ✗ Erreur connexion: {e}")
+    print(f"[MQTT_BUTTONS] Connection error: {e}")
 
 # ✅ CONSTANTES CORRIGÉES SELON LE CODE C
 SHAPES = {

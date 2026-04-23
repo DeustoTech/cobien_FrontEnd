@@ -118,7 +118,7 @@ class TranslationManager:
                 languages=[lang],
                 fallback=False
             )
-            print(f"[TRANSLATION] ✅ Langue chargée: {lang}")
+            print(f"[TRANSLATION] Language loaded: {lang}")
             return
         except Exception:
             pass
@@ -128,13 +128,13 @@ class TranslationManager:
             if os.path.exists(po_path):
                 catalog = _load_po_catalog(po_path)
                 self._translation = PoTranslations(catalog)
-                print(f"[TRANSLATION] ✅ Langue chargée depuis PO: {lang}")
+                print(f"[TRANSLATION] Language loaded from PO: {lang}")
                 return
         except Exception as e:
-            print(f"[TRANSLATION] ⚠️ Erreur fallback PO ({lang}): {e}")
+            print(f"[TRANSLATION] PO fallback error ({lang}): {e}")
 
         # 3) Last fallback: identity translation
-        print(f"[TRANSLATION] ⚠️ Aucun catalogue disponible pour '{lang}', fallback identity")
+        print(f"[TRANSLATION] No catalog available for '{lang}', using identity fallback")
         self._translation = gettext.NullTranslations()
     
     def gettext(self, message):
@@ -206,7 +206,7 @@ def change_language(lang):
         print(_("Hola"))  # -> "Bonjour"
     """
     _translation_manager.load_translation(lang)
-    print(f"[TRANSLATION] 🌍 Langue changée globalement: {lang}")
+    print(f"[TRANSLATION] Global language changed: {lang}")
 
 
 # ============================================================================
@@ -233,10 +233,10 @@ def get_current_language():
 if __name__ == "__main__":
     # Module smoke test
     print("=" * 60)
-    print("TEST DU MODULE DE TRADUCTION")
+    print("TRANSLATION MODULE TEST")
     print("=" * 60)
     
-    print("\n1. Test Espagnol (défaut)")
+    print("\n1. Spanish test (default)")
     print(f"   _('Tiempo') = {_('Tiempo')}")
     print(f"   _('Eventos') = {_('Eventos')}")
     print(f"   _('Configuración') = {_('Configuración')}")
@@ -257,5 +257,5 @@ if __name__ == "__main__":
     print(f"   get_current_language() = {get_current_language()}")
     
     print("\n" + "=" * 60)
-    print("TEST TERMINÉ")
+    print("TEST COMPLETED")
     print("=" * 60)

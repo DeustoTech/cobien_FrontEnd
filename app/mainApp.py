@@ -572,7 +572,7 @@ def resolve_display_name(username):
                     if user == username:
                         return display
     except Exception as e:
-        print(f"[CONTACT] Erreur résolution nom: {e}")
+        print(f"[CONTACT] Name resolution error: {e}")
     return username  # fallback propre
 
 # -------------------------- LÓGICA --------------------------
@@ -607,12 +607,10 @@ class MainScreen(Screen):
         self.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
         self.DEVICE_LOCATION = self.cfg.get_device_location()
         
-        print(f"[MAIN] ========================================")
-        print(f"[MAIN] Device configuration loaded from config.local.json:")
-        print(f"[MAIN]    Device ID: '{self.DEVICE_ID}' (case-sensitive)")
-        print(f"[MAIN]    Videocall Room: '{self.VIDEOCALL_ROOM}' (case-sensitive)")
-        print(f"[MAIN]    Location: '{self.DEVICE_LOCATION}'")
-        print(f"[MAIN] ========================================")
+        print(
+            f"[MAIN] Config loaded: device_id='{self.DEVICE_ID}', "
+            f"room='{self.VIDEOCALL_ROOM}', location='{self.DEVICE_LOCATION}'"
+        )
 
         self._update_footer_meta()
 
@@ -773,7 +771,6 @@ class MainScreen(Screen):
         if force or day_changed or language_changed or category_changed:
             # ✅ Recharger blagues si langue ou catégorie ont changé
             if language_changed or category_changed:
-                print(f"[JOKES] Reloading jokes (lang={current_lang}, category={current_category})")
                 self.jokes = self._load_jokes()
             
             # ✅ Afficher nouvelle blague
@@ -811,8 +808,6 @@ class MainScreen(Screen):
 
     def reload_joke(self):
         """✅ AMÉLIORÉ : Force le rechargement IMMÉDIAT d'une nouvelle blague"""
-        print("[JOKES] Forced reload...")
-        
         # 1. Sauvegarder l'ancienne blague
         old_joke = getattr(self, 'joke_text', None)
         
@@ -866,14 +861,8 @@ class MainScreen(Screen):
         # ✅ NOUVEAU : Recharger blague si langue a changé
         self._maybe_refresh_joke(force=True)
         
-        print("[MAIN] Labels updated")
-
-
     # ========== Callbacks MQTT LOCAL (capteurs/boutons du meuble) ==========
     def on_connect_local(self, client, userdata, flags, rc):
-        print(f"[DEBUG] on_connect_local called - rc={rc}, flags={flags}")
-        print(f"[DEBUG] _subscribed_local = {getattr(self, '_subscribed_local', 'UNDEFINED')}")
-        
         if rc == 0:
             if self._subscribed_local:
                 return
@@ -889,7 +878,6 @@ class MainScreen(Screen):
         """Traite les messages des capteurs locaux"""
         message = msg.payload.decode()
         topic = msg.topic
-        print(f"[MQTT LOCAL] Message received on {topic}: {message[:50]}...")
         Clock.schedule_once(lambda dt: self._process_safe(message, topic))
 
     def _process_safe(self, message, topic):
@@ -1032,7 +1020,7 @@ class MainScreen(Screen):
             print(f"[JOKES] 📖 Chargement: {jokes_file} (cat={category})")
             
             if not os.path.exists(jokes_path):
-                print(f"[JOKES] ❌ Fichier introuvable: {jokes_path}")
+                print(f"[JOKES] File not found: {jokes_path}")
                 return self._load_jokes_fallback(lang)
             
             with open(jokes_path, "r", encoding="utf-8") as f:
@@ -1050,12 +1038,12 @@ class MainScreen(Screen):
             
             # Si catégorie vide, prendre "general"
             if not jokes and category not in ("general", "all"):
-                print(f"[JOKES] ⚠️ Catégorie '{category}' vide, fallback 'general'")
+                print(f"[JOKES] Empty category '{category}', falling back to 'general'")
                 jokes = data.get("general", [])
             
             # Si toujours vide, prendre toutes les blagues
             if not jokes:
-                print(f"[JOKES] ⚠️ Aucune blague trouvée, chargement complet")
+                print(f"[JOKES] No jokes found, loading full dataset")
                 jokes = []
                 for cat_jokes in data.values():
                     if isinstance(cat_jokes, list):
@@ -1074,11 +1062,11 @@ class MainScreen(Screen):
             
             jokes = [j for j in normalized_jokes if j]
             
-            print(f"[JOKES] ✅ {len(jokes)} blagues chargées ({lang}, {category})")
+            print(f"[JOKES] Loaded {len(jokes)} jokes ({lang}, {category})")
             return jokes if jokes else self._load_jokes_fallback(lang)
         
         except Exception as e:
-            print(f"[JOKES] ❌ Erreur: {e}")
+            print(f"[JOKES] Error: {e}")
             import traceback
             traceback.print_exc()
             return self._load_jokes_fallback(lang)
@@ -1112,21 +1100,18 @@ class MainScreen(Screen):
         if force or day_changed or language_changed or category_changed:
             # ✅ Recharger blagues si langue ou catégorie ont changé
             if language_changed or category_changed:
-                print(f"[JOKES] 🔄 Rechargement blagues (lang={current_lang}, cat={current_category})")
                 self.jokes = self._load_jokes()
             
             # ✅ Afficher nouvelle blague
             self._last_joke_date = today
             if self.jokes:
                 self.joke_text = random.choice(self.jokes)
-                print(f"[JOKES] 🎭 Nouvelle blague affichée")
+                print(f"[JOKES] New joke displayed")
             else:
                 self.joke_text = "..."
 
     def reload_joke(self):
         """✅ Force le rechargement d'une nouvelle blague (appelé depuis settings)"""
-        print("[JOKES] 🔄 Rechargement forcé...")
-    
         # 1. Sauvegarder l'ancienne blague
         old_joke = getattr(self, 'joke_text', None)
         
@@ -1150,13 +1135,13 @@ class MainScreen(Screen):
                 new_joke = random.choice(self.jokes)
             
             self.joke_text = new_joke
-            print(f"[JOKES] ✅ Nouvelle blague affichée")
-            print(f"[JOKES]    Langue: {self._current_joke_language}")
-            print(f"[JOKES]    Catégorie: {self._current_joke_category}")
-            print(f"[JOKES]    Blague: {new_joke[:30]}...")
+            print(f"[JOKES] New joke displayed")
+            print(f"[JOKES]    Language: {self._current_joke_language}")
+            print(f"[JOKES]    Category: {self._current_joke_category}")
+            print(f"[JOKES]    Joke: {new_joke[:30]}...")
         else:
             self.joke_text = "..."
-            print("[JOKES] ⚠️ Aucune blague disponible")
+            print("[JOKES] No jokes available")
     #  ========== FIN CHISTES ==========
 
     # ================= EVENTOS =================
@@ -1415,7 +1400,7 @@ class MainScreen(Screen):
                 with open(self.cache_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
-            print(f"[CLIMA] Error leyendo caché: {e}")
+            print(f"[WEATHER] Error reading cache: {e}")
         return {}
 
     def _save_day_cache(self, data: dict):
@@ -1425,7 +1410,7 @@ class MainScreen(Screen):
                 json.dump(data, f, ensure_ascii=False)
             os.replace(tmp, self.cache_path)
         except Exception as e:
-            print(f"[CLIMA] Error guardando caché: {e}")
+            print(f"[WEATHER] Error writing cache: {e}")
 
     def _map_weather_icon(self, weather_id: int, icon_code: str) -> str:
         is_day = icon_code.endswith("d")
@@ -1540,7 +1525,7 @@ class MainScreen(Screen):
                 elif target == "videocall":
                     to_user = (extra or {}).get("to_user")
                     if to_user:
-                        print(f"[MQTT] Demande d'appel → {to_user}")
+                        print(f"[MQTT] Call request -> {to_user}")
                         from videocall.request_call import send_pizarra_notification
                         threading.Thread(
                             target=send_pizarra_notification,
@@ -1550,7 +1535,7 @@ class MainScreen(Screen):
                         display_name = resolve_display_name(to_user)
                         show_call_sent_popup(contact_name=display_name)
                         log_call_request()
-                        print(f"[CONTACT] Notification envoyée à {display_name}")
+                        print(f"[CONTACT] Notification sent to {display_name}")
                     else:
                         # fallback: comportement actuel (l'utilisateur choisit manuellement)
                         self.sm.current = "contacts"
@@ -1563,10 +1548,10 @@ class MainScreen(Screen):
                     lon = extra.get("lon")
                     tz = extra.get("tz")
                     if name and lat and lon and tz:
-                        print(f"[MQTT] Météo → {name}")
+                        print(f"[MQTT] Weather -> {name}")
                         w.set_city_dynamic(name, lat, lon, tz)
                     else:
-                        print("[MQTT] Données météo invalides :", extra)
+                        print("[MQTT] Invalid weather payload:", extra)
 
                 elif target == "weather_list":
                     cities = extra.get("cities", [])
@@ -1579,22 +1564,16 @@ class MainScreen(Screen):
                 return
 
             except Exception as e:
-                print(f"[MQTT] Erreur générale: {e}")
+                print(f"[MQTT] General error: {e}")
 
     def process_backend_notification(self, message, topic):
         """Traite uniquement les notifications venant du BACKEND"""
         
-        print(f"[BACKEND_NOTIF] ========================================")
-        print(f"[BACKEND_NOTIF] 📩 Topic: {topic}")
-        print(f"[BACKEND_NOTIF] 📩 Message: {message[:100]}...")
-        
         # ========== PARSE JSON ==========
         try:
             data = json.loads(message)
-            print(f"[BACKEND_NOTIF] ✅ JSON parsé: {data}")
         except json.JSONDecodeError as e:
-            print(f"[BACKEND_NOTIF] ❌ JSON invalide: {e}")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Invalid JSON payload: {e}")
             return
         
         # Detect type early because some backend-originating admin events
@@ -1615,10 +1594,7 @@ class MainScreen(Screen):
         ]
         
         if sender in ignored_accounts and notif_type not in {"contacts_updated", "contacts_sync", "contacts_refresh"}:
-            print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (compte du meuble)")
-            print(f"[BACKEND_NOTIF]    From: '{sender}' (exact match)")
-            print(f"[BACKEND_NOTIF]    Ignored: {ignored_accounts}")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Message ignored from furniture account '{sender}'")
             return
         # ✅ ============================================================
         
@@ -1628,30 +1604,22 @@ class MainScreen(Screen):
         if recipient:
             # ✅ CAS 1 : Message pour "all" → Tout le monde reçoit
             if recipient == "all":
-                print(f"[BACKEND_NOTIF] ✅ Message pour tous les meubles")
+                print("[BACKEND_NOTIF] Broadcast message for all furniture devices")
             
             # ✅ CAS 2 : Liste de destinataires (CASE-SENSITIVE)
             elif isinstance(recipient, list):
                 if self.DEVICE_ID not in recipient:  # ✅ Comparaison EXACTE
-                    print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (pas destinataire)")
-                    print(f"[BACKEND_NOTIF]    Pour: {recipient}")
-                    print(f"[BACKEND_NOTIF]    Device: '{self.DEVICE_ID}' (exact)")
-                    print(f"[BACKEND_NOTIF] ========================================")
+                    print("[BACKEND_NOTIF] Message ignored (device not in recipient list)")
                     return
             
             # ✅ CAS 3 : Destinataire unique (CASE-SENSITIVE STRICT)
             else:
                 if recipient != self.DEVICE_ID:  # ✅ Comparaison EXACTE (pas de .lower())
-                    print(f"[BACKEND_NOTIF] ⚠️ Message ignoré (destinataire différent)")
-                    print(f"[BACKEND_NOTIF]    Pour: '{recipient}' (exact)")
-                    print(f"[BACKEND_NOTIF]    Device: '{self.DEVICE_ID}' (exact)")
-                    print(f"[BACKEND_NOTIF]    Match: {recipient == self.DEVICE_ID}")
-                    print(f"[BACKEND_NOTIF] ========================================")
+                    print("[BACKEND_NOTIF] Message ignored (different recipient)")
                     return
         else:
             # ⚠️ Pas de destinataire : afficher quand même (rétro-compatibilité)
-            print(f"[BACKEND_NOTIF] ⚠️ Pas de champ 'to' spécifié")
-            print(f"[BACKEND_NOTIF] ⚠️ Affichage par défaut")
+            print("[BACKEND_NOTIF] No 'to' field provided; using default display behavior")
         
         # ========== TRAITER PAR TYPE ==========
         
@@ -1669,10 +1637,7 @@ class MainScreen(Screen):
             except:
                 time_str = _("recientemente")
             
-            print(f"[BACKEND_NOTIF] 📞 Appel manqué")
-            print(f"[BACKEND_NOTIF]    Caller: {caller}")
-            print(f"[BACKEND_NOTIF]    Time: {time_str}")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Missed call from '{caller}' at {time_str}")
             
             # Afficher notification
             self.notification_manager.show_missed_call_notification(caller, time_str)
@@ -1684,10 +1649,7 @@ class MainScreen(Screen):
             caller = data.get("from") or _("Desconocido")
             room = data.get("room", self.VIDEOCALL_ROOM)  # ✅ Depuis config.local.json
             
-            print(f"[BACKEND_NOTIF] 📞 Videocall")
-            print(f"[BACKEND_NOTIF]    From: '{caller}'")
-            print(f"[BACKEND_NOTIF]    Room: '{room}' (case-sensitive)")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Videocall from '{caller}' for room '{room}'")
             
             self.notification_manager.show_videocall_notification(caller, room)
             return
@@ -1698,10 +1660,7 @@ class MainScreen(Screen):
             has_image = bool(data.get("image"))
             has_text = bool(data.get("text"))
             
-            print(f"[BACKEND_NOTIF] 💌 Message de {sender_msg}")
-            print(f"[BACKEND_NOTIF]    Image: {has_image}")
-            print(f"[BACKEND_NOTIF]    Texte: {has_text}")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Board message from '{sender_msg}' (image={has_image}, text={has_text})")
             
             self.notification_manager.show_message_notification(
                 sender_msg, has_image, has_text
@@ -1732,23 +1691,17 @@ class MainScreen(Screen):
                 
                 # Si l'événement n'est pas pour notre ville, ignorer
                 if location_normalized != configured_normalized:
-                    print(f"[BACKEND_NOTIF] ⚠️ Événement ignoré (mauvaise ville)")
-                    print(f"[BACKEND_NOTIF]    Lieu événement: '{location}'")
-                    print(f"[BACKEND_NOTIF]    Lieu meuble: '{self.DEVICE_LOCATION}'")
-                    print(f"[BACKEND_NOTIF] ========================================")
+                    print(f"[BACKEND_NOTIF] Event ignored for location '{location}'")
                     return
             
-            print(f"[BACKEND_NOTIF] 📅 Événement: {title}")
-            print(f"[BACKEND_NOTIF]    Date: {date_str}")
-            print(f"[BACKEND_NOTIF]    Lieu: {location}")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Event '{title}' scheduled for {date_str} ({location})")
             
             self.notification_manager.show_event_notification(title, date_str)
             return
 
         # ✅ CONTACTS UPDATED
         elif notif_type in {"contacts_updated", "contacts_sync", "contacts_refresh"}:
-            print(f"[BACKEND_NOTIF] 👥 Contacts sync requested")
+            print("[BACKEND_NOTIF] Contacts sync requested")
             threading.Thread(
                 target=self._sync_contacts_from_backend_notification,
                 args=(data,),
@@ -1767,8 +1720,7 @@ class MainScreen(Screen):
         
         # ❌ TYPE INCONNU
         else:
-            print(f"[BACKEND_NOTIF] ⚠️ Type inconnu: {notif_type}")
-            print(f"[BACKEND_NOTIF] ========================================")
+            print(f"[BACKEND_NOTIF] Unknown notification type: {notif_type}")
 
     def _sync_contacts_from_backend_notification(self, payload):
         try:
@@ -1938,14 +1890,14 @@ class MainScreen(Screen):
         if hasattr(self, "assistant") and self.assistant:
             self.assistant._speak(text)
         else:
-            print("[WARN] Assistant non initialisé, TTS ignoré")
+            print("[WARN] Assistant not initialized, TTS ignored")
     """
     """
     def speak(self, text: str):
         #Relais vers le TTS de l'assistant (NON BLOQUANT UI)
         
         if not hasattr(self, "assistant") or not self.assistant:
-            print("[WARN] Assistant non initialisé, TTS ignoré")
+            print("[WARN] Assistant not initialized, TTS ignored")
             return
 
         import threading
@@ -1972,7 +1924,7 @@ class MainScreen(Screen):
             ).start()
 
         except Exception as e:
-            print(f"[WARN] Assistant indisponible, TTS ignoré: {e}")
+            print(f"[WARN] Assistant unavailable, TTS ignored: {e}")
     """
 
     def speak(self, text: str):
@@ -2155,13 +2107,13 @@ class MyApp(App):
     def _start_orchestrator(self):
         script = os.path.join(os.path.dirname(__file__), "mqtt_publisher.py")
         if not os.path.isfile(script):
-            print("[WARN] mqtt_publisher.py introuvable:", script)
+            print("[WARN] mqtt_publisher.py not found:", script)
             return
         if getattr(self, "_orchestrator", None) and self._orchestrator.poll() is None:
             return
-        print("[Orchestrator] Démarrage…")
+        print("[ORCHESTRATOR] Starting")
         self._orchestrator = subprocess.Popen([sys.executable, script])
-        print(f"[Orchestrator] PID = {self._orchestrator.pid}")
+        print(f"[ORCHESTRATOR] Started with PID {self._orchestrator.pid}")
 
     def _stop_orchestrator(self):
         p = getattr(self, "_orchestrator", None)
@@ -2175,13 +2127,13 @@ class MyApp(App):
     def _start_proximity_logger(self):
         script_proximity_logger = os.path.join(os.path.dirname(__file__), "proximity_sensors_reader.py")
         if not os.path.isfile(script_proximity_logger):
-            print("[WARN] proximity_sensors_reader.py introuvable:", script_proximity_logger)
+            print("[WARN] proximity_sensors_reader.py not found:", script_proximity_logger)
             return
         if getattr(self, "_proximity_sensor", None) and self._proximity_sensor.poll() is None:
             return
-        print("[Proximity Sensor] Démarrage.")
+        print("[PROXIMITY] Starting")
         self._proximity_sensor = subprocess.Popen([sys.executable, script_proximity_logger])
-        print(f"[Proximity Sensor] PID = {self._proximity_sensor.pid}")
+        print(f"[PROXIMITY] Started with PID {self._proximity_sensor.pid}")
 
     def _stop_proximity_logger(self):
         p2 = getattr(self, "_proximity_sensor", None)
@@ -2361,7 +2313,7 @@ class MyApp(App):
         
         # Logger UNIQUEMENT si le timeout a changé
         if timeout != getattr(self, '_last_timeout', None):
-            print(f"[APP] ⏱️ Timeout veille mis à jour: {timeout}s")
+            print(f"[APP] Sleep timeout updated: {timeout}s")
             self._last_timeout = timeout
         
         from kivy.clock import Clock
@@ -2633,7 +2585,7 @@ class MyApp(App):
             ).start()
 
         except Exception as e:
-            print(f"[WARN] Assistant indisponible, TTS ignoré: {e}")
+            print(f"[WARN] Assistant unavailable, TTS ignored: {e}")
 
     def speak_text(self, text: str):
         if not text:
@@ -2663,12 +2615,12 @@ class MyApp(App):
 
         # Charger timeout depuis config.local.json
         self.IDLE_TIMEOUT_SEC = self.cfg.get_idle_timeout()
-        print(f"[APP] ⏱️ Timeout veille: {self.IDLE_TIMEOUT_SEC}s")
+        print(f"[APP] Idle timeout: {self.IDLE_TIMEOUT_SEC}s")
         
         # Charger traduction selon config
         lang = self.cfg.data.get("language", "es")
         change_language(lang)
-        print(f"[APP] 🌍 Langue chargée: {lang}")
+        print(f"[APP] Language loaded: {lang}")
 
         # Apply saved audio routing at startup so all subsystems use the right device
         _output_dev = self.cfg.get_audio_output_device()
@@ -2797,8 +2749,6 @@ class MyApp(App):
 
     def reload_main_screen(self):
         """Recharge l'écran principal avec les nouvelles traductions"""
-        print("[APP] 🔄 Rechargement écran principal...")
-        
         try:
             # 1. Recharger traduction globale
             lang = self.cfg.data.get("language", "es")
@@ -2813,25 +2763,19 @@ class MyApp(App):
                     # ✅ Appeler update_labels() du MainScreen
                     if hasattr(main_widget, 'update_labels'):
                         main_widget.update_labels()
-                        print("[APP] ✅ MainScreen mis à jour")
             
             # 3. ✅ FORCER RECHARGEMENT IMMÉDIAT DES BLAGUES
             if hasattr(self, 'main_ref') and hasattr(self.main_ref, 'reload_joke'):
                 self.main_ref.reload_joke()
-                print("[APP] ✅ Blague rechargée")
             
             # 4. Mettre à jour TOUS les autres écrans
             self.reload_all_screens()
             
         except Exception as e:
-            print(f"[APP] ❌ Erreur reload_main_screen: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"[APP] Error in reload_main_screen: {e}")
 
     def reload_all_screens(self):
         """Recharge tous les écrans avec les nouvelles traductions"""
-        print("[APP] 🔄 Rechargement tous les écrans...")
-        
         screens_to_update = [
             'weather', 'events', 'day_events', 'board', 'contacts',
             'settings', 'button_colors', 'settings_notifications',
@@ -2855,16 +2799,12 @@ class MyApp(App):
                 # Essayer update_labels
                 if hasattr(widget, 'update_labels'):
                     widget.update_labels()
-                    print(f"[APP] ✅ {screen_name}")
                 # Sinon essayer on_pre_enter
                 elif hasattr(widget, 'on_pre_enter'):
                     widget.on_pre_enter()
-                    print(f"[APP] ✅ {screen_name} (on_pre_enter)")
             
             except Exception as e:
                 print(f"[APP] ⚠️ {screen_name}: {e}")
-        
-        print("[APP] ✨ Rechargement terminé")
 
     def on_nav(self, destino):
         self.main_ref.on_nav(destino)

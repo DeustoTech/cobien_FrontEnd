@@ -790,8 +790,6 @@ class EventsScreen(Screen):
 
     def on_enter(self, *args: Any) -> None:
         """Kivy lifecycle hook executed on every screen entry."""
-        print("[EVENTS] 🔄 on_enter: retour au mois actuel")
-        
         # ✅ FIX : Toujours revenir au mois actuel
         self.today = date.today()
         self.current = date(self.today.year, self.today.month, 1)
@@ -801,38 +799,27 @@ class EventsScreen(Screen):
                 device_name=self.cfg.get_device_id(),
                 location_name=self.cfg.get_device_location(),
             )
-            print(f"[EVENTS] ✅ Store rechargé: {len(self.store.events)} événements")
         except Exception as e:
-            print(f"[EVENTS] ❌ Error recargando store: {e}")
-        
-        print(f"[EVENTS] 📅 Mois actuel: {self.current.strftime('%B %Y')}")
+            print(f"[EVENTS] Store reload error: {e}")
         
         self.update_labels()
         self._build_calendar()
-        print("[EVENTS] ✅ on_enter terminé")
 
     def on_pre_enter(self, *args: Any) -> None:
         """Kivy lifecycle hook executed before screen becomes visible."""
-        print("[EVENTS] 🔄 on_pre_enter: rechargement données et affichage")
-        
         try:
             self.store.reload(
                 device_name=self.cfg.get_device_id(),
                 location_name=self.cfg.get_device_location(),
             )
-            print(f"[EVENTS] ✅ Store rechargé: {len(self.store.events)} événements")
         except Exception as e:
-            print(f"[EVENTS] ❌ Error recargando store: {e}")
+            print(f"[EVENTS] Store reload error: {e}")
         
         self.update_labels()
         self._build_calendar()
-        print("[EVENTS] ✅ on_pre_enter terminé")
 
     def refresh_calendar(self) -> None:
         """Reload store and schedule full calendar rebuild."""
-        print("[EVENTS] ========================================")
-        print("[EVENTS] 🔄 refresh_calendar() APPELÉ")
-        
         try:
             old_count = len(self.store.events)
             self.store.reload(
@@ -841,20 +828,12 @@ class EventsScreen(Screen):
             )
             new_count = len(self.store.events)
             
-            print(f"[EVENTS] ✅ Store rechargé")
-            print(f"[EVENTS]    Avant: {old_count} événements")
-            print(f"[EVENTS]    Après: {new_count} événements")
-            
             if new_count > old_count:
-                print(f"[EVENTS] 🎉 {new_count - old_count} nouveaux événements!")
+                print(f"[EVENTS] {new_count - old_count} new events loaded")
         except Exception as e:
-            print(f"[EVENTS] ❌ Error: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"[EVENTS] Calendar refresh error: {e}")
         
         Clock.schedule_once(lambda *_: self._build_calendar(), 0)
-        print("[EVENTS] ✅ Calendrier planifié")
-        print("[EVENTS] ========================================")
     
     def setup_mqtt_listener(self) -> None:
         """Configure MQTT listener for remote calendar refresh commands.
@@ -872,7 +851,7 @@ class EventsScreen(Screen):
                         payload = json.loads(msg.payload.decode("utf-8"))
                         
                         if payload.get("target") == "events" and payload.get("type") == "reload":
-                            print(f"[EVENTS] 📥 Reload request received via MQTT")
+                            print("[EVENTS] Reload request received via MQTT")
                             Clock.schedule_once(lambda dt: self.refresh_calendar(), 0)
                     
                     except Exception as e:
@@ -883,7 +862,7 @@ class EventsScreen(Screen):
             self.mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
             self.mqtt_client.subscribe("app/nav")
             self.mqtt_client.loop_start()
-            print("[EVENTS] ✅ MQTT listener activated")
+            print("[EVENTS] MQTT listener enabled")
         
         except Exception as e:
             print(f"[EVENTS] ⚠️ MQTT setup error: {e}")

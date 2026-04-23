@@ -221,20 +221,13 @@ class WeatherChoice(FloatLayout):
         self.letter_buttons = {}
         self.primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
         
-        print("[WEATHER CHOICE] __init__ called")
-
         # Build UI first so UI-dependent widgets exist before data refresh.
         self.build_ui()
 
         # Load available cities from config and then refresh UI-dependent controls.
         self.load_available_cities()
-        print(f"[WEATHER CHOICE] Cities loaded: {self.available_cities}")
-
-    
     def update_labels(self) -> None:
         """Update all translated labels in the screen."""
-        print("[WEATHER CHOICE] 🔄 Updating labels...")
-        
         if hasattr(self, 'lbl_title'):
             self.lbl_title.text = _("Ciudades Meteorología")
         if hasattr(self, 'lbl_instruction'):
@@ -252,8 +245,6 @@ class WeatherChoice(FloatLayout):
                 if isinstance(child, CityCard):
                     child.update_text()
         
-        print("[WEATHER CHOICE] ✅ Labels mis à jour")
-    
     def publish_reload_event(self) -> None:
         """Publish MQTT weather-reload event.
 
@@ -468,8 +459,6 @@ class WeatherChoice(FloatLayout):
         
         self.add_widget(main_box)
         
-        print("[WEATHER CHOICE] UI built")
-        
         # Load cities after a short delay
         Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
 
@@ -583,20 +572,16 @@ class WeatherChoice(FloatLayout):
             city_geo_dict (Dict[str, Any]): Mapping of city names to geo metadata.
         """
         self.city_list_geo = city_geo_dict
-        print(f"[WEATHER CHOICE] Liste geo reçue: {len(city_geo_dict)} villes")
+        print(f"[WEATHER CHOICE] Geo list loaded: {len(city_geo_dict)} cities")
 
     def refresh_cities(self, *args: Any) -> None:
         """Rebuild visible city cards according to current state/filter."""
-        print(f"\n[DEBUG] ========== REFRESH_CITIES ==========")
-        print(f"[DEBUG] Nombre de villes: {len(self.available_cities)}")
-        
         if not hasattr(self, 'list_cities'):
-            print("[DEBUG] ERREUR: list_cities n'existe pas encore!")
+            print("[WEATHER CHOICE] list_cities container is not ready yet")
             Clock.schedule_once(lambda dt: self.refresh_cities(), 0.1)
             return
         
         box = self.list_cities
-        print(f"[DEBUG] ✓ Box trouvée: {box}")
         box.clear_widgets()
         
         # Mettre à jour les labels avant de créer les cartes
@@ -608,7 +593,6 @@ class WeatherChoice(FloatLayout):
             )
 
         active_cities = getattr(self, 'active_cities', [])
-        print(f"[DEBUG] Villes actives: {active_cities}")
         
         if not self.available_cities:
             box.add_widget(Label(
@@ -618,7 +602,6 @@ class WeatherChoice(FloatLayout):
                 size_hint_y=None,
                 height=dp(60)
             ))
-            print("[DEBUG] Message d'erreur ajouté")
             return
         
         shown_count = 0
@@ -627,8 +610,6 @@ class WeatherChoice(FloatLayout):
                 continue
             is_active = city in active_cities
             is_primary = bool(self.primary_city) and city == self.primary_city
-            print(f"[DEBUG] Création carte: {city} (active: {is_active})")
-            
             try:
                 card = CityCard(
                     city_name=city,
@@ -641,9 +622,7 @@ class WeatherChoice(FloatLayout):
                 box.add_widget(card)
                 shown_count += 1
             except Exception as e:
-                print(f"[DEBUG] Erreur carte {city}: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"[WEATHER CHOICE] Card render error for '{city}': {e}")
 
         if shown_count == 0:
             empty_msg = _("No hay ciudades para esta letra.") if self.selected_letter else _("No hay ciudades disponibles.")
@@ -655,8 +634,6 @@ class WeatherChoice(FloatLayout):
                 height=dp(60)
             ))
         
-        print(f"[DEBUG] Total widgets: {len(box.children)}")
-        print(f"[DEBUG] ========== FIN REFRESH ==========\n")
 
     def toggle_city(self, city: str) -> None:
         """Toggle city activation in unified settings config."""
@@ -672,7 +649,7 @@ class WeatherChoice(FloatLayout):
             self.refresh_cities()
             self.publish_reload_event()
         except Exception as e:
-            print(f"[TOGGLE] ERREUR lors de la modification: {e}")
+            print(f"[TOGGLE] Error while updating city state: {e}")
 
     def _normalize_city_name(self, raw_name: str) -> str:
         """Normalize user-provided city text by trimming and collapsing spaces."""
@@ -960,7 +937,6 @@ class WeatherChoice(FloatLayout):
     
     def on_pre_enter(self, *args: Any) -> None:
         """Start watchers and refresh content before entering screen."""
-        print("[WEATHER CHOICE] on_pre_enter")
         self._start_config_watcher()
         self.update_labels()
         self.load_available_cities()
@@ -975,7 +951,6 @@ class WeatherChoice(FloatLayout):
         if self._watch_event is not None:
             return
         self._watch_event = Clock.schedule_interval(self._watch_config_file, 3)
-        print("[WEATHER CHOICE] ✅ Config watcher activé")
 
     def _stop_config_watcher(self) -> None:
         """Stop periodic configuration watcher."""
@@ -983,7 +958,6 @@ class WeatherChoice(FloatLayout):
             return
         self._watch_event.cancel()
         self._watch_event = None
-        print("[WEATHER CHOICE] 🛑 Config watcher désactivé")
 
     def _watch_config_file(self, dt: float) -> None:
         """Watch unified settings for city list changes."""
@@ -991,4 +965,4 @@ class WeatherChoice(FloatLayout):
             self.load_available_cities()
             self.refresh_cities()
         except Exception as e:
-            print(f"[WEATHER CHOICE] erreur: {e}")
+            print(f"[WEATHER CHOICE] Error: {e}")

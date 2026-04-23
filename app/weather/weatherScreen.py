@@ -512,20 +512,20 @@ class WeatherScreenWidget(BoxLayout):
                         payload = json.loads(msg.payload.decode("utf-8"))
                         if payload.get("target") == "weather_list":
                             cities = payload.get("extra", {}).get("cities", [])
-                            print(f"[WEATHER] 📥 {len(cities)} villes reçues")
+                            print(f"[WEATHER] Received {len(cities)} cities")
                             Clock.schedule_once(lambda dt: self.set_city_list(cities))
                     except Exception as e:
-                        print(f"[WEATHER] Erreur MQTT: {e}")
+                        print(f"[WEATHER] MQTT error: {e}")
             
             self.mqtt_client = mqtt.Client()
             self.mqtt_client.on_message = on_message
             self.mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
             self.mqtt_client.subscribe("app/nav")
             self.mqtt_client.loop_start()
-            print("[WEATHER] ✅ Listener MQTT activé")
+            print("[WEATHER] MQTT listener enabled")
         
         except Exception as e:
-            print(f"[WEATHER] ⚠️ Erreur setup MQTT: {e}")
+            print(f"[WEATHER] MQTT setup error: {e}")
 
     def set_city_dynamic(self, name, lat, lon, tz):
         """Update current city from external runtime trigger (for example RFID)."""
@@ -543,7 +543,7 @@ class WeatherScreenWidget(BoxLayout):
                 return
 
         # 2) Fallback if city is missing from configured list.
-        print(f"[RFID] ⚠️ Ville '{target}' non trouvée dans self.cities (liste météo)")
+        print(f"[RFID] City '{target}' not found in self.cities (weather list)")
         self.city = target
         self.lat = lat
         self.lon = lon

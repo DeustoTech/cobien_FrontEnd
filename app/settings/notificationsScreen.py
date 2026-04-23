@@ -737,7 +737,7 @@ class NotificationsScreen(Screen):
     
     def update_labels(self) -> None:
         """Refresh translated labels and recreate strip cards."""
-        print("[NOTIF_SCREEN] 🔄 Mise à jour labels...")
+        print("[NOTIF_SCREEN] Updating labels...")
         
         if hasattr(self.root_view, 'ids') and 'lbl_title' in self.root_view.ids:
             self.root_view.ids.lbl_title.text = _("Configuración notificaciones")
@@ -745,14 +745,14 @@ class NotificationsScreen(Screen):
         # ✅ IMPORTANT : Rafraîchir tous les StripCard
         self._refresh_all_strip_cards()
         
-        print("[NOTIF_SCREEN] ✅ Labels mis à jour")
+        print("[NOTIF_SCREEN] Labels updated")
     
     def _refresh_all_strip_cards(self) -> None:
         """Recreate strip cards after translation or config update."""
-        print("[NOTIF_SCREEN] 🔄 Rafraîchissement des StripCard...")
+        print("[NOTIF_SCREEN] Refreshing StripCard widgets...")
         
         if not hasattr(self.root_view, 'ids') or 'strips_grid' not in self.root_view.ids:
-            print("[NOTIF_SCREEN] ⚠️ strips_grid non disponible")
+            print("[NOTIF_SCREEN] strips_grid unavailable")
             return
         
         # Supprimer tous les widgets existants
@@ -762,7 +762,7 @@ class NotificationsScreen(Screen):
         # Recréer les StripCard avec load_strip_cards()
         self.load_strip_cards()
         
-        print("[NOTIF_SCREEN] ✅ StripCard rafraîchis")
+        print("[NOTIF_SCREEN] StripCard widgets refreshed")
     
     # ========== SAUVEGARDE/CHARGEMENT ==========
     
@@ -772,13 +772,13 @@ class NotificationsScreen(Screen):
         for key in self.ledStrips.keys():
             if key in config:
                 self.ledStrips[key].update(config[key])
-        print("[CONFIG] ✓ Configuration chargée")
+        print("[CONFIG] Configuration loaded")
     
     def save_config(self) -> bool:
         """Save current notification profiles into runtime store."""
         ok = runtime_save_notification_config(dict(self.ledStrips))
         if ok:
-            print("[CONFIG] ✓ Configuration sauvegardée")
+            print("[CONFIG] Configuration saved")
         return ok
     
     def update_strip_value(self, strip: str, field: str, value: Any) -> None:
@@ -795,7 +795,7 @@ class NotificationsScreen(Screen):
         # Utiliser le module centralisé
         send_led_config_from_dict(payload)
         
-        print(f"[NOTIF_SCREEN] Configuration publiée pour {strip}")
+        print(f"[NOTIF_SCREEN] Configuration published for {strip}")
     
     # ========== AUTRES MÉTHODES ==========
     
@@ -865,11 +865,11 @@ class NotificationsScreen(Screen):
             card.parent_screen = self
             grid.add_widget(card)
         
-        print(f"[NOTIF_SCREEN] ✅ {len(self.ledStrips)} StripCard créés")
+        print(f"[NOTIF_SCREEN] Created {len(self.ledStrips)} StripCard widgets")
     
     def on_pre_enter(self, *args: Any) -> None:
         """Refresh translations and ringtones before entering screen."""
-        print("[NOTIF_SCREEN] 🔄 on_pre_enter")
+        print("[NOTIF_SCREEN] on_pre_enter")
         self.update_labels()
         self.available_ringtones = self.load_ringtones()
 
@@ -882,7 +882,7 @@ class NotificationsScreen(Screen):
         app = App.get_running_app()
         manager = getattr(app, "notification_manager", None) if app else None
         if not manager:
-            print("[NOTIF_SCREEN] ⚠️ NotificationManager non disponible pour simulation")
+            print("[NOTIF_SCREEN] NotificationManager unavailable for simulation")
             return
 
         if strip_key == "videollamada":
@@ -892,6 +892,6 @@ class NotificationsScreen(Screen):
         elif strip_key == "nueva_foto":
             manager.show_message_notification(_("Usuario de prueba"), has_image=True, has_text=True)
         else:
-            print(f"[NOTIF_SCREEN] ⚠️ Tipo de simulación no soportado: {strip_key}")
+            print(f"[NOTIF_SCREEN] Unsupported simulation type: {strip_key}")
 
 Factory.register("NotificationsScreen", cls=NotificationsScreen)

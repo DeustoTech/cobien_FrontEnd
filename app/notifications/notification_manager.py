@@ -697,12 +697,10 @@ class NotificationManager:
         self.videocall_room = self.cfg.get_videocall_room()
         self.device_location = self.cfg.get_device_location()
         
-        print("[NOTIF_MANAGER] ========================================")
-        print("[NOTIF_MANAGER] 📋 Configuration loaded from config.local.json:")
-        print(f"[NOTIF_MANAGER]    Device ID: {self.device_id}")
-        print(f"[NOTIF_MANAGER]    Videocall Room: {self.videocall_room}")
-        print(f"[NOTIF_MANAGER]    Location: {self.device_location}")
-        print("[NOTIF_MANAGER] ========================================")
+        print(
+            f"[NOTIF_MANAGER] Config loaded: device_id='{self.device_id}', "
+            f"room='{self.videocall_room}', location='{self.device_location}'"
+        )
         
         # ✅ CASE-SENSITIVE notification history
         # Keys format: "videocall_{caller}_{room}_{minute}"
@@ -715,7 +713,7 @@ class NotificationManager:
         self.active_call_process = None
         self.call_launching_popup = None
         
-        print("[NOTIF_MANAGER] ✅ Notification manager initialized (CASE-SENSITIVE)")
+        print("[NOTIF_MANAGER] Initialized")
 
     def _wake_app_for_notification(self) -> None:
         """Wake the furniture UI if a notification arrives during black overlay."""
@@ -755,9 +753,7 @@ class NotificationManager:
             ``CoBien`` and ``cobien`` are intentionally treated as different rooms.
         """
         if self.active_call_process and self.active_call_process.poll() is None:
-            print(f"[NOTIF] ⚠️ Active call already running, incoming call ignored")
-            print(f"[NOTIF]    Caller: '{caller}'")
-            print(f"[NOTIF]    Room: '{room}'")
+            print("[NOTIF] Incoming videocall ignored because another call is already active")
             return
 
         # ✅ CASE-SENSITIVE duplicate check
@@ -772,22 +768,15 @@ class NotificationManager:
         }
         
         if notif_key in self.notification_history:
-            print(f"[NOTIF] ⚠️ Duplicate ignored (case-sensitive)")
-            print(f"[NOTIF]    Key: {notif_key}")
+            print("[NOTIF] Duplicate videocall notification ignored")
             return
         
         self.notification_history[notif_key] = datetime.now()
         
-        print(f"[NOTIF] ========================================")
-        print(f"[NOTIF] 📞 New videocall notification")
-        print(f"[NOTIF]    Caller: '{caller}' (case-sensitive)")
-        print(f"[NOTIF]    Room: '{room}' (case-sensitive)")
-        print(f"[NOTIF]    Key: {notif_key}")
-        print(f"[NOTIF] ========================================")
+        print(f"[NOTIF] Incoming videocall from '{caller}' for room '{room}'")
 
         # Close previous popup if it exists
         if self.active_videocall_popup:
-            print("[NOTIF] 🧹 Closing previous popup")
             try:
                 self.active_videocall_popup.dismiss()
             except:
@@ -831,11 +820,9 @@ class NotificationManager:
                 self._wake_app_for_notification()
                 popup.open()
 
-                print(f"[NOTIF] ✅ Popup displayed for '{caller}' → room '{room}'")
+                print(f"[NOTIF] Videocall popup displayed for '{caller}'")
             except Exception as e:
                 print(f"[NOTIF] ❌ ERROR creating popup: {e}")
-                import traceback
-                traceback.print_exc()
         
         Clock.schedule_once(_create_popup, 0)
     
@@ -876,7 +863,7 @@ class NotificationManager:
                 self._wake_app_for_notification()
                 popup.open()
 
-                print(f"[NOTIF] Event: {title}")
+                print(f"[NOTIF] Event notification displayed: {title}")
             except Exception as e:
                 print(f"[NOTIF] ERROR event: {e}")
         
@@ -929,7 +916,7 @@ class NotificationManager:
                 self._wake_app_for_notification()
                 popup.open()
 
-                print(f"[NOTIF] Message from {sender}")
+                print(f"[NOTIF] Message notification displayed for '{sender}'")
             except Exception as e:
                 print(f"[NOTIF] ERROR message: {e}")
         
@@ -968,13 +955,8 @@ class NotificationManager:
             # ✅ USE EXACT ROOM NAME FROM NOTIFICATION OR FALLBACK TO config.local.json
             if not room:
                 room = self.videocall_room  # ✅ From config.local.json instead of hardcoded 'CoBien1'
-                print(f"[NOTIF] ⚠️ No room in notification, using config.local.json: '{room}'")
-            
-            print(f"[NOTIF] ========================================")
-            print(f"[NOTIF] 📞 Call accepted")
-            print(f"[NOTIF]    From: '{caller}'")
-            print(f"[NOTIF]    Room: '{room}' (case-sensitive from config.local.json)")
-            print(f"[NOTIF] ========================================")
+            print(f"[NOTIF] No room in notification; using configured room '{room}'")
+            print(f"[NOTIF] Call accepted from '{caller}'")
             
             # ✅ CREATE TEMPORARY CONFIG FILE FOR LAUNCHER
             import tempfile
@@ -997,8 +979,7 @@ class NotificationManager:
                     json.dump(config_data, f)
                     config_file = f.name
                 
-                print(f"[NOTIF] 📄 Config file created: {config_file}")
-                print(f"[NOTIF]    Room from config.local.json: '{room}'")
+                print(f"[NOTIF] Temporary videocall config created: {config_file}")
                 
                 # Launch videocall_launcher.py with config file
                 import subprocess
@@ -1018,8 +999,7 @@ class NotificationManager:
                     self.sm.current = 'contacts'
                     return
                 
-                print(f"[NOTIF] 🚀 Launching videocall_launcher.py")
-                print(f"[NOTIF]    Room: '{room}' (from config.local.json)")
+                print(f"[NOTIF] Launching embedded videocall for room '{room}'")
 
                 self._show_videocall_launching_popup(caller)
                 self._prepare_runtime_for_videocall()
@@ -1033,21 +1013,17 @@ class NotificationManager:
             except Exception as e:
                 self._dismiss_videocall_launching_popup()
                 print(f"[NOTIF] ❌ Error launching videocall_launcher: {e}")
-                import traceback
-                traceback.print_exc()
                 self.sm.current = 'contacts'
         
         elif action == 'decline':
             caller = data.get('caller', 'Unknown')
             room = data.get('room', 'Unknown')
-            print(f"[NOTIF] ❌ Call declined")
-            print(f"[NOTIF]    From: '{caller}', Room: '{room}'")
+            print(f"[NOTIF] Call declined from '{caller}' (room='{room}')")
         
         elif action == 'timeout':
             caller = data.get('caller', 'Unknown')
             room = data.get('room', 'Unknown')
-            print(f"[NOTIF] ⏰ Call expired")
-            print(f"[NOTIF]    From: '{caller}', Room: '{room}'")
+            print(f"[NOTIF] Call expired from '{caller}' (room='{room}')")
 
     def _cleanup_videocall_temp_file_later(self, temp_path: str, process: Any) -> None:
         """Remove temporary launcher config once the call process finishes."""
@@ -1142,7 +1118,7 @@ class NotificationManager:
         remove_cached_notification('event', data)
         
         if action == 'ok':
-            print(f"[NOTIF] Event '{data['title']}' closed")
+            print(f"[NOTIF] Event notification closed: {data['title']}")
         elif action == 'view_calendar':
             print(f"[NOTIF] Opening calendar for '{data['title']}'")
             self.sm.current = 'events'
@@ -1154,47 +1130,24 @@ class NotificationManager:
         
         if action == 'view':
             sender = data.get('sender', '?')
-            print(f"[NOTIF] ========================================")
-            print(f"[NOTIF] 📥 User clicked 'Ver' on message from '{sender}'")
-            
             try:
-                # 1. Changer d'écran
-                print("[NOTIF] 🔄 Switching to board screen...")
                 self.sm.current = 'board'
-                print("[NOTIF] ✅ Switched to board screen")
                 
-                # 2. Attendre que l'écran soit affiché, puis recharger et scroller
                 def _reload_and_scroll(dt):
                     try:
-                        print("[NOTIF] 🔄 _reload_and_scroll() triggered (dt={:.3f})".format(dt))
-                        
-                        # Récupérer l'écran board
                         board_screen = self.sm.get_screen('board')
-                        print(f"[NOTIF] ✅ Got board_screen: {board_screen}")
-                        
-                        # ✅ APPELER DIRECTEMENT refresh_and_show_last()
                         if hasattr(board_screen, 'refresh_and_show_last'):
-                            print("[NOTIF] 🔄 Calling refresh_and_show_last()...")
                             board_screen.refresh_and_show_last()
-                            print("[NOTIF] ✅ refresh_and_show_last() completed")
                         else:
                             print("[NOTIF] ⚠️ refresh_and_show_last() not found on board_screen")
                     
                     except Exception as e:
                         print(f"[NOTIF] ❌ Error in _reload_and_scroll: {e}")
-                        import traceback
-                        traceback.print_exc()
                 
-                # Attendre 150ms que l'écran soit bien affiché
-                print("[NOTIF] ⏱️ Scheduling _reload_and_scroll in 0.15s...")
                 Clock.schedule_once(_reload_and_scroll, 0.15)  # ✅ Augmenter à 150ms
-                
-                print("[NOTIF] ========================================")
             
             except Exception as e:
                 print(f"[NOTIF] ❌ Error switching to board: {e}")
-                import traceback
-                traceback.print_exc()
         
         elif action == 'later':
             sender = data.get('sender', '?')
@@ -1236,11 +1189,7 @@ class NotificationManager:
         from kivy.metrics import dp, sp
         from kivy.graphics import Color, RoundedRectangle, Line
 
-        print("[NOTIF] ========================================")
-        print("[NOTIF] System info notification")
-        print(f"[NOTIF]    Title: {title_text}")
-        print(f"[NOTIF]    Message: {message_text}")
-        print("[NOTIF] ========================================")
+        print(f"[NOTIF] System info notification: {title_text}")
 
         popup = ModalView(
             size_hint=(None, None),
@@ -1366,11 +1315,7 @@ class NotificationManager:
         from kivy.graphics import Color, RoundedRectangle, Line
         from translation import _
         
-        print(f"[NOTIF] ========================================")
-        print(f"[NOTIF] 📞 Missed call notification")
-        print(f"[NOTIF]    Caller: '{caller}' (case-sensitive)")
-        print(f"[NOTIF]    Time: {time_str}")
-        print(f"[NOTIF] ========================================")
+        print(f"[NOTIF] Missed call notification for '{caller}' at {time_str}")
         append_cached_notification("missed_call", {
             "caller": caller,
             "time_str": time_str,
@@ -1379,7 +1324,7 @@ class NotificationManager:
         
         # Fermer la notification "Appel entrant" si elle existe
         if self.active_videocall_popup:
-            print("[NOTIF] 🧹 Fermeture notification 'Appel entrant'")
+            print("[NOTIF] Closing 'Incoming call' notification")
             try:
                 self.active_videocall_popup.dismiss()
             except:

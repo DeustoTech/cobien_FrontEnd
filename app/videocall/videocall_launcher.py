@@ -90,7 +90,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             print(f"[VIDEOCALL] ✅ Config cargada desde {selected_path}")
             return config
     except Exception as e:
-        print(f"[VIDEOCALL] ⚠️ Erreur config ({selected_path}): {e}")
+        print(f"[VIDEOCALL] Config error ({selected_path}): {e}")
         settings_cfg = load_section("settings", {}) or {}
         return {
             "device_id": settings_cfg.get("device_id", "CoBien1"),
@@ -158,7 +158,7 @@ def notify_backend_call_answered(room_name: str, device_name: str) -> None:
             method='POST'
         )
         
-        print(f"[VIDEOCALL] 📞 Envoi call_answered au backend...")
+        print(f"[VIDEOCALL] Sending call_answered to backend...")
         print(f"[VIDEOCALL]    URL: {BACKEND_URL}")
         print(f"[VIDEOCALL]    Room: {room_name}")
         print(f"[VIDEOCALL]    Device: {device_name}")
@@ -167,14 +167,14 @@ def notify_backend_call_answered(room_name: str, device_name: str) -> None:
             result = json.loads(response.read().decode('utf-8'))
             
             if result.get('success'):
-                print(f"[VIDEOCALL] ✅ Backend notifié avec succès")
+                print(f"[VIDEOCALL] Backend notified successfully")
             else:
-                print(f"[VIDEOCALL] ⚠️ Réponse backend: {result}")
+                print(f"[VIDEOCALL] Backend response: {result}")
     
     except urllib.error.URLError as e:
-        print(f"[VIDEOCALL] ❌ Erreur réseau: {e}")
+        print(f"[VIDEOCALL] Network error: {e}")
     except Exception as e:
-        print(f"[VIDEOCALL] ❌ Erreur notification backend: {e}")
+        print(f"[VIDEOCALL] Backend notification error: {e}")
 
 
 def request_device_session(room_name: str, device_name: str) -> Optional[Dict[str, Any]]:
@@ -417,7 +417,7 @@ class MainWindow(QMainWindow):
         self._call_start_time = datetime.datetime.now()
         
         # Notify backend as soon as call window starts.
-        print("[VIDEOCALL] 📞 Notification backend: appel accepté")
+        print("[VIDEOCALL] Backend notification: call accepted")
         notify_backend_call_answered(self.room_name, self.device_name)
         
         # Persistent browser profile and cache.
@@ -558,7 +558,7 @@ class MainWindow(QMainWindow):
         """Close app and persist call-duration log entry."""
         if hasattr(self, "_call_start_time") and self._call_start_time:
             duration = int((datetime.datetime.now() - self._call_start_time).total_seconds())
-            print(f"[VIDEOCALL] 📊 Durée appel: {duration}s")
+            print(f"[VIDEOCALL] Call duration: {duration}s")
             log_call_end(duration)
         
         QApplication.instance().quit()

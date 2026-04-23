@@ -39,7 +39,7 @@ def geocode_city(city_name):
         resp = requests.get(url, params=params, headers=headers, timeout=5).json()
         
         if not resp:
-            print(f"[GEO] Aucun résultat pour : {city_name}")
+            print(f"[GEO] No results for: {city_name}")
             return None
         lat = float(resp[0]["lat"])
         lon = float(resp[0]["lon"])
@@ -47,7 +47,7 @@ def geocode_city(city_name):
         print(f"[GEO] {city_name} → {lat:.2f}, {lon:.2f}, {tz}")
         return {"name": city_name, "lat": lat, "lon": lon, "tz": tz}
     except Exception as e:
-        print(f"[GEO] Erreur géocodage {city_name}: {e}")
+        print(f"[GEO] Geocoding error for {city_name}: {e}")
         return None
 
 # Loading the configured weather cities
@@ -68,7 +68,7 @@ def load_weather_config():
         primary_city = load_primary_weather_city()
         if primary_city and primary_city in cities:
             cities = [primary_city] + [c for c in cities if c != primary_city]
-            print(f"[CONFIG] ⭐ Ville prioritaire météo: {primary_city}")
+            print(f"[CONFIG] Primary weather city: {primary_city}")
         return cities
 
     return []
@@ -86,7 +86,7 @@ def load_contacts_map():
     ]
     path = next((p for p in candidates if os.path.exists(p)), None)
     if not path:
-        print("[CONTACTS] Fichier list_contacts.txt introuvable")
+        print("[CONTACTS] list_contacts.txt not found")
         return {}
 
     m = {}
@@ -98,7 +98,7 @@ def load_contacts_map():
             display, user = [x.strip() for x in line.split("=", 1)]
             if display and user:
                 m[display.lower()] = user
-    print(f"[CONTACTS] {len(m)} contacts chargés depuis {path}")
+    print(f"[CONTACTS] Loaded {len(m)} contacts from {path}")
     return m
 
 # Loading the configured RFID cards actions
@@ -155,7 +155,7 @@ for city_name in WEATHER_CITIES_RAW:
     geo = geocode_city(city_name)
     if geo:
         WEATHER_CITIES_GEO.append(geo)
-print(f"\n[INIT] {len(WEATHER_CITIES_GEO)} villes géocodées avec succès\n")
+print(f"\n[INIT] Successfully geocoded {len(WEATHER_CITIES_GEO)} cities\n")
 
 # Correspondances actions - buttons
 BUTTON_ACTIONS = {
@@ -170,7 +170,7 @@ BUTTON_ACTIONS = {
 }
 
 def on_connect(client, userdata, flags, rc):
-    print(f"[MQTT] Connecté rc={rc}")
+    print(f"[MQTT] Connected rc={rc}")
     client.subscribe(TOPIC_RFID_IN)
     client.subscribe(TOPIC_SENSORS_IN)
     client.subscribe(TOPIC_IMU)
@@ -178,7 +178,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(TOPIC_RFID_RELOAD)
     client.subscribe(TOPIC_EVENTS_RELOAD)   # ✅ NEW
     client.subscribe(TOPIC_BOARD_RELOAD)    # ✅ NEW
-    print(f"[MQTT] Abonné à : {TOPIC_RFID_IN}, {TOPIC_SENSORS_IN}, {TOPIC_IMU}, "
+    print(f"[MQTT] Subscribed to: {TOPIC_RFID_IN}, {TOPIC_SENSORS_IN}, {TOPIC_IMU}, "
           f"{TOPIC_WEATHER_RELOAD}, {TOPIC_RFID_RELOAD}, {TOPIC_EVENTS_RELOAD}, {TOPIC_BOARD_RELOAD}")
     
     # Sending the cities via MQTT
@@ -189,9 +189,9 @@ def on_connect(client, userdata, flags, rc):
             "extra": {"cities": WEATHER_CITIES_GEO}
         }
         client.publish(TOPIC_APP_NAV_OUT, json.dumps(payload))
-        print(f"[MQTT] Liste météo envoyée : {len(WEATHER_CITIES_GEO)} villes")
+        print(f"[MQTT] Weather list published: {len(WEATHER_CITIES_GEO)} cities")
     else:
-        print("[WARN] Aucune ville à envoyer !")
+        print("[WARN] No cities to publish")
 
 def on_message(client, userdata, msg):
     global WEATHER_CITIES_RAW, WEATHER_CITIES_GEO, RFID_ACTIONS
@@ -227,22 +227,22 @@ def on_message(client, userdata, msg):
             }
             client.publish(TOPIC_APP_NAV_OUT, json.dumps(out))
         else:
-            print(f"[WARN] RFID inconnue : {card_id}")
+            print(f"[WARN] Unknown RFID card: {card_id}")
         return
     
     # --- RFID ACTIONS RELOAD ---
     elif msg.topic == TOPIC_RFID_RELOAD:
-        print("[MQTT] ⚡ Rechargement actions RFID demandé")
+        print("[MQTT] RFID actions reload requested")
         
         RFID_ACTIONS = load_rfid_config()
         
-        print(f"[MQTT] ✅ {len(RFID_ACTIONS)} actions RFID rechargées")
-        print(f"[MQTT] Actions actuelles : {list(RFID_ACTIONS.keys())}")
+        print(f"[MQTT] Reloaded {len(RFID_ACTIONS)} RFID actions")
+        print(f"[MQTT] Active actions: {list(RFID_ACTIONS.keys())}")
         return
     
     # --- WEATHER RELOAD ---
     elif msg.topic == TOPIC_WEATHER_RELOAD:
-        print("[MQTT] ⚡ Rechargement météo demandé")
+        print("[MQTT] Weather reload requested")
         WEATHER_CITIES_RAW = load_weather_config()
         
         WEATHER_CITIES_GEO = []
@@ -258,12 +258,12 @@ def on_message(client, userdata, msg):
                 "extra": {"cities": WEATHER_CITIES_GEO}
             }
             client.publish(TOPIC_APP_NAV_OUT, json.dumps(payload_out))
-            print(f"[MQTT] ✅ {len(WEATHER_CITIES_GEO)} villes rechargées et envoyées")
+            print(f"[MQTT] Reloaded and published {len(WEATHER_CITIES_GEO)} cities")
         return
     
     # ========== EVENTS RELOAD (NEW) ==========
     elif msg.topic == TOPIC_EVENTS_RELOAD:
-        print("[MQTT] ⚡ Rechargement événements demandé")
+        print("[MQTT] Events reload requested")
         # Publish reload signal to events screen
         payload_out = {
             "type": "reload",
@@ -271,12 +271,12 @@ def on_message(client, userdata, msg):
             "timestamp": datetime.now().isoformat()
         }
         client.publish(TOPIC_APP_NAV_OUT, json.dumps(payload_out))
-        print(f"[MQTT] 📤 Signal de rechargement événements envoyé")
+        print(f"[MQTT] Events reload signal published")
         return
     
     # ========== BOARD RELOAD (NEW) ==========
     elif msg.topic == TOPIC_BOARD_RELOAD:
-        print("[MQTT] ⚡ Rechargement pizarra demandé")
+        print("[MQTT] Board reload requested")
         # Publish reload signal to board screen
         payload_out = {
             "type": "reload",
@@ -284,7 +284,7 @@ def on_message(client, userdata, msg):
             "timestamp": datetime.now().isoformat()
         }
         client.publish(TOPIC_APP_NAV_OUT, json.dumps(payload_out))
-        print(f"[MQTT] 📤 Signal de rechargement pizarra envoyé")
+        print(f"[MQTT] Board reload signal published")
         return
     
     # --- Buttons ---
@@ -305,7 +305,7 @@ def on_message(client, userdata, msg):
             }
             client.publish(TOPIC_APP_NAV_OUT, json.dumps(out))
         else:
-            print(f"[WARN] Bouton inconnu : {pic_id}")
+            print(f"[WARN] Unknown button: {pic_id}")
     
         return
 
@@ -329,12 +329,12 @@ def main():
     
     try:
         client.connect(BROKER_HOST, BROKER_PORT, 60)
-        print("[MQTT] Loop démarré...")
+        print("[MQTT] Loop started...")
         client.loop_forever()
     except KeyboardInterrupt:
-        print("\n[MQTT] Arrêt")
+        print("\n[MQTT] Stopped")
     except Exception as e:
-        print(f"[MQTT] Erreur : {e}")
+        print(f"[MQTT] Error: {e}")
 
 if __name__ == "__main__":
     main()

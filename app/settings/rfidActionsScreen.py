@@ -330,7 +330,6 @@ class RFIDActionsScreen(Screen):
         # Écouter les changements de configuration (langue)
         if hasattr(self.cfg, 'bind'):
             self.cfg.bind(data=self._on_config_change)
-            print("[RFID] ✅ Language-change listener enabled")
         else:
             print("[RFID] ⚠️ AppConfig does not expose bind()")
         
@@ -342,7 +341,7 @@ class RFIDActionsScreen(Screen):
             self.mqtt_client.loop_start()
             self.mqtt_client.subscribe("rfid/read")
         except Exception as e:
-            print(f"[RFID] Erreur connexion MQTT: {e}")
+            print(f"[RFID] MQTT connection error: {e}")
 
         
         self.root_view = Factory.RFIDActionsRoot()
@@ -363,8 +362,6 @@ class RFIDActionsScreen(Screen):
     
     def update_labels(self):
         """Refresh translated labels for this screen."""
-        print("[RFID] 🔄 Mise à jour labels...")
-        
         if not hasattr(self.root_view, 'ids'):
             return
         
@@ -377,12 +374,8 @@ class RFIDActionsScreen(Screen):
         # Ensure existing card widgets are rebuilt with translated strings.
         self._refresh_all_cards()
         
-        print("[RFID] ✅ Labels updated")
-    
     def _refresh_all_cards(self):
         """Rebuild all card widgets after language or label changes."""
-        print("[RFID] 🔄 Refreshing card widgets...")
-        
         # Snapshot card data before rebuilding widgets.
         cards_data = []
         for card_id, widget in self.card_widgets.items():
@@ -405,19 +398,13 @@ class RFIDActionsScreen(Screen):
                 card_data['extra_data']
             )
         
-        print(f"[RFID] ✅ {len(cards_data)} cards refreshed")
-    
     def _on_config_change(self, instance: Any, value: Dict[str, Any]) -> None:
         """Handle live configuration changes (for example language updates)."""
-        print("[RFID] 🔄 Configuration change detected")
-        
         # React only when language actually changes.
         new_lang = value.get('language', 'es')
         current_lang = get_current_language()
         
         if new_lang != current_lang:
-            print(f"[RFID] 🌍 Language change detected: {current_lang} -> {new_lang}")
-            
             # Force translation module reload.
             change_language(new_lang)
             
@@ -440,15 +427,13 @@ class RFIDActionsScreen(Screen):
                 
                 Clock.schedule_once(lambda dt: self.handle_card_detected(card_id))
             except Exception as e:
-                print(f"[RFID] Erreur lecture carte: {e}")
+                print(f"[RFID] Card read error: {e}")
     
     def handle_card_detected(self, card_id: int) -> None:
         """Handle card detection according to active mode."""
         if self.configuring:
             self.detected_card_id = card_id
             self.show_action_selection_popup(card_id)
-        else:
-            print(f"[RFID] Carte détectée: {card_id} (mode normal)")
     
     def load_available_cities(self):
         """Load active weather cities from unified settings."""
@@ -456,9 +441,8 @@ class RFIDActionsScreen(Screen):
             settings = load_section("settings", {})
             cities = settings.get("weather_cities", [])
             self.available_cities = [str(c).strip() for c in cities if str(c).strip()]
-            print(f"[RFID] ✅ {len(self.available_cities)} villes disponibles chargées")
         except Exception as e:
-            print(f"[RFID] Erreur chargement villes: {e}")
+            print(f"[RFID] Error loading cities: {e}")
             self.available_cities = []
     
     def load_available_contacts(self):
@@ -470,7 +454,7 @@ class RFIDActionsScreen(Screen):
         )
 
         if not os.path.exists(contact_path):
-            print("[RFID] ⚠️ list_contacts.txt introuvable")
+            print("[RFID] list_contacts.txt not found")
             return
 
         try:
@@ -482,11 +466,8 @@ class RFIDActionsScreen(Screen):
                     name = line.split("=", 1)[0].strip()
                     if name:
                         self.available_contacts.append(name)
-
-            print(f"[RFID] Contacts chargés : {self.available_contacts}")
-
         except Exception as e:
-            print(f"[RFID] Erreur chargement contacts : {e}")
+            print(f"[RFID] Error loading contacts: {e}")
             self.available_contacts = []
     
     def load_config(self):
@@ -507,7 +488,7 @@ class RFIDActionsScreen(Screen):
                 extra = (item or {}).get("extra", "")
                 self.add_card_widget(card_id, action, extra)
         except Exception as e:
-            print(f"[RFID] Erreur chargement config: {e}")
+            print(f"[RFID] Error loading config: {e}")
     
     def add_card_widget(self, card_id: int, action: str = "day_events", extra_data: str = "") -> None:
         """Create and mount a card widget in the UI."""
@@ -525,7 +506,7 @@ class RFIDActionsScreen(Screen):
         
         payload = {"mode": 1}
         self.mqtt_client.publish("rfid/init", json.dumps(payload))
-        print("[RFID] Mode configuration activé")
+        print("[RFID] Configuration mode enabled")
         
         content = BoxLayout(orientation='vertical', spacing=dp(20), padding=dp(20))
         content.add_widget(Label(
@@ -697,7 +678,7 @@ class RFIDActionsScreen(Screen):
                 city = city_spinner.text
                 self.confirm_configuration(card_id, action, city)
             else:
-                print("[RFID] ⚠️ Aucune ville sélectionnée")
+                print("[RFID] No city selected")
         
         def on_cancel(instance):
             self.configuring = False
@@ -780,7 +761,7 @@ class RFIDActionsScreen(Screen):
             "action": action_code
         }
         self.mqtt_client.publish("rfid/config", json.dumps(payload))
-        print(f"[MQTT] RFID config sent: {payload}")
+        print(f"[RFID] MQTT config sent for card {card_id}")
         
         self.add_card_widget(card_id, action, extra_data)
         
@@ -817,10 +798,8 @@ class RFIDActionsScreen(Screen):
             }
             
             self.mqtt_client.publish("rfid/actions_reload", json.dumps(payload))
-            print("[RFID] 📤 Événement MQTT 'rfid/actions_reload' publié")
-        
         except Exception as e:
-            print(f"[RFID] ⚠️ Erreur publication MQTT: {e}")
+            print(f"[RFID] MQTT publish error: {e}")
     
     def save_to_config(self, card_id: int, action: str, extra_data: str = "") -> None:
         """Persist card mapping into unified settings config."""
@@ -832,9 +811,9 @@ class RFIDActionsScreen(Screen):
             mappings[str(card_id)] = {"action": action, "extra": extra_data or ""}
             settings["rfid_actions"] = mappings
             save_section("settings", settings)
-            print(f"[RFID] Configuration sauvegardée: carte {card_id} → {action}")
+            print(f"[RFID] Configuration saved for card {card_id}: {action}")
         except Exception as e:
-            print(f"[RFID] Erreur sauvegarde: {e}")
+            print(f"[RFID] Save error: {e}")
     
     def remove_card(self, card_id: int) -> None:
         """Remove a card from UI and persisted config."""
@@ -884,9 +863,9 @@ class RFIDActionsScreen(Screen):
                 mappings.pop(str(card_id), None)
                 settings["rfid_actions"] = mappings
                 save_section("settings", settings)
-            print(f"[RFID] Carte {card_id} supprimée du config unifié")
+            print(f"[RFID] Card {card_id} removed from unified config")
         except Exception as e:
-            print(f"[RFID] Erreur suppression: {e}")
+            print(f"[RFID] Delete error: {e}")
     
     def _get_action_code(self, action_name: str) -> int:
         """Map action name to numeric action code expected by firmware."""
@@ -899,14 +878,11 @@ class RFIDActionsScreen(Screen):
     
     def on_pre_enter(self, *args: Any) -> None:
         """Refresh language-dependent content before entering the screen."""
-        print("[RFID] 🔄 on_pre_enter appelé")
-        
         # Force reload of language from config.local.json.
         app = App.get_running_app()
         if app and hasattr(app, 'cfg'):
             current_lang = app.cfg.data.get("language", "es")
             change_language(current_lang)
-            print(f"[RFID] 🌍 Language forced: {current_lang}")
         
         # Reload dynamic sources.
         self.load_available_cities()
@@ -914,8 +890,6 @@ class RFIDActionsScreen(Screen):
         
         # Refresh labels and card widgets.
         self.update_labels()
-        
-        print("[RFID] ✅ Screen refreshed")
     
     def on_leave(self, *args: Any) -> None:
         """Release temporary state when leaving the screen."""

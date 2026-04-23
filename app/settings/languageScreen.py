@@ -299,7 +299,7 @@ class LanguageScreen(Screen):
         # 6. Mettre à jour cet écran
         self.update_labels()
         
-        print(f"[LANGUAGE] ✅ Langue appliquée: {self.selected_lang}")
+        print(f"[LANGUAGE] Language applied: {self.selected_lang}")
 
 
     def update_labels(self) -> None:
@@ -314,7 +314,7 @@ class LanguageScreen(Screen):
         self.root_view.ids.lbl_title.text = _("Configuración de Idioma")
         self.root_view.ids.btn_save.text = _("Guardar Configuración")
 
-        print(f"[LANGUAGE] Labels mis à jour: '{_('Configuración de Idioma')}'")
+        print(f"[LANGUAGE] Labels updated: '{_('Configuración de Idioma')}'")
 
     def on_pre_enter(self, *args: Any) -> None:
         """Update selected language and labels before entering screen.

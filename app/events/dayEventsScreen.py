@@ -581,7 +581,7 @@ class DayEventsScreen(Screen):
         if hasattr(self, '_refresh_day_title'):
             self._refresh_day_title()
         
-        print("[DAY_EVENTS] Labels mis à jour")
+        print("[DAY_EVENTS] Labels updated")
 
     # ---------- API ----------
     def set_store(self, store: Any) -> None:
@@ -1035,7 +1035,7 @@ class DayEventsScreen(Screen):
                 app.assistant = AssistantOrchestrator(main_ref or app)
 
             except Exception as e:
-                print(f"[ASR] Impossible d'initialiser l'assistant: {e}")
+                print(f"[ASR] Unable to initialize assistant: {e}")
                 return None
 
         return app.assistant.listen(prompt)
