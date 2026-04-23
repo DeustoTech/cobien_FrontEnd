@@ -362,11 +362,18 @@ class AudioDialog(QDialog):
 class CustomWebEnginePage(QWebEnginePage):
     """QWebEngine page overriding prompts for room/device auto-fill."""
 
-    def __init__(self, room_name: str, device_name: str, parent: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        room_name: str,
+        device_name: str,
+        parent: Optional[Any] = None,
+        close_callback: Optional[Any] = None,
+    ) -> None:
         super().__init__(parent)
         self.prompt_counter = 0
         self.room_name = room_name
         self.device_name = device_name
+        self.close_callback = close_callback
 
     # Autocompleta los dos prompts secuenciales (room y nombre)
     def javaScriptPrompt(self, security_origin: Any, msg: str, default: str) -> Tuple[bool, str]:
@@ -387,6 +394,15 @@ class CustomWebEnginePage(QWebEnginePage):
             self.prompt_counter += 1
             return True, self.device_name
         return True, (default or "")
+
+    def acceptNavigationRequest(self, url: QUrl, nav_type: Any, is_main_frame: bool) -> bool:
+        """Intercept internal close sentinel used by the embedded videocall page."""
+        if url.scheme() == "cobien" and url.host() == "call-ended":
+            print(f"[VIDEOCALL] 🔚 Embedded page requested close: {url.toString()}")
+            if callable(self.close_callback):
+                self.close_callback()
+            return False
+        return super().acceptNavigationRequest(url, nav_type, is_main_frame)
 
 class MainWindow(QMainWindow):
     """Main full-screen window embedding web-based video-call UI."""
@@ -421,7 +437,12 @@ class MainWindow(QMainWindow):
 
         # Web view and customized page.
         self.web_view = QWebEngineView()
-        self.page = CustomWebEnginePage(self.room_name, self.device_name, self.web_view)
+        self.page = CustomWebEnginePage(
+            self.room_name,
+            self.device_name,
+            self.web_view,
+            close_callback=self._quit_app,
+        )
         self.web_view.setPage(self.page)
         self.page.loadStarted.connect(self._show_loading_overlay)
         self.page.loadProgress.connect(self._handle_load_progress)
