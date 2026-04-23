@@ -19,10 +19,10 @@ from datetime import datetime, timedelta
 import threading
 import requests
 import os
+import json
 from translation import _
 from kivy.app import App
 import paho.mqtt.client as mqtt
-import json
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 from weather.weather_data import daily_icon_path, fetch_weather_bundle, map_icon_openmeteo, map_icon_owm
 from config_store import load_section
@@ -413,6 +413,8 @@ class WeatherScreenWidget(BoxLayout):
         self.lon = 0
         self.tz_name = "UTC"
         self._refresh_seq = 0
+        self.cache_dir = os.path.join(os.path.dirname(__file__), "")
+        self.cache_path = os.path.join(self.cache_dir, "weather_today.json")
 
         # API language; synchronized with app language.
         self.api_lang = "es"
@@ -565,6 +567,7 @@ class WeatherScreenWidget(BoxLayout):
             if "daily_row" in self.ids:
                 self.ids.daily_row.clear_widgets()
         self._update_title()
+        self._load_cached_summary()
         self._refresh_async()
 
     def next_city(self):
@@ -733,6 +736,30 @@ class WeatherScreenWidget(BoxLayout):
 
             Clock.schedule_once(_apply_error)
 
+    def _load_cached_summary(self):
+        """Show cached summary immediately while the full refresh runs in background."""
+        try:
+            if not os.path.exists(self.cache_path):
+                return
+            with open(self.cache_path, "r", encoding="utf-8") as fh:
+                cache = json.load(fh)
+            if not isinstance(cache, dict):
+                return
+            cache_city = str(cache.get("city") or "").strip()
+            if cache_city and self.city and cache_city.casefold() != self.city.casefold():
+                return
+
+            icon = str(cache.get("icon") or "data/images/nubes.png")
+            self.current_temp = f"{cache.get('temp', '—')}°"
+            self.current_desc = str(cache.get("description") or _("Cargando…"))
+            self.today_minmax_left = f"{_('Min')} {cache.get('temp_min', '—')}°"
+            self.today_minmax_right = f"{_('Max')} {cache.get('temp_max', '—')}°"
+            if os.path.exists(icon):
+                self.current_icon = icon
+            print(f"[WEATHER] 📦 Using cached summary for {cache_city or self.city}")
+        except Exception as exc:
+            print(f"[WEATHER] Cache read error: {exc}")
+
     def _render_hourly(self, items):
         """Render hourly forecast columns."""
         grid = self.ids.hourly_grid
@@ -803,6 +830,7 @@ class WeatherScreenWidget(BoxLayout):
         """Refresh translations and data before entering screen."""
         self.update_labels()
         Clock.schedule_once(lambda *_: self._update_title(), 0)
+        self._load_cached_summary()
         # Refresh weather data with updated language.
         if self.city:
             self._refresh_async()

@@ -1200,6 +1200,7 @@ start_can_logger_background() {
 runtime_bridge_command() {
   cat <<EOF
 echo '[BRIDGE] Build and launch'
+set -e
 cd "$BRIDGE_DIR" || exit
 make clean
 make -j

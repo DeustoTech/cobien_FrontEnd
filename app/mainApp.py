@@ -2095,6 +2095,7 @@ class AssistantOverlay(ModalView):
 
 
 class MyApp(App):
+    title = "CoBien"
     header_bg = StringProperty("assets/gradient_header.png")
     has_header_bg = BooleanProperty(False)
     bg_image = StringProperty("data/images/Cobien_ImagenFondoInterfaz.png")
