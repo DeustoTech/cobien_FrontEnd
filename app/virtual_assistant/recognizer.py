@@ -110,7 +110,7 @@ class SpeechRecognizer:
         self.q = queue.Queue()
         self.sample_rate = sample_rate
         self.input_device, self.input_device_name = select_input_device(input_device)
-        print(f"[ASR] Input device: {self.input_device_name or 'default'}")
+        print(f"[ASR] Input device selected: {self.input_device_name or 'default'}")
 
     def _clear_queue(self):
         """Clear queued audio frames."""
@@ -130,7 +130,7 @@ class SpeechRecognizer:
             status: Sounddevice status object for over/underflow diagnostics.
         """
         if status:
-            print("Status:", status)
+            print(f"[ASR] Audio status: {status}")
         self.q.put(bytes(indata))
 
 
@@ -154,7 +154,7 @@ class SpeechRecognizer:
         Raises:
             No exception is propagated intentionally in normal flow.
         """
-        print("[ASR] Speak now...")
+        print("[ASR] Listening started")
         self.recognizer.Reset()
 
         self._clear_queue()
@@ -220,7 +220,7 @@ class SpeechRecognizer:
                     result = text
                     break
 
-        print("[ASR] Detected text:", result)
+        print(f"[ASR] Detected text: {result}")
         return result if result else None
 
     """

@@ -87,7 +87,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     try:
         with open(selected_path, "r", encoding="utf-8") as f:
             config = json.load(f)
-            print(f"[VIDEOCALL] ✅ Config cargada desde {selected_path}")
+            print(f"[VIDEOCALL] Config loaded from {selected_path}")
             return config
     except Exception as e:
         print(f"[VIDEOCALL] Config error ({selected_path}): {e}")
@@ -158,10 +158,7 @@ def notify_backend_call_answered(room_name: str, device_name: str) -> None:
             method='POST'
         )
         
-        print(f"[VIDEOCALL] Sending call_answered to backend...")
-        print(f"[VIDEOCALL]    URL: {BACKEND_URL}")
-        print(f"[VIDEOCALL]    Room: {room_name}")
-        print(f"[VIDEOCALL]    Device: {device_name}")
+        print(f"[VIDEOCALL] Sending call_answered to backend for room '{room_name}'")
         
         with urllib.request.urlopen(req, timeout=5) as response:
             result = json.loads(response.read().decode('utf-8'))
@@ -169,7 +166,7 @@ def notify_backend_call_answered(room_name: str, device_name: str) -> None:
             if result.get('success'):
                 print(f"[VIDEOCALL] Backend notified successfully")
             else:
-                print(f"[VIDEOCALL] Backend response: {result}")
+                print(f"[VIDEOCALL] Unexpected backend response: {result}")
     
     except urllib.error.URLError as e:
         print(f"[VIDEOCALL] Network error: {e}")
@@ -183,7 +180,7 @@ def request_device_session(room_name: str, device_name: str) -> Optional[Dict[st
     import urllib.error
 
     if not DEVICE_API_KEY:
-        print("[VIDEOCALL] ℹ️ No device API key configured; using standard portal flow.")
+        print("[VIDEOCALL] No device API key configured; using standard portal flow")
         return None
 
     payload = json.dumps(
@@ -211,7 +208,7 @@ def request_device_session(room_name: str, device_name: str) -> Optional[Dict[st
             if call_answered_url:
                 global BACKEND_URL
                 BACKEND_URL = call_answered_url
-            print(f"[VIDEOCALL] ✅ Device session created for room '{data.get('room_name', room_name)}'")
+            print(f"[VIDEOCALL] Device session created for room '{data.get('room_name', room_name)}'")
             return data
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "ignore")
@@ -398,7 +395,7 @@ class CustomWebEnginePage(QWebEnginePage):
     def acceptNavigationRequest(self, url: QUrl, nav_type: Any, is_main_frame: bool) -> bool:
         """Intercept internal close sentinel used by the embedded videocall page."""
         if url.scheme() == "cobien" and url.host() == "call-ended":
-            print(f"[VIDEOCALL] 🔚 Embedded page requested close: {url.toString()}")
+            print("[VIDEOCALL] Embedded page requested close")
             if callable(self.close_callback):
                 self.close_callback()
             return False
@@ -639,7 +636,7 @@ class MainWindow(QMainWindow):
         else:
             target_url = PORTAL_URL
         self.web_view.setUrl(QUrl(target_url))
-        print(f"[VIDEOCALL] 🌐 Chargement: {target_url}")
+        print(f"[VIDEOCALL] Loading {target_url}")
 
 def main() -> None:
     """Entrypoint for launching full-screen video-call runtime window."""
@@ -657,11 +654,7 @@ def main() -> None:
 
     config, room_name, device_name = resolve_runtime_config()
     session_data = request_device_session(room_name, device_name)
-    print(f"[VIDEOCALL] ========================================")
-    print(f"[VIDEOCALL] Configuration:")
-    print(f"[VIDEOCALL]    Room: {room_name}")
-    print(f"[VIDEOCALL]    Device: {device_name}")
-    print(f"[VIDEOCALL] ========================================")
+    print(f"[VIDEOCALL] Configuration: room='{room_name}', device='{device_name}'")
     app = QApplication(sys.argv)
     # Escala HiDPI correcta en Mac
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)

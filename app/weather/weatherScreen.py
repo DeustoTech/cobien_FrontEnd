@@ -432,7 +432,7 @@ class WeatherScreenWidget(BoxLayout):
         app = App.get_running_app()
         lang = app.cfg.data.get("language", "es")
         self.api_lang = lang
-        print(f"[WEATHER] 🌍 API language set to: {self.api_lang}")
+        print(f"[WEATHER] API language set to: {self.api_lang}")
         
         self.current_desc = _("Cargando…")
         self.today_minmax_left = f"{_('Min')} —°"
@@ -512,7 +512,7 @@ class WeatherScreenWidget(BoxLayout):
                         payload = json.loads(msg.payload.decode("utf-8"))
                         if payload.get("target") == "weather_list":
                             cities = payload.get("extra", {}).get("cities", [])
-                            print(f"[WEATHER] Received {len(cities)} cities")
+                            print(f"[WEATHER] Received {len(cities)} cities from MQTT")
                             Clock.schedule_once(lambda dt: self.set_city_list(cities))
                     except Exception as e:
                         print(f"[WEATHER] MQTT error: {e}")
@@ -677,7 +677,7 @@ class WeatherScreenWidget(BoxLayout):
     def _fetch_all_and_render(self, request_seq, city_snapshot):
         """Fetch weather bundle and schedule UI rendering on main thread."""
         try:
-            print(f"[WEATHER] 🌐 Fetching weather for {city_snapshot['city']} with lang={city_snapshot['api_lang']}")
+            print(f"[WEATHER] Fetching weather for {city_snapshot['city']} ({city_snapshot['api_lang']})")
             bundle = fetch_weather_bundle(
                 city_name=city_snapshot["city"],
                 lat=city_snapshot["lat"],
@@ -756,7 +756,7 @@ class WeatherScreenWidget(BoxLayout):
             self.today_minmax_right = f"{_('Max')} {cache.get('temp_max', '—')}°"
             if os.path.exists(icon):
                 self.current_icon = icon
-            print(f"[WEATHER] 📦 Using cached summary for {cache_city or self.city}")
+            print(f"[WEATHER] Using cached summary for {cache_city or self.city}")
         except Exception as exc:
             print(f"[WEATHER] Cache read error: {exc}")
 

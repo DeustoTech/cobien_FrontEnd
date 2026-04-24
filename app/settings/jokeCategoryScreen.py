@@ -193,8 +193,6 @@ class JokeCategoryScreen(Screen):
         Returns:
             None.
         """
-        print("[JOKE_CATEGORY] 🔄 Updating labels...")
-        
         if hasattr(self.root_view, 'ids') and 'lbl_title' in self.root_view.ids:
             # ✅ Page title - Uses "Categoría de Frases"
             # ES: "Categoría de Frases" (Spanish)
@@ -204,25 +202,19 @@ class JokeCategoryScreen(Screen):
         # ✅ IMPORTANT: Refresh all category buttons
         self._refresh_all_category_buttons()
         
-        print("[JOKE_CATEGORY] ✅ Labels updated")
-    
     def _refresh_all_category_buttons(self) -> None:
         """Rebuild category card widgets after a language or state change.
 
         Returns:
             None.
         """
-        print("[JOKE_CATEGORY] 🔄 Refreshing buttons...")
-        
         if not hasattr(self.root_view, 'ids') or 'grid_categories' not in self.root_view.ids:
-            print("[JOKE_CATEGORY] ⚠️ grid_categories non disponible")
+            print("[JOKE_CATEGORY] grid_categories is unavailable")
             return
         
         # Recréer tous les boutons avec populate_categories()
         self.populate_categories()
         
-        print("[JOKE_CATEGORY] ✅ Buttons refreshed")
-    
     def populate_categories(self) -> None:
         """Populate category grid from configuration and translation state.
 
@@ -233,7 +225,7 @@ class JokeCategoryScreen(Screen):
             >>> self.populate_categories()
         """
         if not hasattr(self.root_view, 'ids') or 'grid_categories' not in self.root_view.ids:
-            print("[JOKE_CATEGORY] ⚠️ grid_categories non disponible")
+            print("[JOKE_CATEGORY] grid_categories is unavailable")
             return
         
         grid = self.root_view.ids.grid_categories
@@ -242,8 +234,6 @@ class JokeCategoryScreen(Screen):
         current_category = self.cfg.data.get("joke_category", "general")
         lang = get_current_language()
         
-        print(f"[JOKE_CATEGORY] 🌐 Current language: {lang}")
-        
         for cat_id, cat_key in self.categories:
             btn = CategoryButton()
             btn.category_id = cat_id
@@ -251,14 +241,11 @@ class JokeCategoryScreen(Screen):
             # ✅ Translate with gettext using the exact .po keys
             btn.category_name = _(cat_key)
             
-            # 🐛 DEBUG - Show obtained translation
-            print(f"[JOKE_CATEGORY] {cat_id}: '{cat_key}' → '{btn.category_name}' (lang={lang})")
-            
             btn.is_selected = (cat_id == current_category)
             btn.bind(on_release=lambda x, cid=cat_id: self.select_category(cid))
             grid.add_widget(btn)
         
-        print(f"[JOKE_CATEGORY] ✅ {len(self.categories)} buttons created")
+        print(f"[JOKE_CATEGORY] Rendered {len(self.categories)} category buttons")
     
     def select_category(self, category_id: str) -> None:
         """Persist selected category and refresh dependent joke screens.
@@ -273,25 +260,20 @@ class JokeCategoryScreen(Screen):
             No exception is propagated. Downstream screen-refresh failures are
             logged and best-effort refresh continues.
         """
-        print(f"[JOKE_CATEGORY] 🎯 Category selected: {category_id}")
-        
         # 1️⃣ Save to config
         old_category = self.cfg.data.get("joke_category", "general")
         self.cfg.data["joke_category"] = category_id
         self.cfg.save()
-        print(f"[JOKE_CATEGORY]    {old_category} -> {category_id} (saved)")
+        print(f"[JOKE_CATEGORY] Category changed: {old_category} -> {category_id}")
         
         # 2️⃣ ✅ FORCE RELOAD of config in MainScreen
         app = App.get_running_app()
         if hasattr(app, 'main_ref'):
             # ✅ RELOAD the config from disk
             app.main_ref.cfg.load()
-            print(f"[JOKE_CATEGORY]    Config reloaded: {app.main_ref.cfg.data.get('joke_category')}")
-            
             # ✅ FORCE reload of joke
             if hasattr(app.main_ref, 'reload_joke'):
                 app.main_ref.reload_joke()
-                print("[JOKE_CATEGORY] MainScreen reloaded via reload_joke()")
         
         # 3️⃣ Recharger JokesScreen
         if app.root.has_screen("jokes"):
@@ -304,18 +286,14 @@ class JokeCategoryScreen(Screen):
                     jokes_widget.load_jokes()
                     if hasattr(jokes_widget, 'show_random_joke'):
                         jokes_widget.show_random_joke()
-                    print("[JOKE_CATEGORY] JokesScreen reloaded")
         
         # 4️⃣ Rafraîchir l'affichage (catégorie en bleu)
         self.populate_categories()
         
-        print(f"[JOKE_CATEGORY] Category changed: {category_id}")
-    
     def on_pre_enter(self) -> None:
         """Refresh labels every time the screen is entered.
 
         Returns:
             None.
         """
-        print("[JOKE_CATEGORY] on_pre_enter() - refreshing translations")
         self.update_labels()

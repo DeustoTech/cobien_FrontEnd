@@ -588,7 +588,7 @@ class StripCard(BoxLayout):
         
         # Stop previous playback if exists
         if self._ringtone_thread and self._ringtone_thread.is_alive():
-            print("[RINGTONE] Already playing, stopping first...")
+            print("[RINGTONE] Already playing; stopping current playback first")
             self.stop_ringtone()
             return
         
@@ -624,7 +624,7 @@ class StripCard(BoxLayout):
         if not self._is_playing:
             return
         
-        print("[RINGTONE] Stopping playback...")
+        print("[RINGTONE] Stopping playback")
         runtime_stop_ringtone()
         self._reset_button_state()
     
@@ -634,7 +634,6 @@ class StripCard(BoxLayout):
         if hasattr(self, 'ids') and 'play_stop_btn' in self.ids:
             self.ids.play_stop_btn.is_playing = False
             self.ids.play_stop_btn.icon_source = self.play_icon
-        print("[RINGTONE] Button reset to play state")
     
     def open_color_picker(self) -> None:
         """Open modal color picker and persist live color changes."""
@@ -737,20 +736,14 @@ class NotificationsScreen(Screen):
     
     def update_labels(self) -> None:
         """Refresh translated labels and recreate strip cards."""
-        print("[NOTIF_SCREEN] Updating labels...")
-        
         if hasattr(self.root_view, 'ids') and 'lbl_title' in self.root_view.ids:
             self.root_view.ids.lbl_title.text = _("Configuración notificaciones")
         
         # ✅ IMPORTANT : Rafraîchir tous les StripCard
         self._refresh_all_strip_cards()
         
-        print("[NOTIF_SCREEN] Labels updated")
-    
     def _refresh_all_strip_cards(self) -> None:
         """Recreate strip cards after translation or config update."""
-        print("[NOTIF_SCREEN] Refreshing StripCard widgets...")
-        
         if not hasattr(self.root_view, 'ids') or 'strips_grid' not in self.root_view.ids:
             print("[NOTIF_SCREEN] strips_grid unavailable")
             return
@@ -762,8 +755,6 @@ class NotificationsScreen(Screen):
         # Recréer les StripCard avec load_strip_cards()
         self.load_strip_cards()
         
-        print("[NOTIF_SCREEN] StripCard widgets refreshed")
-    
     # ========== SAUVEGARDE/CHARGEMENT ==========
     
     def load_config(self) -> None:
@@ -772,13 +763,10 @@ class NotificationsScreen(Screen):
         for key in self.ledStrips.keys():
             if key in config:
                 self.ledStrips[key].update(config[key])
-        print("[CONFIG] Configuration loaded")
     
     def save_config(self) -> bool:
         """Save current notification profiles into runtime store."""
         ok = runtime_save_notification_config(dict(self.ledStrips))
-        if ok:
-            print("[CONFIG] Configuration saved")
         return ok
     
     def update_strip_value(self, strip: str, field: str, value: Any) -> None:
@@ -802,7 +790,6 @@ class NotificationsScreen(Screen):
     def load_ringtones(self) -> List[str]:
         """Load available ringtone catalog from runtime helper."""
         ringtones = runtime_load_ringtones()
-        print(f"[RINGTONE] Found {len(ringtones)-1} ringtones")
         return ringtones
 
     def normalize_ringtone(self, ringtone: str) -> str:
@@ -865,11 +852,10 @@ class NotificationsScreen(Screen):
             card.parent_screen = self
             grid.add_widget(card)
         
-        print(f"[NOTIF_SCREEN] Created {len(self.ledStrips)} StripCard widgets")
+        print(f"[NOTIF_SCREEN] Rendered {len(self.ledStrips)} StripCard widgets")
     
     def on_pre_enter(self, *args: Any) -> None:
         """Refresh translations and ringtones before entering screen."""
-        print("[NOTIF_SCREEN] on_pre_enter")
         self.update_labels()
         self.available_ringtones = self.load_ringtones()
 

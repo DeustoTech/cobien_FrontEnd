@@ -581,7 +581,6 @@ class DayEventsScreen(Screen):
         if hasattr(self, '_refresh_day_title'):
             self._refresh_day_title()
         
-        print("[DAY_EVENTS] Labels updated")
 
     # ---------- API ----------
     def set_store(self, store: Any) -> None:
@@ -895,7 +894,7 @@ class DayEventsScreen(Screen):
                 if hasattr(main_screen, "refresh_events"):
                     main_screen.refresh_events()
         except Exception as e:
-            print(f"[SYNC] {_('Error al refrescar pantallas')}: {e}")
+            print(f"[SYNC] Screen refresh error: {e}")
 
     # ---------- UI ----------
     def _refresh_header_clock(self) -> None:
@@ -975,7 +974,7 @@ class DayEventsScreen(Screen):
             self.tts.say(text)
             self.tts.runAndWait()
         except Exception as e:
-            print(f"[TTS] {_('Error')}: {e}")
+            print(f"[TTS] Error: {e}")
 
     def _load_vosk_model(self):
         for cand in self.VOSK_MODEL_DIR_CANDIDATES:
@@ -984,8 +983,8 @@ class DayEventsScreen(Screen):
                 try:
                     return Model(path)
                 except Exception as e:
-                    print(f"[VOSK] {_('Error cargando modelo')} {path}: {e}")
-        print(f"[VOSK] {_('Modelo no encontrado.')}")
+                    print(f"[VOSK] Model load error for {path}: {e}")
+        print("[VOSK] Model not found")
         return None
     """
 
@@ -1074,7 +1073,7 @@ class DayEventsScreen(Screen):
             stream.stop_stream(); stream.close(); pa.terminate()
             return " ".join(result).strip().lower() or None
         except Exception as e:
-            print(f"[ASR] {_('Error escucha')}: {e}")
+            print(f"[ASR] Listening error: {e}")
             return None
     """
     def on_pre_enter(self, *args: Any) -> None:

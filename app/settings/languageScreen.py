@@ -276,7 +276,7 @@ class LanguageScreen(Screen):
         Raises:
             No exception is propagated. Refresh issues are logged.
         """
-        print(f"[LANGUAGE] 💾 Sauvegarde langue: {self.selected_lang}")
+        print(f"[LANGUAGE] Saving language: {self.selected_lang}")
         
         # 1. Get the app
         app = App.get_running_app()
@@ -288,15 +288,12 @@ class LanguageScreen(Screen):
         # 3. ✅ Changer langue via module centralisé
         change_language(self.selected_lang)
         
-        # 4. Test immédiat
-        print(f"[LANGUAGE] Test: _('Tiempo') = {_('Tiempo')}")
-        
-        # 5. Recharger interface
+        # 4. Recharger interface
         if hasattr(app, "reset_assistant"):
             app.reset_assistant()
         app.reload_main_screen()
         
-        # 6. Mettre à jour cet écran
+        # 5. Mettre à jour cet écran
         self.update_labels()
         
         print(f"[LANGUAGE] Language applied: {self.selected_lang}")
@@ -314,7 +311,7 @@ class LanguageScreen(Screen):
         self.root_view.ids.lbl_title.text = _("Configuración de Idioma")
         self.root_view.ids.btn_save.text = _("Guardar Configuración")
 
-        print(f"[LANGUAGE] Labels updated: '{_('Configuración de Idioma')}'")
+        print("[LANGUAGE] Labels updated")
 
     def on_pre_enter(self, *args: Any) -> None:
         """Update selected language and labels before entering screen.

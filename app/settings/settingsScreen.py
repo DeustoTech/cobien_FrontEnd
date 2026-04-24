@@ -388,7 +388,6 @@ class SettingsScreen(Screen):
         else:
             self.root_view.ids.btn_jokes.text = "Categoría de Frases"
         
-        print(f"[SETTINGS] Labels updated ({lang})")
 
     def on_pre_enter(self, *args: Any) -> None:
         """Refresh labels right before the screen is displayed.
@@ -399,7 +398,6 @@ class SettingsScreen(Screen):
         Returns:
             None.
         """
-        print("[SETTINGS] on_pre_enter() - refreshing translations")
         self.update_labels()
 
 Factory.register("SettingsScreen", cls=SettingsScreen)

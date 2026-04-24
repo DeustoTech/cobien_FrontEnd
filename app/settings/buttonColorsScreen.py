@@ -36,7 +36,7 @@ mqtt_client = mqtt.Client()
 try:
     mqtt_client.connect(MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT, 60)
     mqtt_client.loop_start()
-    print("[MQTT_BUTTONS] MQTT client started for button/config")
+    print("[MQTT_BUTTONS] MQTT client started")
 except Exception as e:
     print(f"[MQTT_BUTTONS] Connection error: {e}")
 
@@ -842,15 +842,7 @@ class ButtonColorsScreen(Screen):
         # Publier sur MQTT
         mqtt_client.publish("button/config", json.dumps(payload))
     
-        # Log
-        print(f"[MQTT] ========================================")
-        print(f"[MQTT] Topic: button/config")
-        print(f"[MQTT] {button_id} Payload:")
-        print(f"[MQTT]   PIC = 0x{pic_bitmask:02X}")
-        print(f"[MQTT]   shape_mode = {shape_mode} (0x{shape_mode:02X})")
-        print(f"[MQTT]   color = {color}")
-        print(f"[MQTT]   intensity = {intensity}")
-        print(f"[MQTT] ========================================")
+        print(f"[MQTT] Button config published for {button_id}")
 
     def on_update(self) -> None:
         """Persist and publish both button profiles via MQTT."""
@@ -905,12 +897,7 @@ class ButtonColorsScreen(Screen):
         mqtt_client.publish("button/config", json.dumps(payload_pic1))
         mqtt_client.publish("button/config", json.dumps(payload_pic2))
         
-        # Log détaillé
-        print(f"[MQTT] ========================================")
-        print(f"[MQTT] Topic: button/config")
-        print(f"[MQTT] PIC1: {payload_pic1}")
-        print(f"[MQTT] PIC2: {payload_pic2}")
-        print(f"[MQTT] ========================================")
+        print("[MQTT] Batch button config published")
 
     def on_pre_enter(self, *args: Any) -> None:
         """Reload values and labels before entering screen."""

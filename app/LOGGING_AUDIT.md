@@ -33,12 +33,32 @@ This applies to:
 
 ## Translation Status
 
-### Already normalized to English in this pass
+### Already normalized to English
 
-The most visible runtime logs have already been translated to English in:
+The core runtime logs have already been translated to English in:
 
 - `app/mainApp.py`
 - `app/notifications/notification_manager.py`
+- `app/events/eventsScreen.py`
+- `app/events/dayEventsScreen.py`
+- `app/settings/weatherChoice.py`
+- `app/settings/rfidActionsScreen.py`
+- `app/settings/notificationsScreen.py`
+- `app/settings/settingsScreen.py`
+- `app/settings/pinCodeScreen.py`
+- `app/settings/jokeCategoryScreen.py`
+- `app/weather/weatherScreen.py`
+- `app/videocall/videocall_launcher.py`
+- `app/videocall/confirmation_popup.py`
+- `app/videocall/request_call.py`
+- `app/mqtt_publisher.py`
+- `app/translation.py`
+- `app/virtual_assistant/recognizer.py`
+- `app/settings/buttonColorsScreen.py`
+- `app/settings/languageScreen.py`
+- `app/events/loadEvents.py`
+- `app/jokes/jokesScreen.py`
+- `app/compile_translations.py`
 
 This includes the main operational paths used during support:
 
@@ -61,29 +81,20 @@ Examples that were normalized:
 - `Démarrage` -> `Starting`
 - `Fermeture notification 'Appel entrant'` -> `Closing 'Incoming call' notification`
 
-### Still pending translation / normalization
+### Remaining minor cleanup targets
 
-The following files still contain operational log messages in French or mixed
-language and should be reviewed in the next cleanup pass:
+The remaining work is no longer about mixed-language logging in the main
+runtime. It is now mostly about reducing verbosity and removing low-value
+success chatter in secondary modules.
 
-- `app/events/eventsScreen.py`
-- `app/events/dayEventsScreen.py`
-- `app/settings/weatherChoice.py`
-- `app/settings/rfidActionsScreen.py`
+Current low-priority targets:
+
 - `app/settings/notificationsScreen.py`
-- `app/settings/settingsScreen.py`
-- `app/settings/pinCodeScreen.py`
-- `app/settings/jokeCategoryScreen.py`
+- `app/settings/buttonColorsScreen.py`
 - `app/weather/weatherScreen.py`
 - `app/videocall/videocall_launcher.py`
-- `app/videocall/confirmation_popup.py`
-- `app/videocall/request_call.py`
 - `app/mqtt_publisher.py`
-- `app/translation.py`
 - `app/virtual_assistant/recognizer.py`
-
-These are lower-priority than `mainApp.py` and `notification_manager.py`, but
-they should still be normalized before publishing logs in the backend admin UI.
 
 ### 1. What is already useful and should be kept
 
@@ -116,32 +127,13 @@ These messages are relevant for remote support and incident diagnosis:
 
 These areas should remain visible in the future web log viewer.
 
-### 2. What should be translated or normalized
+### 2. Logging direction after normalization
 
-There is still a large amount of operational logging in French or mixed
-Spanish/French/English. This is acceptable for debugging, but not for a web
-admin surface used by support staff.
+Operational logs are now expected to stay in English.
 
-Examples originally found in runtime logs:
+Current direction:
 
-- `Erreur résolution nom`
-- `Demande d'appel`
-- `Notification envoyée`
-- `Données météo invalides`
-- `Erreur générale`
-- `Événement ignoré`
-- `Démarrage`
-- `Timeout veille`
-- `Store rechargé`
-- `on_enter terminé`
-- `Calendrier planifié`
-- `Fermeture notification 'Appel entrant'`
-- `Timeout écoute`
-
-Recommendation:
-
-- normalize operational logs to one language only
-- prefer short Spanish technical phrasing
+- keep runtime and support logs in English
 - keep log prefixes stable, for example:
   - `[APP]`
   - `[BACKEND POLL]`
@@ -152,11 +144,8 @@ Recommendation:
   - `[CAN]`
   - `[BRIDGE]`
 
-Updated direction after this first pass:
-
-- keep English for runtime and support logs
 - keep prefixes stable and machine-friendly
-- avoid mixed language strings in the same subsystem
+- avoid mixed language strings inside the same subsystem
 
 ### 3. What is currently too noisy for web exposure
 
@@ -184,10 +173,30 @@ downgraded before the logs are published on the web:
   - board refresh tracebacks
   - launcher fallback tracebacks after handled exceptions
 
+Status after the first and second cleanup passes:
+
+- major UI lifecycle chatter has already been reduced in:
+  - `app/mainApp.py`
+  - `app/notifications/notification_manager.py`
+  - `app/settings/weatherChoice.py`
+  - `app/events/eventsScreen.py`
+  - `app/settings/rfidActionsScreen.py`
+- secondary chatter has also been reduced in:
+  - `app/settings/buttonColorsScreen.py`
+  - `app/settings/jokeCategoryScreen.py`
+  - `app/settings/languageScreen.py`
+  - `app/settings/settingsScreen.py`
+  - `app/settings/notificationsScreen.py`
+  - `app/weather/weatherScreen.py`
+  - `app/events/dayEventsScreen.py`
+  - `app/videocall/videocall_launcher.py`
+  - `app/mqtt_publisher.py`
+  - `app/virtual_assistant/recognizer.py`
+
 Recommendation:
 
 - keep one concise line for success paths
-- keep warnings only when user-visible degradation exists
+- keep warnings only when there is user-visible degradation or recovery
 - keep tracebacks only for real `ERROR` cases
 
 ### 4. What should not be exposed to the web without filtering
@@ -226,13 +235,8 @@ Recommendation:
 
 ### Translate / Normalize
 
-- mixed French runtime strings in:
-  - `app/mainApp.py`
-  - `app/notifications/notification_manager.py`
-  - `app/events/eventsScreen.py`
-  - `app/events/dayEventsScreen.py`
-  - `app/settings/weatherChoice.py`
-  - `app/virtual_assistant/recognizer.py`
+- keep new runtime log strings in English only
+- reject new French or mixed-language log additions during review
 
 ### Remove or Downgrade
 
@@ -242,19 +246,21 @@ Recommendation:
 - repeated separators
 - success spam that repeats every refresh cycle
 
-## Suggested Next Cleanup Pass
+## Suggested Next Step
 
-Before implementing the web viewer, the safest cleanup order is:
+Before implementing the web viewer, the safest next move is:
 
-1. finish translating remaining operational logs to English
-2. replace ad-hoc `print()` spam with a minimal severity model
-3. reduce repeated UI and joke traces
-4. keep warnings and errors for support-critical flows only
-5. add filtering/redaction before exposing logs in the backend
+1. finish reducing remaining low-value success chatter
+2. define a minimal severity model for future replacements of ad-hoc `print()`
+3. decide redaction rules for names, rooms, payloads, and local paths
+4. design the backend storage and retrieval shape for the last two days only
+5. implement the web viewer in furniture administration
 
-## High-Priority Files To Revisit
+## Remaining Files To Revisit
 
-- `app/events/eventsScreen.py`
-- `app/settings/weatherChoice.py`
+- `app/settings/notificationsScreen.py`
+- `app/settings/buttonColorsScreen.py`
+- `app/weather/weatherScreen.py`
+- `app/videocall/videocall_launcher.py`
+- `app/mqtt_publisher.py`
 - `app/virtual_assistant/recognizer.py`
-- `deploy/ubuntu/cobien-launcher.sh`

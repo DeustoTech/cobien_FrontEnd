@@ -98,7 +98,7 @@ def load_contacts_map():
             display, user = [x.strip() for x in line.split("=", 1)]
             if display and user:
                 m[display.lower()] = user
-    print(f"[CONTACTS] Loaded {len(m)} contacts from {path}")
+    print(f"[CONTACTS] Loaded {len(m)} contacts")
     return m
 
 # Loading the configured RFID cards actions
@@ -155,7 +155,7 @@ for city_name in WEATHER_CITIES_RAW:
     geo = geocode_city(city_name)
     if geo:
         WEATHER_CITIES_GEO.append(geo)
-print(f"\n[INIT] Successfully geocoded {len(WEATHER_CITIES_GEO)} cities\n")
+print(f"[INIT] Geocoded {len(WEATHER_CITIES_GEO)} cities")
 
 # Correspondances actions - buttons
 BUTTON_ACTIONS = {
@@ -178,8 +178,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(TOPIC_RFID_RELOAD)
     client.subscribe(TOPIC_EVENTS_RELOAD)   # ✅ NEW
     client.subscribe(TOPIC_BOARD_RELOAD)    # ✅ NEW
-    print(f"[MQTT] Subscribed to: {TOPIC_RFID_IN}, {TOPIC_SENSORS_IN}, {TOPIC_IMU}, "
-          f"{TOPIC_WEATHER_RELOAD}, {TOPIC_RFID_RELOAD}, {TOPIC_EVENTS_RELOAD}, {TOPIC_BOARD_RELOAD}")
+    print("[MQTT] Subscriptions ready")
     
     # Sending the cities via MQTT
     if WEATHER_CITIES_GEO:
@@ -237,7 +236,6 @@ def on_message(client, userdata, msg):
         RFID_ACTIONS = load_rfid_config()
         
         print(f"[MQTT] Reloaded {len(RFID_ACTIONS)} RFID actions")
-        print(f"[MQTT] Active actions: {list(RFID_ACTIONS.keys())}")
         return
     
     # --- WEATHER RELOAD ---
@@ -271,7 +269,7 @@ def on_message(client, userdata, msg):
             "timestamp": datetime.now().isoformat()
         }
         client.publish(TOPIC_APP_NAV_OUT, json.dumps(payload_out))
-        print(f"[MQTT] Events reload signal published")
+        print("[MQTT] Events reload signal published")
         return
     
     # ========== BOARD RELOAD (NEW) ==========
@@ -284,7 +282,7 @@ def on_message(client, userdata, msg):
             "timestamp": datetime.now().isoformat()
         }
         client.publish(TOPIC_APP_NAV_OUT, json.dumps(payload_out))
-        print(f"[MQTT] Board reload signal published")
+        print("[MQTT] Board reload signal published")
         return
     
     # --- Buttons ---
@@ -329,10 +327,10 @@ def main():
     
     try:
         client.connect(BROKER_HOST, BROKER_PORT, 60)
-        print("[MQTT] Loop started...")
+        print("[MQTT] Loop started")
         client.loop_forever()
     except KeyboardInterrupt:
-        print("\n[MQTT] Stopped")
+        print("[MQTT] Stopped")
     except Exception as e:
         print(f"[MQTT] Error: {e}")
 
