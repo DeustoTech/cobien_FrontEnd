@@ -83,7 +83,7 @@ Parámetros relevantes:
 - `COBIEN_WORKSPACE_ROOT`: ruta raíz que contiene los dos repos.
 - `COBIEN_FRONTEND_REPO_NAME`: carpeta del frontend.
 - `COBIEN_MQTT_REPO_NAME`: carpeta del repo MQTT/CAN.
-- `COBIEN_UPDATE_BRANCH`: rama de despliegue (por defecto `development_fix`).
+- `COBIEN_UPDATE_BRANCH`: rama de despliegue (por defecto `master`).
 - `COBIEN_UPDATE_REMOTE`: remoto Git (normalmente `origin`).
 - `COBIEN_UPDATE_INTERVAL_SEC`: intervalo de watch loop en segundos.
 - `COBIEN_DEVICE_ID`: id del mueble (`CoBien1`, `CoBien2`, ...).
@@ -207,20 +207,20 @@ cd ~/cobien
 git clone <URL_FRONTEND> cobien_FrontEnd
 git clone <URL_MQTT> cobien_MQTT_Dictionnary
 cd cobien_FrontEnd
-bash deploy/ubuntu/cobien-launcher.sh --mode setup --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix
+bash deploy/ubuntu/cobien-launcher.sh --mode setup --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch master
 bash deploy/ubuntu/install-systemd-user.sh
 ```
 
 Configuración de identidad inicial (por CLI):
 
 ```bash
-bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix --device-id CoBien1 --videocall-room CoBien1 --device-location Logroño
+bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch master --device-id CoBien1 --videocall-room CoBien1 --device-location Logroño
 ```
 
 Configuración de TTS con Piper (opcional):
 
 ```bash
-bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch development_fix --tts-engine piper --tts-piper-model-es "/ruta/modelo-es.onnx" --tts-piper-model-fr "/ruta/modelo-fr.onnx"
+bash deploy/ubuntu/cobien-launcher.sh --mode launch --non-interactive --yes --workspace ~/cobien --frontend-name cobien_FrontEnd --mqtt-name cobien_MQTT_Dictionnary --branch master --tts-engine piper --tts-piper-model-es "/ruta/modelo-es.onnx" --tts-piper-model-fr "/ruta/modelo-fr.onnx"
 ```
 
 ## Notas importantes

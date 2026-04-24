@@ -77,7 +77,7 @@ bash deploy/ubuntu/cobien-launcher.sh \
   --workspace "$HOME/cobien" \
   --frontend-name cobien_FrontEnd \
   --mqtt-name cobien_MQTT_Dictionnary \
-  --branch development_fix \
+  --branch master \
   --device-id CoBien1 \
   --videocall-room CoBien1 \
   --device-location Logroño
@@ -260,7 +260,7 @@ When `piper` is selected, launcher attempts:
 
 ```bash
 cd ~/cobien/cobien_FrontEnd
-git pull --ff-only origin development_fix
+git pull --ff-only origin master
 systemctl --user restart cobien-launcher.service
 ```
 
@@ -281,4 +281,4 @@ bash deploy/ubuntu/cobien-launcher.sh
 
 - Use `cobien-launcher.sh` as the single operational entrypoint.
 - Do not run legacy startup mechanisms in parallel (`~/.config/autostart` old entries, duplicated cron jobs, old scripts).
-- Keep `development_fix` and remote config aligned with deployed branch.
+- Keep `master` and remote config aligned with the deployed branch.
