@@ -58,6 +58,7 @@ from audio.audio_devices import apply_system_audio_devices
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from device_heartbeat_service import send_device_heartbeat_async
+from device_log_sync_service import schedule_device_log_sync
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from config_store import load_section
 
@@ -2291,6 +2292,10 @@ class MyApp(App):
                 "device_location": self.cfg.get_device_location(),
             },
         )
+        try:
+            schedule_device_log_sync()
+        except Exception as exc:
+            print(f"[SUPPORT LOGS] Failed to schedule sync: {exc}")
 
     def _reset_idle_timer(self, *args, **kwargs):
         """
