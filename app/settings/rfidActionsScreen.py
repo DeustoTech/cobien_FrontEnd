@@ -29,6 +29,7 @@ import json
 import paho.mqtt.client as mqtt
 import os
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from config_runtime import LOCAL_CONFIG_PATH
 from config_store import load_section, save_section
 
 # ----------------- REUSABLE WIDGETS -----------------
@@ -216,7 +217,7 @@ class RFIDCardWidget(BoxLayout):
         self.action = action
         self.extra_data = extra_data
         self.parent_screen = parent_screen
-        self.config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config.local.json"))
+        self.config_path = LOCAL_CONFIG_PATH
         
         self.orientation = "vertical"
         self.size_hint_y = None

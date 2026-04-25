@@ -32,6 +32,7 @@ from datetime import datetime
 import paho.mqtt.publish as publish
 import requests
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
+from config_runtime import LOCAL_CONFIG_PATH
 from config_store import load_section
 
 # ----------------- WIDGETS RÉUTILISABLES -----------------
@@ -214,7 +215,7 @@ class WeatherChoice(FloatLayout):
         self.city_list_geo = {}
         self.available_cities = []
         self.active_cities = []
-        self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.local.json")
+        self.config_path = LOCAL_CONFIG_PATH
         self.last_mtime = 0
         self._watch_event = None
         self.selected_letter = None
