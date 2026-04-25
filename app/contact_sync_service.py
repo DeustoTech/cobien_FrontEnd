@@ -11,7 +11,7 @@ from config_store import load_section
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONTACTS_DIR = os.path.join(BASE_DIR, "contacts")
+CONTACTS_DIR = os.path.join(os.getenv("COBIEN_DATA_DIR") or BASE_DIR, "contacts")
 CONTACTS_FILE = os.path.join(CONTACTS_DIR, "list_contacts.txt")
 SUPPORTED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")
 

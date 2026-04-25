@@ -27,7 +27,7 @@ from config_store import load_section
 # === Configuration ===
 DB_NAME = "LabasAppDB"
 BUCKET = "pizarra_fs"  # GridFS collections: pizarra_fs.files / pizarra_fs.chunks
-CACHE_DIR = os.path.join(os.path.dirname(__file__), "board_cache")
+CACHE_DIR = os.path.join(os.getenv("COBIEN_CACHE_DIR") or os.path.dirname(__file__), "board_cache")
 CACHE_INDEX_FILE = os.path.join(CACHE_DIR, "board_items.json")
 
 # Ensure a local cache directory exists (if not writable, use a temp dir)
