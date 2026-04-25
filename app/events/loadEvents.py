@@ -27,7 +27,7 @@ from config_store import load_section
 
 # ------------------------ CONFIGURATION ------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-LOCAL_FILE = os.path.join(BASE_DIR, "events", "eventos_local.json")
+LOCAL_FILE = os.path.join(os.getenv("COBIEN_DATA_DIR") or BASE_DIR, "events", "eventos_local.json")
 
 AUDIENCE_COLORS = {
     "all": "#1E90FF",     # Azul (públicos)

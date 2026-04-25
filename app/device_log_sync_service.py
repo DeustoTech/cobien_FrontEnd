@@ -10,8 +10,8 @@ from config_store import load_section
 
 APP_DIR = os.path.dirname(__file__)
 FRONTEND_ROOT = os.path.dirname(APP_DIR)
-LOG_DIR = os.path.join(FRONTEND_ROOT, "logs")
-RUNTIME_STATE_DIR = os.path.join(APP_DIR, "runtime_state")
+LOG_DIR = os.getenv("COBIEN_LOG_DIR") or os.path.join(FRONTEND_ROOT, "logs")
+RUNTIME_STATE_DIR = os.getenv("COBIEN_RUNTIME_STATE_DIR") or os.path.join(APP_DIR, "runtime_state")
 SYNC_STATE_PATH = os.path.join(RUNTIME_STATE_DIR, "device_log_sync_state.json")
 
 DEFAULT_SYNC_STATE = {

@@ -46,7 +46,7 @@ TOPIC_EVENTS_RELOAD = "events/reload"
 TOPIC_BOARD_RELOAD = "board/reload"
 
 NOTIFICATION_CACHE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
+    os.getenv("COBIEN_CACHE_DIR") or os.path.dirname(os.path.dirname(__file__)),
     "notifications",
     "cache",
 )

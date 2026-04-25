@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 MODULE_DIR = os.path.dirname(__file__)
 APP_DIR = os.path.dirname(MODULE_DIR)
-LOG_DIR = os.path.join(APP_DIR, "logs")
+LOG_DIR = os.getenv("COBIEN_LOG_DIR") or os.path.join(APP_DIR, "logs")
 
 LOG_TXT = os.path.join(LOG_DIR, "icso_log.txt")
 LOG_JSON = os.path.join(LOG_DIR, "icso_log.json")

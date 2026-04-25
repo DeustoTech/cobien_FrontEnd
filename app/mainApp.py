@@ -91,7 +91,7 @@ from virtual_assistant.commands import refresh_contact_keywords
 
 Builder.load_string(PINBACK_BUTTON_KV)
 
-RUNTIME_STATE_DIR = os.path.join(os.path.dirname(__file__), "runtime_state")
+RUNTIME_STATE_DIR = os.getenv("COBIEN_RUNTIME_STATE_DIR") or os.path.join(os.path.dirname(__file__), "runtime_state")
 UPDATE_MARKER_FILE = os.path.join(RUNTIME_STATE_DIR, "system_updated.json")
 LAUNCHER_STOP_REQUEST_FILE = os.path.join(RUNTIME_STATE_DIR, "launcher_stop_requested.flag")
 APP_LOCK_FILE = os.path.join(RUNTIME_STATE_DIR, "cobien-app.lock")
@@ -677,7 +677,8 @@ class MainScreen(Screen):
 
         # ====== Clima ====== 
         # ✅ FIX 2 : Charger première ville de la liste
-        self.cache_dir = os.path.join(os.path.dirname(__file__), "weather")
+        _cache_base = os.getenv("COBIEN_CACHE_DIR") or os.path.dirname(__file__)
+        self.cache_dir = os.path.join(_cache_base, "weather")
         os.makedirs(self.cache_dir, exist_ok=True)
         self.cache_path = os.path.join(self.cache_dir, "weather_today.json")
 
@@ -1179,8 +1180,8 @@ class MainScreen(Screen):
             self.evento_2 = ""
 
     def _load_local_events(self, limit=2):
-        base = os.path.join(os.path.dirname(__file__), "events")
-        path = os.path.join(base, "eventos_local.json")
+        _data_base = os.getenv("COBIEN_DATA_DIR") or os.path.dirname(__file__)
+        path = os.path.join(_data_base, "events", "eventos_local.json")
         if not os.path.exists(path):
             return []
         try:
