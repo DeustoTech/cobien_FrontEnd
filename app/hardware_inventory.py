@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUNTIME_STATE_DIR = os.path.join(BASE_DIR, "runtime_state")
+RUNTIME_STATE_DIR = os.getenv("COBIEN_RUNTIME_STATE_DIR") or os.path.join(BASE_DIR, "runtime_state")
 INVENTORY_CACHE_PATH = os.path.join(RUNTIME_STATE_DIR, "hardware_inventory_cache.json")
 INVENTORY_SENT_STATE_PATH = os.path.join(RUNTIME_STATE_DIR, "hardware_inventory_sent_state.json")
 VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
