@@ -15,7 +15,12 @@ import re
 from datetime import datetime
 from typing import Any, Dict
 
-from config_runtime import LOCAL_CONFIG_PATH, load_default_unified_config, read_version
+from config_runtime import (
+    LEGACY_LOCAL_CONFIG_PATH,
+    LOCAL_CONFIG_PATH,
+    load_default_unified_config,
+    read_version,
+)
 
 
 SENSITIVE_CONFIG = {
@@ -83,12 +88,14 @@ def _write_json(path: str, data: Dict[str, Any]) -> None:
 
 
 def _load_local_config() -> Dict[str, Any]:
-    if not os.path.exists(LOCAL_CONFIG_PATH):
-        return {}
-    try:
-        return _read_json(LOCAL_CONFIG_PATH)
-    except Exception:
-        return {}
+    for path in (LOCAL_CONFIG_PATH, LEGACY_LOCAL_CONFIG_PATH):
+        if not path or not os.path.exists(path):
+            continue
+        try:
+            return _read_json(path)
+        except Exception:
+            continue
+    return {}
 
 
 def _extract_sensitive_values(config: Dict[str, Any]) -> Dict[str, Any]:

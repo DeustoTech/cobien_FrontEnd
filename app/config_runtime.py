@@ -18,10 +18,19 @@ from typing import Any, Dict
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(BASE_DIR, "config")
-DEFAULT_CONFIG_PATH = os.path.join(CONFIG_DIR, "config.default.json")
-LOCAL_CONFIG_PATH = os.path.join(CONFIG_DIR, "config.local.json")
-LOCAL_CONFIG_EXAMPLE_PATH = os.path.join(CONFIG_DIR, "config.local.example.json")
+APP_CONFIG_DIR = os.path.join(BASE_DIR, "config")
+CONFIG_DIR = os.path.abspath(
+    os.getenv("COBIEN_CONFIG_DIR")
+    or os.path.dirname(os.getenv("COBIEN_LOCAL_CONFIG_PATH", ""))
+    or APP_CONFIG_DIR
+)
+DEFAULT_CONFIG_PATH = os.path.join(APP_CONFIG_DIR, "config.default.json")
+LOCAL_CONFIG_PATH = os.path.abspath(
+    os.getenv("COBIEN_LOCAL_CONFIG_PATH")
+    or os.path.join(CONFIG_DIR, "config.local.json")
+)
+LEGACY_LOCAL_CONFIG_PATH = os.path.join(APP_CONFIG_DIR, "config.local.json")
+LOCAL_CONFIG_EXAMPLE_PATH = os.path.join(APP_CONFIG_DIR, "config.local.example.json")
 VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 
 DEPLOYMENT_ENV_PRIMARY_FILE = "deploy/ubuntu/cobien.env"
