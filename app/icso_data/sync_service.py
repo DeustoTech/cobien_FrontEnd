@@ -16,7 +16,7 @@ from icso_data.log_writer import (
 
 MODULE_DIR = os.path.dirname(__file__)
 APP_DIR = os.path.dirname(MODULE_DIR)
-RUNTIME_STATE_DIR = os.path.join(APP_DIR, "runtime_state")
+RUNTIME_STATE_DIR = os.getenv("COBIEN_RUNTIME_STATE_DIR") or os.path.join(APP_DIR, "runtime_state")
 SYNC_STATE_PATH = os.path.join(RUNTIME_STATE_DIR, "icso_sync_state.json")
 
 DEFAULT_SYNC_STATE = {

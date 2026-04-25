@@ -46,8 +46,9 @@ class RecordatorioManager:
                 format while loading pending reminders.
         """
         self.app = app_reference
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.recordatorios_file = os.path.join(base_dir, "recordatorios.json")
+        _data_dir = os.getenv("COBIEN_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
+        os.makedirs(_data_dir, exist_ok=True)
+        self.recordatorios_file = os.path.join(_data_dir, "recordatorios.json")
         print(f"Archivo de recordatorios: {self.recordatorios_file}")
         self.cargar_recordatorios_pendientes()
 

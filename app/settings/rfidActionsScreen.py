@@ -450,9 +450,8 @@ class RFIDActionsScreen(Screen):
         """Load contact display names from list_contacts.txt."""
         self.available_contacts = []
 
-        contact_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "contacts", "list_contacts.txt")
-        )
+        _data_dir = os.getenv("COBIEN_DATA_DIR") or os.path.dirname(os.path.dirname(__file__))
+        contact_path = os.path.join(_data_dir, "contacts", "list_contacts.txt")
 
         if not os.path.exists(contact_path):
             print("[RFID] list_contacts.txt not found")
