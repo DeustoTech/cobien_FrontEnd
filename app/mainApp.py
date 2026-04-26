@@ -1719,7 +1719,17 @@ class MainScreen(Screen):
             }
             print(f"[BACKEND_NOTIF] ✅ Backend delivery diagnostic received: {self.last_backend_delivery_diagnostic}")
             return
-        
+
+        elif notif_type == "restart":
+            print("[BACKEND_NOTIF] Remote restart command received — rebooting in 3 s")
+            Clock.schedule_once(lambda dt: self.perform_system_reboot(), 3)
+            return
+
+        elif notif_type == "force_update":
+            print("[BACKEND_NOTIF] Remote force-update command received")
+            threading.Thread(target=self._do_force_update, daemon=True).start()
+            return
+
         # ❌ TYPE INCONNU
         else:
             print(f"[BACKEND_NOTIF] Unknown notification type: {notif_type}")
@@ -1753,6 +1763,26 @@ class MainScreen(Screen):
             Clock.schedule_once(_refresh_ui, 0)
         except Exception as exc:
             print(f"[CONTACTS_SYNC] ❌ Contacts synchronization failed: {exc}")
+
+    def _do_force_update(self):
+        repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            result = subprocess.run(
+                ["git", "-C", repo_dir, "pull", "--ff-only"],
+                capture_output=True, text=True, timeout=60,
+            )
+            print(f"[FORCE_UPDATE] git pull: {result.stdout.strip()} {result.stderr.strip()}")
+        except Exception as exc:
+            print(f"[FORCE_UPDATE] git pull failed: {exc}")
+        try:
+            subprocess.run(
+                ["systemctl", "--user", "restart", "cobien-launcher.service"],
+                timeout=10,
+            )
+            print("[FORCE_UPDATE] Service restart triggered")
+        except Exception as exc:
+            print(f"[FORCE_UPDATE] Service restart failed: {exc}")
+            Clock.schedule_once(lambda *_: self.perform_system_reboot(), 0)
 
     def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
         d = self._normalize_nav_text(destino)
