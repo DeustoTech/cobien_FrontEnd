@@ -807,14 +807,6 @@ class EventsScreen(Screen):
 
     def on_pre_enter(self, *args: Any) -> None:
         """Kivy lifecycle hook executed before screen becomes visible."""
-        try:
-            self.store.reload(
-                device_name=self.cfg.get_device_id(),
-                location_name=self.cfg.get_device_location(),
-            )
-        except Exception as e:
-            print(f"[EVENTS] Store reload error: {e}")
-        
         self.update_labels()
         self._build_calendar()
 
