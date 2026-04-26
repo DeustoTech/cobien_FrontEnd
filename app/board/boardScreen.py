@@ -310,7 +310,7 @@ KV = r"""
                                     Label:
                                         id: lbl_from
                                         text: "De —:"
-                                        font_size: sp(38)
+                                        font_size: sp(32)
                                         bold: True
                                         color: C_BLACK
                                         halign: "left"
@@ -324,7 +324,6 @@ KV = r"""
                                         halign: "left"
                                         valign: "middle"
                                         text_size: self.size
-                                Widget:
                             Label:
                                 id: lbl_body
                                 text: ""
