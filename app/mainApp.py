@@ -1774,6 +1774,8 @@ class MainScreen(Screen):
                     return
 
                 contacts_screen = self.sm.get_screen("contacts")
+                if hasattr(contacts_screen, "reload_contacts_from_disk"):
+                    contacts_screen.reload_contacts_from_disk()
                 contacts = getattr(contacts_screen, "contacts", [])
                 if not contacts:
                     self._show_nav_reason_popup(_("No hay contactos configurados para videollamada."))
@@ -1802,9 +1804,10 @@ class MainScreen(Screen):
         card = BoxLayout(
             orientation="vertical",
             size_hint=(None, None),
-            size=(dp(920), dp(360)),
+            size=(dp(920), dp(440)),
             pos_hint={"center_x": 0.5, "center_y": 0.5},
             padding=dp(28),
+            spacing=dp(24),
         )
         with card.canvas.before:
             Color(1, 1, 1, 0.98)
@@ -1820,9 +1823,24 @@ class MainScreen(Screen):
             valign="middle",
         )
         lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
+        btn_ok = Button(
+            text=_("Aceptar"),
+            font_size=sp(30),
+            size_hint=(None, None),
+            size=(dp(260), dp(80)),
+            pos_hint={"center_x": 0.5},
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+        )
+        btn_ok.bind(on_release=lambda *_: popup.dismiss())
+
         card.add_widget(lbl)
+        card.add_widget(btn_ok)
         popup.add_widget(card)
         popup.open()
+        Clock.schedule_once(lambda *_: popup.dismiss(), 5)
     """
     def start_assistant(self):
         # Configuration to wakeup the app if needed
