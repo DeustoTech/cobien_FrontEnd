@@ -406,8 +406,8 @@ class BoardScreen(Screen):
         Builder.load_string(KV)
 
         self.cfg = AppConfig()
-        self.RECIPIENT_KEY = self.cfg.get_device_id()
-        
+        self.RECIPIENT_KEY = self._resolve_recipient_key()
+
         print(f"[BOARD] Recipient: {self.RECIPIENT_KEY}")
 
         # Root view
@@ -418,6 +418,29 @@ class BoardScreen(Screen):
 
         self.items = []
         self.idx = 0
+
+    def _resolve_recipient_key(self) -> str:
+        recipient_key = str(self.cfg.get_device_id() or "").strip()
+        if recipient_key:
+            return recipient_key
+
+        app = App.get_running_app()
+        runtime_device_id = (
+            str(getattr(app, "DEVICE_ID", "") or "").strip()
+            if app else ""
+        )
+        if runtime_device_id:
+            print(
+                f"[BOARD] Recipient fallback from runtime app: "
+                f"{runtime_device_id}"
+            )
+            return runtime_device_id
+
+        print(
+            "[BOARD] Recipient missing in config and runtime; "
+            "falling back to CoBien1"
+        )
+        return "CoBien1"
 
         # ========== MQTT listener setup ==========
         self.setup_mqtt_listener()
@@ -734,6 +757,13 @@ class BoardScreen(Screen):
             No exception is propagated. Errors are logged.
         """
         try:
+            resolved_recipient = self._resolve_recipient_key()
+            if resolved_recipient != self.RECIPIENT_KEY:
+                print(
+                    f"[BOARD] Recipient updated: {self.RECIPIENT_KEY} "
+                    f"-> {resolved_recipient}"
+                )
+                self.RECIPIENT_KEY = resolved_recipient
             new_items = fetch_board_items_from_mongo(recipient_key=self.RECIPIENT_KEY, limit=50)
             print(f"[BOARD] Loaded {len(new_items)} items for '{self.RECIPIENT_KEY}'")
             old_first_id = self.items[0].get("id") if self.items else None
@@ -761,22 +791,30 @@ class BoardScreen(Screen):
         try:
             print("[BOARD] ========================================")
             print("[BOARD] 🔄 refresh_and_show_last() called")
-            
+
+            resolved_recipient = self._resolve_recipient_key()
+            if resolved_recipient != self.RECIPIENT_KEY:
+                print(
+                    f"[BOARD] Recipient updated: {self.RECIPIENT_KEY} "
+                    f"-> {resolved_recipient}"
+                )
+                self.RECIPIENT_KEY = resolved_recipient
+
             new_items = fetch_board_items_from_mongo(recipient_key=self.RECIPIENT_KEY, limit=50)
             print(f"[BOARD] 📥 {len(new_items)} messages loaded")
-            
+
             self.items = new_items or []
-            
+
             self.idx = 0
             print("[BOARD] ✅ Index = 0 (latest message)")
-            
+
             if self.items:
                 print("[BOARD] ✅ Displayed message:")
                 print(f"[BOARD]    From: {self.items[0].get('author', '?')}")
                 print(f"[BOARD]    Text: {self.items[0].get('text', '?')[:50]}...")
-            
+
             print(f"[BOARD] ========================================")
-            
+
             self._render_current()
         
         except Exception as e:
