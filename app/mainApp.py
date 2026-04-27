@@ -534,7 +534,7 @@ KV = r"""
         BoxLayout:
             orientation: "vertical"
             size_hint: None, None
-            width: max(dp(148), self.minimum_width + dp(18))
+            width: max(dp(148), self.minimum_width)
             height: dp(34)
             spacing: 0
             padding: [dp(10), dp(4), dp(10), dp(4)]
@@ -559,7 +559,9 @@ KV = r"""
                 bold: True
                 halign: "center"
                 valign: "middle"
-                text_size: self.size
+                size_hint_x: None
+                width: self.texture_size[0]
+                pos_hint: {"center_x": 0.5}
 """
 
 #----------------------- CONTACT NAME --------------------------
