@@ -118,6 +118,24 @@ def pa_get_default_source() -> str:
         return ""
 
 
+def pa_adjust_volume(step_percent: int = 5) -> None:
+    """Raise or lower the default sink volume by step_percent.
+
+    Positive values raise the volume; negative values lower it.
+    Runs non-blocking so it never stalls the UI thread.
+    """
+    sign = "+" if step_percent >= 0 else ""
+    delta = f"{sign}{step_percent}%"
+    try:
+        subprocess.Popen(
+            ["pactl", "set-sink-volume", "@DEFAULT_SINK@", delta],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as exc:
+        print(f"[AUDIO] pa_adjust_volume failed: {exc}")
+
+
 def apply_system_audio_devices(output_device: str = "", input_device: str = "") -> None:
     """Apply stored audio device preferences to PulseAudio and sounddevice.
 
