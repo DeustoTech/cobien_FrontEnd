@@ -419,6 +419,18 @@ class BoardScreen(Screen):
         self.items = []
         self.idx = 0
 
+        # ========== MQTT listener setup ==========
+        self.setup_mqtt_listener()
+
+        Clock.schedule_once(lambda *_: self._refresh_header(), 0)
+        Clock.schedule_interval(lambda *_: self._refresh_header(), 60)
+
+        Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
+        Clock.schedule_interval(lambda *_: self.refresh_from_mongo(), 60 * 5)
+
+        # Initial translated labels refresh
+        Clock.schedule_once(lambda *_: self.update_labels(), 0.1)
+
     def _resolve_recipient_key(self) -> str:
         recipient_key = str(self.cfg.get_device_id() or "").strip()
         if recipient_key:
@@ -441,18 +453,6 @@ class BoardScreen(Screen):
             "falling back to CoBien1"
         )
         return "CoBien1"
-
-        # ========== MQTT listener setup ==========
-        self.setup_mqtt_listener()
-
-        Clock.schedule_once(lambda *_: self._refresh_header(), 0)
-        Clock.schedule_interval(lambda *_: self._refresh_header(), 60)
-
-        Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
-        Clock.schedule_interval(lambda *_: self.refresh_from_mongo(), 60 * 5)
-        
-        # Initial translated labels refresh
-        Clock.schedule_once(lambda *_: self.update_labels(), 0.1)
 
     def update_labels(self) -> None:
         """Refresh all visible translatable labels in the current screen.
