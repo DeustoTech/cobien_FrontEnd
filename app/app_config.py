@@ -81,7 +81,7 @@ class AppConfig(EventDispatcher):
             print(f"[CONFIG] Error saving {self.config_path}: {e}")
 
     def get_device_id(self):
-        return self.data.get("device_id", _default_config().get("device_id", "CoBien1"))
+        return self.data.get("device_id", "") or ""
 
     def get_videocall_room(self):
         return self.data.get("videocall_room", self.get_device_id())

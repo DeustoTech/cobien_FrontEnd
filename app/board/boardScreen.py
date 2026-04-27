@@ -736,12 +736,15 @@ class BoardScreen(Screen):
         try:
             new_items = fetch_board_items_from_mongo(recipient_key=self.RECIPIENT_KEY, limit=50)
             print(f"[BOARD] Loaded {len(new_items)} items for '{self.RECIPIENT_KEY}'")
+            old_first_id = self.items[0].get("id") if self.items else None
+            new_first_id = new_items[0].get("id") if new_items else None
             self.items = new_items or []
-            
-            # Always display latest message first (index 0)
-            self.idx = 0
-            print("[BOARD] ✅ Index reset to 0 (latest message)")
-            
+            if old_first_id != new_first_id:
+                self.idx = 0
+                print("[BOARD] ✅ Index reset to 0 (latest message)")
+            else:
+                self.idx = min(self.idx, max(0, len(self.items) - 1))
+                print(f"[BOARD] Position preserved at {self.idx}")
             self._render_current()
         except Exception as e:
             print(f"[BOARD] refresh_from_mongo error: {e}")
@@ -803,19 +806,9 @@ class BoardScreen(Screen):
         Returns:
             None.
         """
-        print("[BOARD] ========================================")
-        print("[BOARD] 🔄 on_pre_enter called")
-        
-        # Always reset to latest message
-        self.idx = 0
-        print("[BOARD]    Index reset to 0 (latest message)")
-        
         Clock.schedule_once(lambda *_: self._refresh_header(), 0)
         self.update_labels()
-        
-        # Always reload when entering the screen
         Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
-        print("[BOARD] ✅ Scheduled refresh")
         
         print("[BOARD] ========================================")
 
