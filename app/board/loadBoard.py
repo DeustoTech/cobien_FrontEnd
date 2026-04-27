@@ -344,6 +344,8 @@ def _normalize_api_items(messages: List[Dict]) -> List[Dict]:
                     for entry in (raw.get("read_by") or [])
                     if isinstance(entry, dict) and entry.get("device_id")
                 ],
+                "quick_replies": list(raw.get("quick_replies") or []),
+                "quick_reply_selected": raw.get("quick_reply_selected"),
             }
         )
     return items
@@ -516,6 +518,30 @@ def delete_board_item(post_id: str, source: str = "device") -> bool:
     response.raise_for_status()
     payload = response.json()
     return bool(payload.get("ok"))
+
+
+def submit_quick_reply(post_id: str, device_id: str, reply_text: str) -> bool:
+    if not post_id or not device_id or not reply_text:
+        return False
+    services_cfg = load_section("services", {})
+    base = (BACKEND_BASE_URL or "").rstrip("/")
+    url = f"{base}/pizarra/api/messages/{post_id}/reply/"
+    headers = {"Content-Type": "application/json"}
+    api_key = (services_cfg.get("notify_api_key", "") or "").strip()
+    if api_key:
+        headers["X-API-KEY"] = api_key
+    try:
+        response = requests.post(
+            url,
+            json={"device_id": device_id, "reply_text": reply_text},
+            headers=headers,
+            timeout=6,
+        )
+        response.raise_for_status()
+        return bool(response.json().get("ok"))
+    except Exception as exc:
+        print(f"[BOARD] submit_quick_reply failed for {post_id}: {exc}")
+        return False
 
 
 def mark_message_read(post_id: str, device_id: str) -> bool:
