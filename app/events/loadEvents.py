@@ -215,13 +215,18 @@ def _public_event_matches_preferences(raw_location: Optional[str], preferences: 
     if _is_locationless(raw_location):
         return True
 
+    normalized_location = _normalize_location_text(raw_location)
+    normalized_fallback = _normalize_location_text(fallback_location)
+    if normalized_location == normalized_fallback:
+        return True
+
     scope = preferences.get("scope", "all")
     if scope != "region":
-        return True
+        return False
 
     allowed_regions = preferences.get("regions") or [fallback_location]
     normalized_allowed = {_normalize_location_text(item) for item in allowed_regions if str(item or "").strip()}
-    return _normalize_location_text(raw_location) in normalized_allowed
+    return normalized_location in normalized_allowed
 
 def guardar_eventos_localmente(eventos: List[Dict[str, Any]]) -> None:
     """Persist sanitized event list in local JSON cache.
@@ -355,26 +360,19 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
         db = client["LabasAppDB"]
         collection = db["eventos"]
 
-        # Filtro por ciudad en ambos casos
+        # Fetch all global events here and let the frontend-side preference
+        # filter decide whether a public event is visible for this device.
+        # This preserves three supported cases in the furniture calendar:
+        # - global events without location
+        # - global events matching the device location/regions
+        # - device-specific events targeting this furniture
         query = {
             "$or": [
                 {
-                    "$and": [
-                        {
-                            "$or": [
-                                {"audience": "all"},
-                                {"audience": {"$exists": False}},
-                                {"audience": None},
-                            ]
-                        },
-                        {
-                            "$or": [
-                                {"location": target_location},
-                                {"location": {"$exists": False}},
-                                {"location": ""},
-                                {"location": None},
-                            ]
-                        },
+                    "$or": [
+                        {"audience": "all"},
+                        {"audience": {"$exists": False}},
+                        {"audience": None},
                     ],
                 },
                 {
