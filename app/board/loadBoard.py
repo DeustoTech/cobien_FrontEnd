@@ -21,8 +21,20 @@ from PIL import Image, ExifTags
 
 # Import the client used in events
 from events.loadEvents import get_mongo_client
-from app_config import BACKEND_BASE_URL
+from app_config import BACKEND_BASE_URL as _BACKEND_BASE_URL_DEFAULT
 from config_store import load_section
+
+
+def _get_backend_base_url() -> str:
+    """Return the current backend base URL, reading fresh from config on each call.
+
+    Priority: services.backend_base_url (config.local.json)
+    → COBIEN_BACKEND_BASE_URL env var
+    → module-level default (https://portal.co-bien.eu).
+    """
+    services_cfg = load_section("services", {})
+    url = (services_cfg.get("backend_base_url") or "").strip()
+    return url if url else _BACKEND_BASE_URL_DEFAULT
 
 # === Configuration ===
 DB_NAME = "LabasAppDB"
@@ -372,7 +384,7 @@ def fetch_board_items_from_api(recipient_key: str, limit: int = 50) -> List[Dict
     services_cfg = load_section("services", {})
     url = services_cfg.get("pizarra_messages_url")
     if not url:
-        url = f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/"
+        url = f"{_get_backend_base_url().rstrip('/')}/pizarra/api/messages/"
     headers = {}
     api_key = (services_cfg.get("notify_api_key", "") or "").strip()
     if api_key:
@@ -504,7 +516,7 @@ def delete_board_item(post_id: str, source: str = "device") -> bool:
     services_cfg = load_section("services", {})
     url = services_cfg.get(
         "pizarra_delete_url_template",
-        f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/{{post_id}}/delete/",
+        f"{_get_backend_base_url().rstrip('/')}/pizarra/api/messages/{{post_id}}/delete/",
     ).format(post_id=post_id)
     headers = {}
     api_key = (services_cfg.get("notify_api_key", "") or "").strip()
@@ -526,7 +538,7 @@ def submit_quick_reply(post_id: str, device_id: str, reply_text: str) -> bool:
     if not post_id or not device_id or not reply_text:
         return False
     services_cfg = load_section("services", {})
-    base = (BACKEND_BASE_URL or "").rstrip("/")
+    base = _get_backend_base_url().rstrip("/")
     url = f"{base}/pizarra/api/messages/{post_id}/reply/"
     headers = {"Content-Type": "application/json"}
     api_key = (services_cfg.get("notify_api_key", "") or "").strip()
@@ -550,7 +562,7 @@ def mark_message_read(post_id: str, device_id: str) -> bool:
     if not post_id or not device_id:
         return False
     services_cfg = load_section("services", {})
-    base = (BACKEND_BASE_URL or "").rstrip("/")
+    base = _get_backend_base_url().rstrip("/")
     url = f"{base}/pizarra/api/messages/{post_id}/read/"
     headers = {"Content-Type": "application/json"}
     api_key = (services_cfg.get("notify_api_key", "") or "").strip()
