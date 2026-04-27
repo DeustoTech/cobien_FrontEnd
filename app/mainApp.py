@@ -534,7 +534,7 @@ KV = r"""
         BoxLayout:
             orientation: "vertical"
             size_hint: None, None
-            width: max(dp(148), self.minimum_width + dp(18))
+            width: max(dp(148), lbl_footer.texture_size[0] + dp(32))
             height: dp(34)
             spacing: 0
             padding: [dp(10), dp(4), dp(10), dp(4)]
@@ -553,18 +553,13 @@ KV = r"""
                     rounded_rectangle: (self.x, self.y, self.width, self.height, dp(12))
 
             Label:
+                id: lbl_footer
                 text: root.footer_meta_text
                 font_size: sp(20)
                 color: 0, 0, 0, 0.78
                 bold: True
                 halign: "center"
                 valign: "middle"
-                size_hint_x: None
-                size_hint_y: None
-                width: min(self.texture_size[0], self.parent.width - dp(20))
-                height: self.parent.height - dp(8)
-                text_size: self.size
-                pos_hint: {"center_x": 0.5}
 """
 
 #----------------------- CONTACT NAME --------------------------
