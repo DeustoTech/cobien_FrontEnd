@@ -7,14 +7,16 @@ IMPORTANT: Room names are CASE-SENSITIVE to distinguish between:
 - 'CoBien' and 'cobien' (different rooms)
 - 'Maria' and 'maria' (different rooms)
 """
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import threading
+import unicodedata
+import re
 from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.image import Image
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle, Ellipse
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from datetime import datetime
@@ -51,6 +53,94 @@ NOTIFICATION_CACHE_DIR = os.path.join(
     "cache",
 )
 NOTIFICATION_CACHE_FILE = os.path.join(NOTIFICATION_CACHE_DIR, "active_notifications.json")
+
+
+_CONTACT_CACHE_DIR = os.path.join(
+    os.getenv("COBIEN_DATA_DIR") or os.path.dirname(os.path.dirname(__file__)),
+    "contacts",
+)
+_CONTACTS_FILE = os.path.join(_CONTACT_CACHE_DIR, "list_contacts.txt")
+_CONTACT_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".PNG", ".JPG", ".JPEG", ".bmp", ".webp")
+
+
+def _normalize_contact_name(name: str) -> str:
+    base = "".join(
+        c for c in unicodedata.normalize("NFD", str(name or ""))
+        if unicodedata.category(c) != "Mn"
+    )
+    return re.sub(r"[^a-z0-9]", "", base.lower()) or "contact"
+
+
+def _resolve_caller_contact(username: str) -> Tuple[str, Optional[str]]:
+    """Return (display_name, photo_path_or_None) for the given username.
+
+    Looks up the local contacts file to find the contact whose user_name
+    matches *username*. Returns a tuple of the display name and an absolute
+    photo path if one exists locally, or None if no photo is found.
+    """
+    display_name = username
+    photo_path: Optional[str] = None
+    try:
+        if not os.path.exists(_CONTACTS_FILE):
+            return display_name, photo_path
+        with open(_CONTACTS_FILE, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if "=" not in line:
+                    continue
+                name_part, user_part = line.split("=", 1)
+                name_part = name_part.strip()
+                user_part = user_part.strip()
+                if user_part.lower() == username.lower():
+                    display_name = name_part
+                    base = _normalize_contact_name(name_part)
+                    for ext in _CONTACT_IMAGE_EXTS:
+                        candidate = os.path.join(_CONTACT_CACHE_DIR, f"{base}{ext}")
+                        if os.path.exists(candidate):
+                            photo_path = candidate
+                            break
+                    break
+    except Exception:
+        pass
+    return display_name, photo_path
+
+
+def _build_caller_avatar(display_name: str, photo_path: Optional[str], size: int = 140):
+    """Return a Kivy widget showing the caller photo or an initial-letter circle."""
+    sz = dp(size)
+    if photo_path:
+        img = Image(
+            source=photo_path,
+            size_hint=(None, None),
+            size=(sz, sz),
+            pos_hint={"center_x": 0.5},
+            allow_stretch=True,
+            keep_ratio=True,
+        )
+        return img
+
+    # Initial letter in a colored circle
+    initial = (display_name or "?")[0].upper()
+    container = BoxLayout(
+        size_hint=(None, None),
+        size=(sz, sz),
+        pos_hint={"center_x": 0.5},
+    )
+    with container.canvas.before:
+        Color(0.22, 0.53, 0.86, 1)
+        container._ellipse = Ellipse(pos=container.pos, size=container.size)
+    container.bind(
+        pos=lambda inst, _: setattr(inst._ellipse, "pos", inst.pos),
+        size=lambda inst, _: setattr(inst._ellipse, "size", inst.size),
+    )
+    lbl = Label(
+        text=initial,
+        font_size=sp(size * 0.42),
+        bold=True,
+        color=(1, 1, 1, 1),
+    )
+    container.add_widget(lbl)
+    return container
 
 
 def _notification_cache_key(kind: Any, data: Any) -> str:
@@ -341,22 +431,15 @@ class NotificationPopup(ModalView):
 
     def _build_videocall_content(self, main_layout: BoxLayout) -> BoxLayout:
         """Build popup content for an incoming video call."""
-        caller = self.data.get('caller', _('Desconocido'))
-        
-        # Icon at top
-        icon_path = "data/images/videollamada.png"
-        if os.path.exists(icon_path):
-            icon = Image(
-                source=icon_path,
-                size_hint=(None, None),
-                size=(dp(140), dp(140)),
-                pos_hint={'center_x': 0.5}
-            )
-            main_layout.add_widget(icon)
-        
+        username = self.data.get('caller', _('Desconocido'))
+        display_name, photo_path = _resolve_caller_contact(username)
+
+        # Avatar: contact photo or initial-letter circle
+        main_layout.add_widget(_build_caller_avatar(display_name, photo_path, size=140))
+
         # Space
-        main_layout.add_widget(BoxLayout(size_hint_y=0.2))
-        
+        main_layout.add_widget(BoxLayout(size_hint_y=0.15))
+
         # Title
         title = Label(
             text=_("Videollamada entrante"),
@@ -368,10 +451,10 @@ class NotificationPopup(ModalView):
             halign='center'
         )
         main_layout.add_widget(title)
-        
+
         # Message
         message = Label(
-            text=f"[b]{caller}[/b] {_('te está llamando')}",
+            text=f"[b]{display_name}[/b] {_('te está llamando')}",
             markup=True,
             font_size=sp(42),
             color=(0.2, 0.2, 0.2, 1),
