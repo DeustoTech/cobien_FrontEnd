@@ -107,7 +107,7 @@ class CityCard(BoxLayout):
         # ✅ Utiliser traduction
         self.btn = Button(
             text=_("Activa") if is_active else _("Activar"),
-            font_size=sp(20),
+            font_size=sp(24),
             size_hint_x=1,
             background_color=(0, 0, 0, 0)
         )
@@ -125,7 +125,7 @@ class CityCard(BoxLayout):
         
         self.btn_delete = Button(
             text=_("Eliminar"),
-            font_size=sp(20),
+            font_size=sp(24),
             size_hint_x=1,
             background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
@@ -144,7 +144,7 @@ class CityCard(BoxLayout):
 
         self.btn_priority = Button(
             text=_("Prioritaria") if is_primary else _("Priorizar"),
-            font_size=sp(20),
+            font_size=sp(24),
             size_hint_x=1,
             background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
@@ -346,7 +346,7 @@ class WeatherChoice(FloatLayout):
 
         self.btn_add_city = Button(
             text=_("Añadir ciudad"),
-            font_size=sp(18),
+            font_size=sp(22),
             size_hint=(None, None),
             size=(dp(190), dp(56)),
             background_color=(0, 0, 0, 0),
@@ -404,7 +404,7 @@ class WeatherChoice(FloatLayout):
         # Instruction
         self.lbl_instruction = Label(
             text=_("Seleccione las ciudades a mostrar en la rotación de meteorología"),
-            font_size=sp(20),
+            font_size=sp(24),
             color=(0, 0, 0, 0.7),
             size_hint_y=None,
             height=dp(40),
@@ -474,7 +474,7 @@ class WeatherChoice(FloatLayout):
             text=_("Todas"),
             size_hint=(None, None),
             size=(dp(110), dp(52)),
-            font_size=sp(18),
+            font_size=sp(22),
             background_normal="",
             background_down="",
             background_disabled_normal="",
@@ -500,7 +500,7 @@ class WeatherChoice(FloatLayout):
                 text=letter,
                 size_hint=(None, None),
                 size=(dp(52), dp(52)),
-                font_size=sp(18),
+                font_size=sp(22),
                 background_normal="",
                 background_down="",
                 background_disabled_normal="",
@@ -847,7 +847,7 @@ class WeatherChoice(FloatLayout):
             text="",
             size_hint_y=None,
             height=dp(36),
-            font_size=sp(20),
+            font_size=sp(24),
             color=(0.85, 0.1, 0.1, 1),
             halign="center",
             valign="middle",

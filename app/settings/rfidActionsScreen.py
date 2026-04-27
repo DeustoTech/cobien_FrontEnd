@@ -251,7 +251,7 @@ class RFIDCardWidget(BoxLayout):
             text=_("Eliminar"),
             size_hint_x=None,
             width=dp(150),
-            font_size=sp(20),
+            font_size=sp(24),
             background_color=(0.9, 0.2, 0.2, 1)
         )
         btn_delete.bind(on_release=lambda x: self.parent_screen.confirm_remove_card(self.card_id))
@@ -263,7 +263,7 @@ class RFIDCardWidget(BoxLayout):
         # Action info
         action_info = Label(
             text=f"{_('Acción')}: {self._get_action_display_name(action)}",
-            font_size=sp(22),
+            font_size=sp(26),
             color=(0, 0, 0, 0.8),
             halign="left",
             valign="middle",
@@ -277,7 +277,7 @@ class RFIDCardWidget(BoxLayout):
         if action == "weather" and extra_data:
             extra_info = Label(
                 text=f"{_('Ciudad')}: {extra_data}",
-                font_size=sp(20),
+                font_size=sp(24),
                 color=(0, 0, 0, 0.7),
                 halign="left",
                 valign="middle",
@@ -289,7 +289,7 @@ class RFIDCardWidget(BoxLayout):
         elif action == "videocall" and extra_data:
             extra_info = Label(
                 text=f"{_('Contacto')}: {extra_data}",
-                font_size=sp(20),
+                font_size=sp(24),
                 color=(0, 0, 0, 0.7),
                 halign="left",
                 valign="middle",
@@ -519,7 +519,7 @@ class RFIDActionsScreen(Screen):
             text=_("Cancelar"),
             size_hint_y=None,
             height=dp(60),
-            font_size=sp(22)
+            font_size=sp(26)
         )
         content.add_widget(btn_cancel)
         
@@ -555,7 +555,7 @@ class RFIDActionsScreen(Screen):
         
         content.add_widget(Label(
             text=_("¿A qué acción quiere asignar esta tarjeta?"),
-            font_size=sp(22),
+            font_size=sp(26),
             size_hint_y=None,
             height=dp(60)
         ))
@@ -571,7 +571,7 @@ class RFIDActionsScreen(Screen):
         for action_code, action_label in actions:
             btn = Button(
                 text=action_label,
-                font_size=sp(20),
+                font_size=sp(24),
                 size_hint_y=None,
                 height=dp(60)
             )
@@ -584,7 +584,7 @@ class RFIDActionsScreen(Screen):
             text=_("Cancelar"),
             size_hint_y=None,
             height=dp(60),
-            font_size=sp(22)
+            font_size=sp(26)
         )
         content.add_widget(btn_cancel)
         
@@ -628,7 +628,7 @@ class RFIDActionsScreen(Screen):
         
         content.add_widget(Label(
             text=_("Seleccione la ciudad:"),
-            font_size=sp(22),
+            font_size=sp(26),
             size_hint_y=None,
             height=dp(50)
         ))
@@ -639,14 +639,14 @@ class RFIDActionsScreen(Screen):
                 values=self.available_cities,
                 size_hint_y=None,
                 height=dp(60),
-                font_size=sp(22),
+                font_size=sp(26),
                 background_color=(1, 1, 1, 1),
                 color=(0, 0, 0, 1)
             )
         else:
             content.add_widget(Label(
                 text=_("⚠️ No hay ciudades disponibles en la configuración."),
-                font_size=sp(20),
+                font_size=sp(24),
                 color=(0.9, 0.2, 0.2, 1),
                 size_hint_y=None,
                 height=dp(60)
@@ -658,8 +658,8 @@ class RFIDActionsScreen(Screen):
         
         btn_box = BoxLayout(orientation='horizontal', spacing=dp(10), size_hint_y=None, height=dp(70))
         
-        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
-        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(28))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(28))
         
         btn_box.add_widget(btn_cancel)
         btn_box.add_widget(btn_confirm)
@@ -705,7 +705,7 @@ class RFIDActionsScreen(Screen):
 
         content.add_widget(Label(
             text=_("Seleccione el contacto:"),
-            font_size=sp(22),
+            font_size=sp(26),
             size_hint_y=None,
             height=dp(50)
         ))
@@ -716,21 +716,21 @@ class RFIDActionsScreen(Screen):
                 values=self.available_contacts,
                 size_hint_y=None,
                 height=dp(60),
-                font_size=sp(22),
+                font_size=sp(26),
             )
             content.add_widget(contact_spinner)
         else:
             content.add_widget(Label(
                 text="Aucun contact disponible",
-                font_size=sp(20),
+                font_size=sp(24),
                 color=(0.9, 0.2, 0.2, 1)
             ))
             contact_spinner = None
 
         # boutons
         btn_box = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(70))
-        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
-        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(28))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(28))
         btn_box.add_widget(btn_cancel)
         btn_box.add_widget(btn_confirm)
         content.add_widget(btn_box)
@@ -836,8 +836,8 @@ class RFIDActionsScreen(Screen):
         ))
 
         buttons = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
-        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
-        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(28))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(28))
         buttons.add_widget(btn_cancel)
         buttons.add_widget(btn_confirm)
         content.add_widget(buttons)

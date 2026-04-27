@@ -596,10 +596,10 @@ class BoardScreen(Screen):
             reply_text = selected.get("text", str(selected)) if isinstance(selected, dict) else str(selected)
             lbl = Label(
                 text=f"✓ {_('Ya has respondido')}: {reply_text}",
-                font_size=sp(22),
+                font_size=sp(26),
                 color=(0.1, 0.65, 0.3, 1),
                 size_hint_y=None,
-                height=sp(34),
+                height=sp(38),
                 halign="left",
                 valign="middle",
             )
@@ -615,9 +615,9 @@ class BoardScreen(Screen):
         for reply_text in quick_replies:
             btn = Button(
                 text=reply_text,
-                font_size=sp(22),
+                font_size=sp(28),
                 size_hint_y=None,
-                height=dp(68),
+                height=dp(76),
                 background_normal="",
                 background_color=(0.93, 0.96, 1.0, 1),
                 color=(0.1, 0.3, 0.8, 1),
@@ -693,15 +693,15 @@ class BoardScreen(Screen):
         lbl = Label(
             text=_("¿Seguro que quieres eliminar este mensaje?"),
             color=(0, 0, 0, 1),
-            font_size=sp(26),
+            font_size=sp(30),
             halign="center",
             valign="middle",
         )
         lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
-        actions = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(12))
-        btn_cancel = Button(text=_("Cancelar"), font_size=sp(22))
-        btn_confirm = Button(text=_("Confirmar"), font_size=sp(22))
+        actions = BoxLayout(size_hint_y=None, height=dp(80), spacing=dp(12))
+        btn_cancel = Button(text=_("Cancelar"), font_size=sp(28))
+        btn_confirm = Button(text=_("Confirmar"), font_size=sp(28))
         actions.add_widget(btn_cancel)
         actions.add_widget(btn_confirm)
 

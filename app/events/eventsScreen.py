@@ -192,7 +192,7 @@ KV = r"""
 #:set SP_X dp(22)
 #:set SP_Y dp(20)
 #:set PAD_X dp(8)
-#:set LEGEND_FONT sp(20)
+#:set LEGEND_FONT sp(24)
 #:set LEGEND_DOT dp(22)
 #:set DAY_NUM_FONT sp(22)
 #:set DAY_DOT dp(28)
@@ -384,7 +384,7 @@ KV = r"""
                 Label:
                     id: lbl_time
                     text: ""
-                    font_size: sp(18)
+                    font_size: sp(22)
                     color: C_BLACK
                     halign: "left"
                     valign: "top"

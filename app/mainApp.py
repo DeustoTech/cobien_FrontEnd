@@ -554,7 +554,7 @@ KV = r"""
 
             Label:
                 text: root.footer_meta_text
-                font_size: sp(15)
+                font_size: sp(20)
                 color: 0, 0, 0, 0.78
                 bold: True
                 halign: "center"
@@ -2439,26 +2439,26 @@ class MyApp(App):
         root = BoxLayout(orientation="vertical", spacing=dp(18))
         title = Label(
             text=_("Confirmar reinicio"),
-            font_size=sp(28),
+            font_size=sp(32),
             bold=True,
             color=(0.1, 0.1, 0.1, 1),
             size_hint_y=None,
-            height=dp(44),
+            height=dp(50),
         )
         info = Label(
             text=_("Ubuntu se reiniciará inmediatamente y la aplicación se cerrará durante el proceso."),
-            font_size=sp(20),
+            font_size=sp(24),
             color=(0.2, 0.2, 0.2, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(84),
+            height=dp(96),
         )
         info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
 
         feedback = Label(
             text="",
-            font_size=sp(18),
+            font_size=sp(22),
             color=(0.85, 0.1, 0.1, 1),
             halign="center",
             valign="middle",
@@ -2476,9 +2476,9 @@ class MyApp(App):
                 return
             feedback.text = _("No se ha podido reiniciar Ubuntu. Revisa los permisos del sistema.")
 
-        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
-        cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
-        confirm_btn = Button(text=_("Reiniciar"), font_size=sp(22), background_color=(0.89, 0.57, 0.12, 1))
+        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(68))
+        cancel_btn = Button(text=_("Cancelar"), font_size=sp(28))
+        confirm_btn = Button(text=_("Reiniciar"), font_size=sp(28), background_color=(0.89, 0.57, 0.12, 1))
         btn_row.add_widget(Widget())
         btn_row.add_widget(cancel_btn)
         btn_row.add_widget(confirm_btn)
@@ -2510,29 +2510,29 @@ class MyApp(App):
         root = BoxLayout(orientation="vertical", spacing=dp(18))
         title = Label(
             text=_("Confirmar salida"),
-            font_size=sp(28),
+            font_size=sp(32),
             bold=True,
             color=(0.1, 0.1, 0.1, 1),
             size_hint_y=None,
-            height=dp(44),
+            height=dp(50),
         )
         info = Label(
             text=_("La aplicación se cerrará y quedará detenida hasta que el launcher la vuelva a iniciar."),
-            font_size=sp(20),
+            font_size=sp(24),
             color=(0.2, 0.2, 0.2, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(84),
+            height=dp(96),
         )
         info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
 
         feedback = Label(
             text="",
-            font_size=sp(18),
+            font_size=sp(22),
             color=(0.85, 0.1, 0.1, 1),
             size_hint_y=None,
-            height=dp(30),
+            height=dp(36),
         )
 
         def _cancel(*_args):
@@ -2557,9 +2557,9 @@ class MyApp(App):
                 pass
             app.stop()
 
-        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
-        cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
-        confirm_btn = Button(text=_("Salir"), font_size=sp(22), background_color=(0.85, 0.18, 0.18, 1))
+        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(68))
+        cancel_btn = Button(text=_("Cancelar"), font_size=sp(28))
+        confirm_btn = Button(text=_("Salir"), font_size=sp(28), background_color=(0.85, 0.18, 0.18, 1))
         btn_row.add_widget(Widget())
         btn_row.add_widget(cancel_btn)
         btn_row.add_widget(confirm_btn)

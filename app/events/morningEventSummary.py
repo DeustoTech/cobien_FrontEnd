@@ -185,22 +185,22 @@ def _build_overlay(events: List[Dict[str, Any]]) -> ModalView:
             title_text = f"{title_text}  [{t_label}]"
         lbl_ev_title = Label(
             text=title_text,
-            font_size=sp(22),
+            font_size=sp(26),
             color=(0, 0, 0, 1),
             halign="left",
             valign="middle",
             size_hint_y=None,
-            height=dp(30),
+            height=dp(36),
         )
         lbl_ev_title.bind(size=lambda w, _: setattr(w, "text_size", w.size))
         lbl_ev_desc = Label(
             text=ev.get("description", ""),
-            font_size=sp(17),
+            font_size=sp(22),
             color=(0, 0, 0, 0.55),
             halign="left",
             valign="middle",
             size_hint_y=None,
-            height=dp(24),
+            height=dp(28),
         )
         lbl_ev_desc.bind(size=lambda w, _: setattr(w, "text_size", w.size))
         txt_col.add_widget(lbl_ev_title)
@@ -214,12 +214,12 @@ def _build_overlay(events: List[Dict[str, Any]]) -> ModalView:
     # --- Close hint ---
     lbl_hint = Label(
         text="Toca para cerrar",
-        font_size=sp(18),
+        font_size=sp(22),
         color=(0, 0, 0, 0.38),
         halign="center",
         valign="middle",
         size_hint_y=None,
-        height=dp(30),
+        height=dp(34),
     )
     lbl_hint.bind(size=lambda w, _: setattr(w, "text_size", w.size))
     card.add_widget(lbl_hint)
