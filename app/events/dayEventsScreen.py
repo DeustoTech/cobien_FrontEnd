@@ -97,7 +97,7 @@ KV_DAY = r"""
 #:set C_RED 1,0.23,0.18,1
 #:set R_CARD dp(20)
 #:set R_BTN dp(16)
-#:set LEGEND_FONT sp(20)
+#:set LEGEND_FONT sp(24)
 #:set LEGEND_DOT dp(22)
 #:set GAP_Y dp(18)
 #:set H_HEADER dp(110)
@@ -206,22 +206,22 @@ KV_DAY = r"""
             text_size: self.width, None
         Label:
             text: root.time_label
-            font_size: sp(17)
+            font_size: sp(22)
             color: C_MUTED
             halign: "left"
             valign: "top"
             size_hint_y: None
-            height: sp(17) + dp(4) if root.time_label else 0
+            height: sp(22) + dp(4) if root.time_label else 0
             opacity: 1 if root.time_label else 0
             text_size: self.width, None
         Label:
             text: root.description
-            font_size: sp(18)
+            font_size: sp(22)
             color: C_MUTED
             halign: "left"
             valign: "top"
             size_hint_y: None
-            height: sp(18) + dp(8)
+            height: sp(22) + dp(8)
             text_size: self.width, None
     Widget:
     # Papelera centrada verticalmente (solo para personales)
@@ -324,7 +324,7 @@ KV_DAY = r"""
                 Label:
                     id: lbl_time
                     text: ""
-                    font_size: sp(18)
+                    font_size: sp(22)
                     color: C_BLACK
                     halign: "left"
                     valign: "top"
@@ -485,7 +485,7 @@ KV_DAY = r"""
                                     Label:
                                         id: lbl_add_event
                                         text: ""
-                                        font_size: sp(22)
+                                        font_size: sp(26)
                                         color: C_BLACK
                                         halign: "left"
                                         valign: "middle"

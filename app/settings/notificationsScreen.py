@@ -316,7 +316,7 @@ KV = """
             id: lbl_intensity
             text: ""
             bold: True
-            font_size: sp(22)
+            font_size: sp(26)
             color: 0,0,0,1
             size_hint_x: 0.25
             halign: "left"
@@ -333,7 +333,7 @@ KV = """
         
         Label:
             text: str(int(slider.value))
-            font_size: sp(22)
+            font_size: sp(26)
             bold: True
             color: 0,0,0,1
             size_hint_x: 0.2
@@ -352,7 +352,7 @@ KV = """
             id: lbl_color
             text: ""
             bold: True
-            font_size: sp(22)
+            font_size: sp(26)
             color: 0,0,0,1
             size_hint_x: 0.25
             halign: "left"
@@ -375,7 +375,7 @@ KV = """
         TextInput:
             id: hex_input
             text: root.color
-            font_size: sp(18)
+            font_size: sp(22)
             multiline: False
             size_hint_x: None
             width: dp(140)
@@ -393,7 +393,7 @@ KV = """
             id: lbl_mode
             text: ""
             bold: True
-            font_size: sp(22)
+            font_size: sp(26)
             color: 0,0,0,1
             size_hint_x: 0.25
             halign: "left"
@@ -403,7 +403,7 @@ KV = """
         Spinner:
             id: mode_spinner
             text: root.mode
-            font_size: sp(20)
+            font_size: sp(24)
             values: root.mode_values
             size_hint_x: 0.55
             on_text: root.on_mode(self, self.text)
@@ -419,7 +419,7 @@ KV = """
             id: lbl_ringtone
             text: ""
             bold: True
-            font_size: sp(22)
+            font_size: sp(26)
             color: 0,0,0,1
             size_hint_x: 0.25
             halign: "left"
@@ -429,7 +429,7 @@ KV = """
         Spinner:
             id: ringtone_spinner
             text: root.ringtone
-            font_size: sp(20)
+            font_size: sp(24)
             values: root.available_ringtones
             size_hint_x: 0.50
             on_text: root.on_ringtone(self, self.text)
@@ -452,7 +452,7 @@ KV = """
         Button:
             id: btn_update
             text: ""
-            font_size: sp(22)
+            font_size: sp(26)
             background_color: 0,0,0,0
             canvas.before:
                 Color:
@@ -466,7 +466,7 @@ KV = """
         Button:
             id: btn_simulate
             text: ""
-            font_size: sp(22)
+            font_size: sp(26)
             background_color: 0,0,0,0
             canvas.before:
                 Color:
@@ -659,8 +659,8 @@ class StripCard(BoxLayout):
         close_btn = Button(
             text=_('Cerrar'),
             size_hint_y=None,
-            height=dp(50),
-            font_size=sp(20)
+            height=dp(60),
+            font_size=sp(26)
         )
         
         content.add_widget(picker)

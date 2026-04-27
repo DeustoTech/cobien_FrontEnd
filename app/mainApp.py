@@ -55,7 +55,7 @@ from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from settings.restartScreen import RestartOnlyScreen
 from settings.audioScreen import AudioScreen
-from audio.audio_devices import apply_system_audio_devices
+from audio.audio_devices import apply_system_audio_devices, pa_adjust_volume
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from device_heartbeat_service import send_device_heartbeat_async
@@ -554,7 +554,7 @@ KV = r"""
 
             Label:
                 text: root.footer_meta_text
-                font_size: sp(15)
+                font_size: sp(20)
                 color: 0, 0, 0, 0.78
                 bold: True
                 halign: "center"
@@ -2439,26 +2439,26 @@ class MyApp(App):
         root = BoxLayout(orientation="vertical", spacing=dp(18))
         title = Label(
             text=_("Confirmar reinicio"),
-            font_size=sp(28),
+            font_size=sp(32),
             bold=True,
             color=(0.1, 0.1, 0.1, 1),
             size_hint_y=None,
-            height=dp(44),
+            height=dp(50),
         )
         info = Label(
             text=_("Ubuntu se reiniciará inmediatamente y la aplicación se cerrará durante el proceso."),
-            font_size=sp(20),
+            font_size=sp(24),
             color=(0.2, 0.2, 0.2, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(84),
+            height=dp(96),
         )
         info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
 
         feedback = Label(
             text="",
-            font_size=sp(18),
+            font_size=sp(22),
             color=(0.85, 0.1, 0.1, 1),
             halign="center",
             valign="middle",
@@ -2476,9 +2476,9 @@ class MyApp(App):
                 return
             feedback.text = _("No se ha podido reiniciar Ubuntu. Revisa los permisos del sistema.")
 
-        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
-        cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
-        confirm_btn = Button(text=_("Reiniciar"), font_size=sp(22), background_color=(0.89, 0.57, 0.12, 1))
+        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(68))
+        cancel_btn = Button(text=_("Cancelar"), font_size=sp(28))
+        confirm_btn = Button(text=_("Reiniciar"), font_size=sp(28), background_color=(0.89, 0.57, 0.12, 1))
         btn_row.add_widget(Widget())
         btn_row.add_widget(cancel_btn)
         btn_row.add_widget(confirm_btn)
@@ -2510,29 +2510,29 @@ class MyApp(App):
         root = BoxLayout(orientation="vertical", spacing=dp(18))
         title = Label(
             text=_("Confirmar salida"),
-            font_size=sp(28),
+            font_size=sp(32),
             bold=True,
             color=(0.1, 0.1, 0.1, 1),
             size_hint_y=None,
-            height=dp(44),
+            height=dp(50),
         )
         info = Label(
             text=_("La aplicación se cerrará y quedará detenida hasta que el launcher la vuelva a iniciar."),
-            font_size=sp(20),
+            font_size=sp(24),
             color=(0.2, 0.2, 0.2, 1),
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(84),
+            height=dp(96),
         )
         info.bind(size=lambda instance, _value: setattr(instance, "text_size", instance.size))
 
         feedback = Label(
             text="",
-            font_size=sp(18),
+            font_size=sp(22),
             color=(0.85, 0.1, 0.1, 1),
             size_hint_y=None,
-            height=dp(30),
+            height=dp(36),
         )
 
         def _cancel(*_args):
@@ -2557,9 +2557,9 @@ class MyApp(App):
                 pass
             app.stop()
 
-        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(58))
-        cancel_btn = Button(text=_("Cancelar"), font_size=sp(22))
-        confirm_btn = Button(text=_("Salir"), font_size=sp(22), background_color=(0.85, 0.18, 0.18, 1))
+        btn_row = BoxLayout(orientation="horizontal", spacing=dp(12), size_hint_y=None, height=dp(68))
+        cancel_btn = Button(text=_("Cancelar"), font_size=sp(28))
+        confirm_btn = Button(text=_("Salir"), font_size=sp(28), background_color=(0.85, 0.18, 0.18, 1))
         btn_row.add_widget(Widget())
         btn_row.add_widget(cancel_btn)
         btn_row.add_widget(confirm_btn)
@@ -2600,6 +2600,18 @@ class MyApp(App):
             except Exception as exc:
                 print(f"[APP] Reboot command failed ({' '.join(cmd)}): {exc}")
         return False
+
+    def _handle_key_down(self, *args):
+        # args: (window, kivy_keycode, scancode, codepoint, modifiers)
+        # X11 scancodes: 122 = XF86AudioLowerVolume, 123 = XF86AudioRaiseVolume
+        scancode = args[2] if len(args) >= 3 else None
+        if scancode == 123:
+            pa_adjust_volume(+5)
+            return True
+        if scancode == 122:
+            pa_adjust_volume(-5)
+            return True
+        return self._handle_escape_request(*args)
 
     def _handle_escape_request(self, *args):
         keycode = self._extract_window_keycode(*args)
@@ -2661,7 +2673,7 @@ class MyApp(App):
         Window.bind(
             on_touch_down=self._on_first_user_input,
             on_touch_move=self._on_first_user_input,
-            on_key_down=self._handle_escape_request,
+            on_key_down=self._handle_key_down,
             on_keyboard=self._handle_escape_request,
             on_mouse_move=self._on_first_user_input,
             on_request_close=self._on_window_request_close,
