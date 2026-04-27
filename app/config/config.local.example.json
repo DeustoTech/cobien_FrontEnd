@@ -16,8 +16,8 @@
     "rfid_actions": {},
     "microphone_device": "",
     "audio_output_device": "",
-    "device_id": "CoBien1",
-    "videocall_room": "CoBien1",
+    "device_id": "CoBienX",
+    "videocall_room": "CoBienX",
     "device_location": "Bilbao",
     "joke_category": "general",
     "idle_timeout_sec": 60
