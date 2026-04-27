@@ -55,7 +55,7 @@ from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from settings.restartScreen import RestartOnlyScreen
 from settings.audioScreen import AudioScreen
-from audio.audio_devices import apply_system_audio_devices, pa_adjust_volume
+from audio.audio_devices import apply_system_audio_devices
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from device_heartbeat_service import send_device_heartbeat_async
@@ -2602,15 +2602,6 @@ class MyApp(App):
         return False
 
     def _handle_key_down(self, *args):
-        # args: (window, kivy_keycode, scancode, codepoint, modifiers)
-        # X11 scancodes: 122 = XF86AudioLowerVolume, 123 = XF86AudioRaiseVolume
-        scancode = args[2] if len(args) >= 3 else None
-        if scancode == 123:
-            pa_adjust_volume(+5)
-            return True
-        if scancode == 122:
-            pa_adjust_volume(-5)
-            return True
         return self._handle_escape_request(*args)
 
     def _handle_escape_request(self, *args):
