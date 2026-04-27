@@ -29,6 +29,20 @@ def _default_config() -> dict:
     return copy.deepcopy(_DEFAULT_SETTINGS)
 
 
+def _runtime_identity_overrides() -> dict:
+    device_id = os.getenv("COBIEN_DEVICE_ID", "").strip()
+    videocall_room = os.getenv("COBIEN_VIDEOCALL_ROOM", "").strip()
+
+    overrides = {}
+    if device_id:
+        overrides["device_id"] = device_id
+    if videocall_room:
+        overrides["videocall_room"] = videocall_room
+    elif device_id:
+        overrides["videocall_room"] = device_id
+    return overrides
+
+
 class AppConfig(EventDispatcher):
     """Kivy-friendly wrapper around the unified `settings` section."""
 
@@ -61,18 +75,36 @@ class AppConfig(EventDispatcher):
         if modified:
             self.save()
 
+    def _apply_runtime_identity(self) -> bool:
+        overrides = _runtime_identity_overrides()
+        changed = False
+        for key, value in overrides.items():
+            if self.data.get(key) == value:
+                continue
+            self.data[key] = value
+            changed = True
+        return changed
+
     def load(self):
         try:
             self.data = load_section("settings", _default_config())
+            if self._apply_runtime_identity():
+                save_section("settings", dict(self.data))
+                print(
+                    "[CONFIG] Runtime identity synchronized from "
+                    "launcher environment"
+                )
             if os.path.exists(self.config_path):
                 self._last_mtime = os.path.getmtime(self.config_path)
             print(f"[CONFIG] Configuration loaded from {self.config_path}")
         except Exception as e:
             print(f"[CONFIG] Error reading {self.config_path}: {e}")
             self.data = _default_config()
+            self._apply_runtime_identity()
 
     def save(self):
         try:
+            self._apply_runtime_identity()
             save_section("settings", dict(self.data))
             if os.path.exists(self.config_path):
                 self._last_mtime = os.path.getmtime(self.config_path)
