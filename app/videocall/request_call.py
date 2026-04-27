@@ -37,7 +37,7 @@ def _build_result(ok: bool, code: str, detail: str = "", response: Optional[requ
 
 def send_pizarra_notification(
     to_user: str,
-    message: str = "Call now?",
+    message: str = "",
 ) -> Dict[str, object]:
     """Send call-ready notification to remote pizarra backend.
 
