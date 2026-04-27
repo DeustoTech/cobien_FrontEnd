@@ -25,7 +25,8 @@ from translation import _
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from kivy.app import App
 
-from board.loadBoard import delete_board_item, fetch_board_items_from_mongo
+import threading
+from board.loadBoard import delete_board_item, fetch_board_items_from_mongo, mark_message_read
 
 from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
@@ -538,6 +539,29 @@ class BoardScreen(Screen):
         ids.btn_prev.opacity = 1 if can_navigate else 0
         ids.btn_next.disabled = not can_navigate
         ids.btn_next.opacity = 1 if can_navigate else 0
+
+        post_id = item.get("id", "")
+        if post_id and self.RECIPIENT_KEY not in (item.get("read_by") or []):
+            threading.Thread(
+                target=mark_message_read,
+                args=(post_id, self.RECIPIENT_KEY),
+                daemon=True,
+            ).start()
+            item.setdefault("read_by", []).append(self.RECIPIENT_KEY)
+        self._update_main_screen_unread()
+
+    def _update_main_screen_unread(self) -> None:
+        try:
+            from kivy.app import App
+            app = App.get_running_app()
+            unread = sum(
+                1 for it in self.items
+                if it.get("id") and self.RECIPIENT_KEY not in (it.get("read_by") or [])
+            )
+            label = _("Pizarra")
+            app.btn_pizarra_texto = f"{label} ({unread})" if unread else label
+        except Exception:
+            pass
 
     def delete_current(self) -> None:
         """Delete the currently selected message and refresh local view state.
