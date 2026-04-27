@@ -1719,7 +1719,17 @@ class MainScreen(Screen):
             }
             print(f"[BACKEND_NOTIF] ✅ Backend delivery diagnostic received: {self.last_backend_delivery_diagnostic}")
             return
-        
+
+        elif notif_type == "restart":
+            print("[BACKEND_NOTIF] Remote restart command received — rebooting in 3 s")
+            Clock.schedule_once(lambda dt: self.perform_system_reboot(), 3)
+            return
+
+        elif notif_type == "force_update":
+            print("[BACKEND_NOTIF] Remote force-update command received")
+            threading.Thread(target=self._do_force_update, daemon=True).start()
+            return
+
         # ❌ TYPE INCONNU
         else:
             print(f"[BACKEND_NOTIF] Unknown notification type: {notif_type}")
@@ -1754,6 +1764,26 @@ class MainScreen(Screen):
         except Exception as exc:
             print(f"[CONTACTS_SYNC] ❌ Contacts synchronization failed: {exc}")
 
+    def _do_force_update(self):
+        repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            result = subprocess.run(
+                ["git", "-C", repo_dir, "pull", "--ff-only"],
+                capture_output=True, text=True, timeout=60,
+            )
+            print(f"[FORCE_UPDATE] git pull: {result.stdout.strip()} {result.stderr.strip()}")
+        except Exception as exc:
+            print(f"[FORCE_UPDATE] git pull failed: {exc}")
+        try:
+            subprocess.run(
+                ["systemctl", "--user", "restart", "cobien-launcher.service"],
+                timeout=10,
+            )
+            print("[FORCE_UPDATE] Service restart triggered")
+        except Exception as exc:
+            print(f"[FORCE_UPDATE] Service restart failed: {exc}")
+            Clock.schedule_once(lambda *_: self.perform_system_reboot(), 0)
+
     def on_nav(self, destino, source: str = "touchscreen", recognized_text: str = None):
         d = self._normalize_nav_text(destino)
         target = None
@@ -1774,6 +1804,8 @@ class MainScreen(Screen):
                     return
 
                 contacts_screen = self.sm.get_screen("contacts")
+                if hasattr(contacts_screen, "reload_contacts_from_disk"):
+                    contacts_screen.reload_contacts_from_disk()
                 contacts = getattr(contacts_screen, "contacts", [])
                 if not contacts:
                     self._show_nav_reason_popup(_("No hay contactos configurados para videollamada."))
@@ -1802,9 +1834,10 @@ class MainScreen(Screen):
         card = BoxLayout(
             orientation="vertical",
             size_hint=(None, None),
-            size=(dp(920), dp(360)),
+            size=(dp(920), dp(440)),
             pos_hint={"center_x": 0.5, "center_y": 0.5},
             padding=dp(28),
+            spacing=dp(24),
         )
         with card.canvas.before:
             Color(1, 1, 1, 0.98)
@@ -1820,9 +1853,24 @@ class MainScreen(Screen):
             valign="middle",
         )
         lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
+        btn_ok = Button(
+            text=_("Aceptar"),
+            font_size=sp(30),
+            size_hint=(None, None),
+            size=(dp(260), dp(80)),
+            pos_hint={"center_x": 0.5},
+            background_normal="",
+            background_color=(0.15, 0.55, 0.95, 1),
+            color=(1, 1, 1, 1),
+        )
+        btn_ok.bind(on_release=lambda *_: popup.dismiss())
+
         card.add_widget(lbl)
+        card.add_widget(btn_ok)
         popup.add_widget(card)
         popup.open()
+        Clock.schedule_once(lambda *_: popup.dismiss(), 5)
     """
     def start_assistant(self):
         # Configuration to wakeup the app if needed

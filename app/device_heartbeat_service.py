@@ -1,3 +1,4 @@
+import os
 import threading
 from datetime import datetime
 
@@ -5,6 +6,16 @@ import requests
 
 from config_store import load_section
 from hardware_inventory import get_heartbeat_hardware_payload
+
+_VERSION_FILE = os.path.join(os.path.dirname(__file__), "VERSION")
+
+
+def _read_software_version():
+    try:
+        with open(_VERSION_FILE) as f:
+            return f.read().strip()
+    except Exception:
+        return ""
 
 
 def _load_runtime_config():
@@ -28,6 +39,7 @@ def send_device_heartbeat(screen_name="", extra_payload=None):
         "device_id": cfg["device_id"],
         "screen": str(screen_name or "").strip(),
         "sent_at": datetime.utcnow().isoformat() + "Z",
+        "software_version": _read_software_version(),
     }
     hardware_payload = get_heartbeat_hardware_payload()
     if hardware_payload:

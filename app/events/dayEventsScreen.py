@@ -163,7 +163,7 @@ KV_DAY = r"""
     padding: dp(16), dp(14)
     spacing: dp(16)
     size_hint_y: None
-    height: dp(100)
+    height: max(dp(80), txt_col.height + dp(28))
     canvas.before:
         Color:
             rgba: 1,1,1,1
@@ -189,24 +189,29 @@ KV_DAY = r"""
                 size: dp(48), dp(48)
     # Texto (título + descripción)
     BoxLayout:
+        id: txt_col
         orientation: "vertical"
+        size_hint_y: None
+        height: self.minimum_height
         spacing: dp(4)
         Label:
             text: root.title
             font_size: sp(24)
             color: C_BLACK
             halign: "left"
-            valign: "middle"
-            text_size: self.size
+            valign: "top"
+            size_hint_y: None
+            height: self.texture_size[1]
+            text_size: self.width, None
         Label:
             text: root.description
             font_size: sp(18)
             color: C_MUTED
             halign: "left"
-            valign: "middle"
-            text_size: self.size
+            valign: "top"
             size_hint_y: None
             height: sp(18) + dp(8)
+            text_size: self.width, None
     Widget:
     # Papelera centrada verticalmente (solo para personales)
     AnchorLayout:

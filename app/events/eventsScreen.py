@@ -30,6 +30,7 @@ from events.event_bus import event_bus
 from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
 import paho.mqtt.client as mqtt
+import threading
 import json
 
 # ---------- Widgets ----------
@@ -64,8 +65,10 @@ class EventStore:
     """
 
     def __init__(self) -> None:
-        """Initialize the store and load initial data."""
-        self.reload()
+        """Initialize from local cache only; call reload() for a full Mongo sync."""
+        raw = cargar_eventos_locales() or []
+        self.events = self._normalize(raw)
+        self.index = self._build_index(self.events)
 
     def reload(self, device_name: str = "", location_name: str = "") -> None:
         """Reload events from primary/fallback sources and rebuild the index.
@@ -572,23 +575,34 @@ class EventsScreen(Screen):
         self.cfg = AppConfig()
         self.DEFAULT_LOCATION = self.cfg.get_device_location()
 
-        self.store = EventStore()
-        self.store.reload(
-            device_name=self.cfg.get_device_id(),
-            location_name=self.cfg.get_device_location(),
-        )
+        self.store = EventStore()  # loads local cache instantly, no network
         self.today = date.today()
         self.current = date(self.today.year, self.today.month, 1)
         self.root_view = Factory.EventsRoot()
         self.add_widget(self.root_view)
-        
+
         event_bus.bind(on_events_changed=lambda *_: self.refresh_calendar())
 
         Clock.schedule_once(lambda *_: self._refresh_header(), 0)
         Clock.schedule_once(lambda *_: self._build_calendar(), 0)
         Clock.schedule_interval(lambda *_: self._refresh_header(), 60)
+        # Sync with Mongo in background so startup is not blocked
+        Clock.schedule_once(lambda *_: self._reload_store_async(), 1)
 
         self.setup_mqtt_listener()
+
+    def _reload_store_async(self) -> None:
+        """Reload event store from MongoDB in a background thread."""
+        def _worker() -> None:
+            try:
+                self.store.reload(
+                    device_name=self.cfg.get_device_id(),
+                    location_name=self.cfg.get_device_location(),
+                )
+            except Exception as e:
+                print(f"[EVENTS] Background reload error: {e}")
+            Clock.schedule_once(lambda *_: self._build_calendar(), 0)
+        threading.Thread(target=_worker, daemon=True).start()
 
     def update_labels(self) -> None:
         """Refresh translated labels without reloading data."""
@@ -790,31 +804,15 @@ class EventsScreen(Screen):
 
     def on_enter(self, *args: Any) -> None:
         """Kivy lifecycle hook executed on every screen entry."""
-        # ✅ FIX : Toujours revenir au mois actuel
         self.today = date.today()
         self.current = date(self.today.year, self.today.month, 1)
-        
-        try:
-            self.store.reload(
-                device_name=self.cfg.get_device_id(),
-                location_name=self.cfg.get_device_location(),
-            )
-        except Exception as e:
-            print(f"[EVENTS] Store reload error: {e}")
-        
         self.update_labels()
         self._build_calendar()
+        # Refresh from Mongo in background; calendar rebuilds when done
+        self._reload_store_async()
 
     def on_pre_enter(self, *args: Any) -> None:
         """Kivy lifecycle hook executed before screen becomes visible."""
-        try:
-            self.store.reload(
-                device_name=self.cfg.get_device_id(),
-                location_name=self.cfg.get_device_location(),
-            )
-        except Exception as e:
-            print(f"[EVENTS] Store reload error: {e}")
-        
         self.update_labels()
         self._build_calendar()
 

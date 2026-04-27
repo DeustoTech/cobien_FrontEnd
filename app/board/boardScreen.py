@@ -25,7 +25,8 @@ from translation import _
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from kivy.app import App
 
-from board.loadBoard import delete_board_item, fetch_board_items_from_mongo
+import threading
+from board.loadBoard import delete_board_item, fetch_board_items_from_mongo, mark_message_read, submit_quick_reply
 
 from app_config import AppConfig, MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 
@@ -310,7 +311,7 @@ KV = r"""
                                     Label:
                                         id: lbl_from
                                         text: "De —:"
-                                        font_size: sp(38)
+                                        font_size: sp(32)
                                         bold: True
                                         color: C_BLACK
                                         halign: "left"
@@ -324,7 +325,6 @@ KV = r"""
                                         halign: "left"
                                         valign: "middle"
                                         text_size: self.size
-                                Widget:
                             Label:
                                 id: lbl_body
                                 text: ""
@@ -333,6 +333,12 @@ KV = r"""
                                 halign: "left"
                                 valign: "top"
                                 text_size: self.size
+                            BoxLayout:
+                                id: quick_replies_box
+                                orientation: "vertical"
+                                size_hint_y: None
+                                height: self.minimum_height
+                                spacing: dp(10)
                             AnchorLayout:
                                 anchor_x: "right"
                                 anchor_y: "bottom"
@@ -539,6 +545,84 @@ class BoardScreen(Screen):
         ids.btn_prev.opacity = 1 if can_navigate else 0
         ids.btn_next.disabled = not can_navigate
         ids.btn_next.opacity = 1 if can_navigate else 0
+
+        self._render_quick_replies(item)
+
+        post_id = item.get("id", "")
+        if post_id and self.RECIPIENT_KEY not in (item.get("read_by") or []):
+            threading.Thread(
+                target=mark_message_read,
+                args=(post_id, self.RECIPIENT_KEY),
+                daemon=True,
+            ).start()
+            item.setdefault("read_by", []).append(self.RECIPIENT_KEY)
+        self._update_main_screen_unread()
+
+    def _render_quick_replies(self, item: Dict) -> None:
+        try:
+            ids = self.root_view.ids
+        except Exception:
+            return
+        qr_box = ids.get("quick_replies_box")
+        if qr_box is None:
+            return
+        qr_box.clear_widgets()
+
+        selected = item.get("quick_reply_selected")
+        if selected:
+            reply_text = selected.get("text", str(selected)) if isinstance(selected, dict) else str(selected)
+            lbl = Label(
+                text=f"✓ {_('Ya has respondido')}: {reply_text}",
+                font_size=sp(22),
+                color=(0.1, 0.65, 0.3, 1),
+                size_hint_y=None,
+                height=sp(34),
+                halign="left",
+                valign="middle",
+            )
+            lbl.bind(size=lambda w, s: setattr(w, "text_size", s))
+            qr_box.add_widget(lbl)
+            return
+
+        quick_replies = list(item.get("quick_replies") or [])
+        if not quick_replies:
+            return
+
+        post_id = item.get("id", "")
+        for reply_text in quick_replies:
+            btn = Button(
+                text=reply_text,
+                font_size=sp(22),
+                size_hint_y=None,
+                height=dp(68),
+                background_normal="",
+                background_color=(0.93, 0.96, 1.0, 1),
+                color=(0.1, 0.3, 0.8, 1),
+            )
+            btn.bind(on_release=lambda b, rt=reply_text, pid=post_id, it=item: self._on_quick_reply(b, pid, rt, it))
+            qr_box.add_widget(btn)
+
+    def _on_quick_reply(self, btn, post_id: str, reply_text: str, item: Dict) -> None:
+        item["quick_reply_selected"] = {"text": reply_text}
+        self._render_quick_replies(item)
+        threading.Thread(
+            target=submit_quick_reply,
+            args=(post_id, self.RECIPIENT_KEY, reply_text),
+            daemon=True,
+        ).start()
+
+    def _update_main_screen_unread(self) -> None:
+        try:
+            from kivy.app import App
+            app = App.get_running_app()
+            unread = sum(
+                1 for it in self.items
+                if it.get("id") and self.RECIPIENT_KEY not in (it.get("read_by") or [])
+            )
+            label = _("Pizarra")
+            app.btn_pizarra_texto = f"{label} ({unread})" if unread else label
+        except Exception:
+            pass
 
     def delete_current(self) -> None:
         """Delete the currently selected message and refresh local view state.

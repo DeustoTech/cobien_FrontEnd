@@ -29,6 +29,11 @@ from config_store import load_section
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 LOCAL_FILE = os.path.join(os.getenv("COBIEN_DATA_DIR") or BASE_DIR, "events", "eventos_local.json")
 
+# Cache for device event preferences (avoids a MongoDB round-trip on every load).
+_PREFS_CACHE: Dict[str, Any] = {}
+_PREFS_CACHE_EXPIRES: float = 0.0
+_PREFS_CACHE_TTL: float = 300.0  # seconds
+
 AUDIENCE_COLORS = {
     "all": "#1E90FF",     # Azul (públicos)
     "device": "#FF3B30"   # Rojo (personales)
@@ -170,6 +175,12 @@ def _is_locationless(value: Optional[str]) -> bool:
 
 
 def _device_event_preferences(device_name: str, fallback_location: str) -> Dict[str, Any]:
+    global _PREFS_CACHE_EXPIRES
+    cache_key = f"{device_name}:{fallback_location}"
+    now = time.time()
+    if cache_key in _PREFS_CACHE and now < _PREFS_CACHE_EXPIRES:
+        return _PREFS_CACHE[cache_key]
+
     scope = "all"
     regions: List[str] = []
     try:
@@ -194,7 +205,10 @@ def _device_event_preferences(device_name: str, fallback_location: str) -> Dict[
 
     if scope == "region" and not regions and fallback_location:
         regions = [fallback_location]
-    return {"scope": scope, "regions": regions}
+    result: Dict[str, Any] = {"scope": scope, "regions": regions}
+    _PREFS_CACHE[cache_key] = result
+    _PREFS_CACHE_EXPIRES = now + _PREFS_CACHE_TTL
+    return result
 
 
 def _public_event_matches_preferences(raw_location: Optional[str], preferences: Dict[str, Any], fallback_location: str) -> bool:
@@ -243,7 +257,10 @@ def cargar_eventos_locales(location_name: Optional[str] = None) -> List[Dict[str
     # Aplica filtro de ciudad
     target_location = location_name or _current_location_name()
     target_device = _current_device_name()
-    event_preferences = _device_event_preferences(target_device, target_location)
+    # Use cached prefs; if not cached, default to "all" to avoid a MongoDB call
+    # during the local-cache fallback path (when MongoDB is likely unreachable).
+    cache_key = f"{target_device}:{target_location}"
+    event_preferences = _PREFS_CACHE.get(cache_key, {"scope": "all", "regions": []})
     filtered_events: List[Dict[str, Any]] = []
     for event in eventos:
         audience = _normalize_audience(event.get("audience"))
@@ -328,7 +345,6 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
         target_location = location_name or _current_location_name()
         event_preferences = _device_event_preferences(target_device, target_location)
         client = get_mongo_client()
-        client.server_info()
 
         db = client["LabasAppDB"]
         collection = db["eventos"]
