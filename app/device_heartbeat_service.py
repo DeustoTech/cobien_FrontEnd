@@ -37,7 +37,7 @@ def _load_runtime_config():
 
 def send_device_heartbeat(screen_name="", extra_payload=None):
     cfg = _load_runtime_config()
-    if not cfg["url"] or not cfg["device_id"]:
+    if not cfg["url"] or not cfg["device_id"] or not cfg["api_key"]:
         print("[HEARTBEAT] Missing configuration; heartbeat skipped")
         return
 
