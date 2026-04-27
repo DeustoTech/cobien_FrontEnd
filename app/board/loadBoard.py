@@ -370,7 +370,9 @@ def fetch_board_items_from_api(recipient_key: str, limit: int = 50) -> List[Dict
         >>> items = fetch_board_items_from_api("CoBien1", limit=20)
     """
     services_cfg = load_section("services", {})
-    url = services_cfg.get("pizarra_messages_url", f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/")
+    url = services_cfg.get("pizarra_messages_url")
+    if not url:
+        url = f"{BACKEND_BASE_URL.rstrip('/')}/pizarra/api/messages/"
     headers = {}
     api_key = (services_cfg.get("notify_api_key", "") or "").strip()
     if api_key:

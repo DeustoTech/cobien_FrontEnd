@@ -21,8 +21,14 @@ def _read_software_version():
 def _load_runtime_config():
     services_cfg = load_section("services", {}) or {}
     settings_cfg = load_section("settings", {}) or {}
+    
+    url = (services_cfg.get("device_heartbeat_url", "") or "").strip()
+    if not url:
+        backend_base = (services_cfg.get("backend_base_url", "") or os.getenv("COBIEN_BACKEND_BASE_URL", "https://portal.co-bien.eu")).rstrip('/')
+        url = f"{backend_base}/pizarra/api/devices/heartbeat/"
+        
     return {
-        "url": (services_cfg.get("device_heartbeat_url", "") or "").strip(),
+        "url": url,
         "api_key": (services_cfg.get("notify_api_key", "") or "").strip(),
         "device_id": (settings_cfg.get("device_id", "") or "").strip(),
         "timeout": float(services_cfg.get("http_timeout_sec", 8) or 8),
