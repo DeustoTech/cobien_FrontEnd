@@ -271,6 +271,12 @@ def cargar_eventos_locales(location_name: Optional[str] = None) -> List[Dict[str
                 event["location"] = target_location
             filtered_events.append(event)
             continue
+        if audience == "device":
+            dev = event.get("target_device", "")
+            devs = event.get("target_devices", [])
+            if dev == target_device or target_device in (devs if isinstance(devs, list) else []):
+                filtered_events.append(event)
+            continue
         if _match_location(loc, target_location):
             filtered_events.append(event)
             continue
@@ -373,7 +379,6 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
                 },
                 {
                     "audience": "device",
-                    "location": target_location,
                     "$or": [
                         {"target_device": target_device},
                         {"target_devices": target_device},
@@ -399,8 +404,7 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
             elif audience == "all":
                 if not _public_event_matches_preferences(raw_loc, event_preferences, target_location):
                     continue
-            elif not _match_location(loc, target_location):
-                continue
+            # Device events are already filtered by device name in the MongoDB query — no location check needed.
 
             eventos.append({
                 "id": str(event.get("_id") or ""),  # necesario para borrar
@@ -412,6 +416,9 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
                 "color": color,
                 "target_device": event.get("target_device", ""),
                 "created_by": event.get("created_by", ""),
+                "all_day": bool(event.get("all_day", True)),
+                "start_time": str(event.get("start_time") or ""),
+                "end_time": str(event.get("end_time") or ""),
             })
 
         guardar_eventos_localmente(eventos)

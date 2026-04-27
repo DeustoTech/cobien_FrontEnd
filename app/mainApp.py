@@ -37,6 +37,7 @@ from weather.weather_data import fetch_weather_bundle
 from tts_service import tts_service
 from events.eventsScreen import EventsScreen
 from events.dayEventsScreen import DayEventsScreen
+from events.morningEventSummary import schedule_morning_summary
 #from videocall.videocallScreen import VideoCallScreen
 from board.boardScreen import BoardScreen
 from mqtt_publisher import WEATHER_CITIES_GEO
@@ -2249,6 +2250,7 @@ class MyApp(App):
         self._schedule_device_heartbeat()
         self._send_device_heartbeat()
         Clock.schedule_once(lambda dt: self._show_pending_system_update_notification(), 1.0)
+        schedule_morning_summary()
 
     def on_stop(self):
         self._stop_orchestrator()

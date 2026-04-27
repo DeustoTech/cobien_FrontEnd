@@ -70,6 +70,7 @@ class EventRow(BoxLayout):
     """
     title = StringProperty("")
     description = StringProperty("")
+    time_label = StringProperty("")
     audience_color = ListProperty([0.15, 0.55, 0.95, 1])
     show_trash = BooleanProperty(False)
     event_id = StringProperty("")
@@ -187,7 +188,7 @@ KV_DAY = r"""
             LegendDot:
                 rgba: root.audience_color
                 size: dp(48), dp(48)
-    # Texto (título + descripción)
+    # Texto (título + hora + descripción)
     BoxLayout:
         id: txt_col
         orientation: "vertical"
@@ -202,6 +203,16 @@ KV_DAY = r"""
             valign: "top"
             size_hint_y: None
             height: self.texture_size[1]
+            text_size: self.width, None
+        Label:
+            text: root.time_label
+            font_size: sp(17)
+            color: C_MUTED
+            halign: "left"
+            valign: "top"
+            size_hint_y: None
+            height: sp(17) + dp(4) if root.time_label else 0
+            opacity: 1 if root.time_label else 0
             text_size: self.width, None
         Label:
             text: root.description
@@ -962,9 +973,16 @@ class DayEventsScreen(Screen):
         for e in events:
             aud = e.get("audience", "")
             color = [0.15,0.55,0.95,1] if aud == "all" else [1,0.23,0.18,1]
+            if not e.get("all_day", True) and e.get("start_time"):
+                t_label = e["start_time"]
+                if e.get("end_time"):
+                    t_label += f" – {e['end_time']}"
+            else:
+                t_label = ""
             row = EventRow(
                 title=e.get("title", _("Sin título")),
                 description=e.get("description", _("Sin descripción")),
+                time_label=t_label,
                 audience_color=color,
                 show_trash=(aud=="device"),
                 event_id=str(e.get("id") or "")
