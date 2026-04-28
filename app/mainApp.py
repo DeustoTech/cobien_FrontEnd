@@ -633,13 +633,21 @@ class MainScreen(Screen):
         import os
         print("[MAIN] Lanzando juego de Solitario...")
         script_path = os.path.join(os.path.dirname(__file__), "games", "solitaire", "main.py")
+        try:
+            import arcade  # noqa: F401
+        except Exception as e:
+            print(f"[MAIN] Solitaire dependency missing: {e}")
+            self._show_nav_reason_popup(_("El juego de solitario no está disponible en este momento."))
+            return
         if os.path.exists(script_path):
             try:
                 subprocess.Popen([sys.executable, script_path])
             except Exception as e:
                 print(f"[MAIN] Error lanzando solitario: {e}")
+                self._show_nav_reason_popup(_("No se pudo abrir el juego de solitario."))
         else:
             print(f"[MAIN] Archivo de juego no encontrado: {script_path}")
+            self._show_nav_reason_popup(_("El juego de solitario no está instalado."))
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)

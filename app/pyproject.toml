@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Ubuntu furniture frontend for CoBien"
 requires-python = ">=3.11,<3.14"
 dependencies = [
+  "arcade>=2.6.17",
   "beautifulsoup4==4.13.4",
   "joblib==1.4.2",
   "Kivy==2.3.1",
