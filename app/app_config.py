@@ -143,3 +143,10 @@ class AppConfig(EventDispatcher):
     def set_audio_output_device(self, device_name):
         self.data["audio_output_device"] = device_name or ""
         self.save()
+
+    def get_solitaire_enabled(self):
+        return bool(self.data.get("solitaire_enabled", True))
+
+    def set_solitaire_enabled(self, enabled):
+        self.data["solitaire_enabled"] = bool(enabled)
+        self.save()

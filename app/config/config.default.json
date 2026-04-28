@@ -24,7 +24,8 @@
         "videocall_room": "",
         "device_location": "Bilbao",
         "joke_category": "general",
-        "idle_timeout_sec": 60
+        "idle_timeout_sec": 60,
+        "solitaire_enabled": true
     },
     "notifications": {
         "videollamada": {

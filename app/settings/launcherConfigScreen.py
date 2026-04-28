@@ -173,6 +173,7 @@ CONFIG_FIELD_METADATA = {
     ("settings", "rfid_actions"): {"label": "Acciones RFID", "help": "Acciones configuradas para las tarjetas RFID."},
     ("settings", "joke_category"): {"label": "Categoría de frases", "help": "Categoría activa para frases o bromas del sistema."},
     ("settings", "idle_timeout_sec"): {"label": "Timeout inactividad (seg)", "help": "Tiempo antes de volver al estado principal por inactividad."},
+    ("settings", "solitaire_enabled"): {"label": "Mostrar solitario", "kind": "choice:true,false", "help": "Permite mostrar u ocultar el acceso al juego de solitario en la pantalla principal."},
     ("security", "settings_pin"): {"label": "PIN administración", "help": "PIN necesario para acceder a la administración."},
     ("security", "restart_pin"): {"label": "PIN reinicio equipo", "help": "PIN alternativo para abrir la pantalla de reinicio completo del equipo."},
     ("services", "backend_base_url"): {"label": "Backend base URL", "help": "URL base del portal web y backend principal."},
@@ -224,6 +225,7 @@ CONFIG_GROUPS = [
             ("settings", "joke_category"),
             ("settings", "button_colors"),
             ("settings", "rfid_actions"),
+            ("settings", "solitaire_enabled"),
         ],
     ),
     (
@@ -1099,10 +1101,7 @@ class LauncherConfigScreen(Screen):
             config = self._normalized_runtime_config(config)
             save_config(config)
 
-            self.cfg.data["language"] = config.get("settings", {}).get("language", self.cfg.data.get("language", "es"))
-            self.cfg.data["device_id"] = config.get("settings", {}).get("device_id", self.cfg.data.get("device_id", "CoBien1"))
-            self.cfg.data["videocall_room"] = config.get("settings", {}).get("videocall_room", self.cfg.data.get("videocall_room", "CoBien1"))
-            self.cfg.data["device_location"] = config.get("settings", {}).get("device_location", self.cfg.data.get("device_location", "Bilbao"))
+            self.cfg.data = dict(config.get("settings", {}))
             self.cfg.save()
 
             app = App.get_running_app()
@@ -1110,6 +1109,8 @@ class LauncherConfigScreen(Screen):
                 app.main_ref.DEVICE_ID = self.cfg.get_device_id()
                 app.main_ref.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
                 app.main_ref.DEVICE_LOCATION = self.cfg.get_device_location()
+                if hasattr(app.main_ref, "apply_runtime_settings"):
+                    app.main_ref.apply_runtime_settings()
 
             self.lbl_status.text = f"{_('Configuración guardada en')}: {self._env_path()}"
             self.raw_config_input.text = json.dumps(self._normalized_runtime_config(load_config()), ensure_ascii=False, indent=4)
