@@ -574,6 +574,8 @@ KV = r"""
             size_hint: None, None
             size: dp(80), dp(80)
             pos_hint: {"x": 0.12, "y": 0.018}
+            opacity: 1 if root.chess_enabled else 0
+            disabled: not root.chess_enabled
             on_release: app.root.current = 'chess' if 'chess' in app.root.screen_names else 'main'
             canvas.before:
                 Color:
@@ -664,10 +666,12 @@ class MainScreen(Screen):
     btn_pizarra_texto = StringProperty("Pizarra")
     btn_llamame_texto = StringProperty("Llámame")
     footer_meta_text = StringProperty("")
-    solitaire_enabled = BooleanProperty(True)
+    solitaire_enabled = BooleanProperty(False)
+    chess_enabled = BooleanProperty(False)
 
     def apply_runtime_settings(self):
         self.solitaire_enabled = self.cfg.get_solitaire_enabled()
+        self.chess_enabled = self.cfg.get_chess_enabled()
 
     def launch_solitaire(self):
         import subprocess

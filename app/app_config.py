@@ -145,7 +145,7 @@ class AppConfig(EventDispatcher):
         self.save()
 
     def get_solitaire_enabled(self):
-        value = self.data.get("solitaire_enabled", True)
+        value = self.data.get("solitaire_enabled", False)
         if isinstance(value, str):
             return value.strip().casefold() in {"1", "true", "yes", "si", "sí", "on"}
         return bool(value)
@@ -154,4 +154,16 @@ class AppConfig(EventDispatcher):
         if isinstance(enabled, str):
             enabled = enabled.strip().casefold() in {"1", "true", "yes", "si", "sí", "on"}
         self.data["solitaire_enabled"] = bool(enabled)
+        self.save()
+
+    def get_chess_enabled(self):
+        value = self.data.get("chess_enabled", False)
+        if isinstance(value, str):
+            return value.strip().casefold() in {"1", "true", "yes", "si", "sí", "on"}
+        return bool(value)
+
+    def set_chess_enabled(self, enabled):
+        if isinstance(enabled, str):
+            enabled = enabled.strip().casefold() in {"1", "true", "yes", "si", "sí", "on"}
+        self.data["chess_enabled"] = bool(enabled)
         self.save()
