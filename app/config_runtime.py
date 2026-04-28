@@ -50,6 +50,7 @@ PRESERVED_LOCAL_CONFIG_KEYS: Dict[str, list[str]] = {
         "audio_output_device",
         "joke_category",
         "idle_timeout_sec",
+        "solitaire_enabled",
     ],
     "notifications": [
         "videollamada",

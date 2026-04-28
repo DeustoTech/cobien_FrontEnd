@@ -537,6 +537,8 @@ KV = r"""
             size_hint: None, None
             size: dp(80), dp(80)
             pos_hint: {"x": 0.015, "y": 0.018}
+            opacity: 1 if root.solitaire_enabled else 0
+            disabled: not root.solitaire_enabled
             on_release: root.launch_solitaire()
             canvas.before:
                 Color:
@@ -626,11 +628,19 @@ class MainScreen(Screen):
     btn_pizarra_texto = StringProperty("Pizarra")
     btn_llamame_texto = StringProperty("Llámame")
     footer_meta_text = StringProperty("")
+    solitaire_enabled = BooleanProperty(True)
+
+    def apply_runtime_settings(self):
+        self.solitaire_enabled = self.cfg.get_solitaire_enabled()
 
     def launch_solitaire(self):
         import subprocess
         import sys
         import os
+        if not self.solitaire_enabled:
+            print("[MAIN] Solitaire launch blocked by furniture administration setting")
+            self._show_nav_reason_popup(_("El juego de solitario está oculto por la administración del mueble."))
+            return
         print("[MAIN] Lanzando juego de Solitario...")
         script_path = os.path.join(os.path.dirname(__file__), "games", "solitaire", "main.py")
         try:
@@ -664,6 +674,7 @@ class MainScreen(Screen):
             f"room='{self.VIDEOCALL_ROOM}', location='{self.DEVICE_LOCATION}'"
         )
 
+        self.apply_runtime_settings()
         self._update_footer_meta()
 
         # ✅ ÉTAPE 7 : Charger traduction au démarrage
