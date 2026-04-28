@@ -21,7 +21,8 @@
     "device_location": "Bilbao",
     "joke_category": "general",
     "idle_timeout_sec": 60,
-    "solitaire_enabled": true
+    "solitaire_enabled": false,
+    "chess_enabled": false
   },
   "notifications": {
     "videollamada": {
