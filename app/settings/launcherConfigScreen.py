@@ -720,6 +720,8 @@ class LauncherConfigScreen(Screen):
         text = str(raw_value or "").strip()
         if kind == "bool":
             return text.lower() in {"1", "true", "yes", "si", "sí", "on"}
+        if kind == "choice:true,false":
+            return text.lower() == "true"
         if kind == "int":
             return int(text or "0")
         if kind == "float":
