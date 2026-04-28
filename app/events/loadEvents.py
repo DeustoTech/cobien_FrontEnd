@@ -2,8 +2,11 @@
 
 This module centralizes event retrieval and mutation using a resilient strategy:
 
-1. Primary source: MongoDB.
-2. Fallback source: local JSON cache (`eventos_local.json`).
+1. Primary source: Backend HTTP API (/pizarra/api/events/) — works on all furniture
+   devices regardless of whether MONGO_URI is configured.
+2. Secondary source: MongoDB direct connection — used when the HTTP API URL is not
+   configured or unreachable.
+3. Fallback source: local JSON cache (`eventos_local.json`).
 
 It applies device/location filtering, normalizes event payloads for UI
 consumption, and broadcasts change notifications via `event_bus`.
@@ -16,6 +19,8 @@ import time
 import unicodedata
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+import requests
 
 from events.event_bus import event_bus
 
@@ -38,6 +43,24 @@ AUDIENCE_COLORS = {
     "all": "#1E90FF",     # Azul (públicos)
     "device": "#FF3B30"   # Rojo (personales)
 }
+
+def _get_events_api_url() -> str:
+    """Return the backend HTTP events API URL, read live from config."""
+    services_cfg = load_section("services", {})
+    url = str(services_cfg.get("events_api_url") or "").strip()
+    if url:
+        return url
+    # Build from backend base URL as fallback
+    base = str(services_cfg.get("backend_base_url") or "").strip().rstrip("/")
+    if base:
+        return f"{base}/pizarra/api/events/"
+    return ""
+
+def _get_api_key() -> str:
+    """Return the notify API key from live config."""
+    services_cfg = load_section("services", {})
+    return str(services_cfg.get("notify_api_key") or "").strip()
+
 
 def _runtime_cfg() -> AppConfig:
     return AppConfig()
@@ -280,6 +303,11 @@ def cargar_eventos_locales(location_name: Optional[str] = None) -> List[Dict[str
             dev = event.get("target_device", "")
             devs = event.get("target_devices", [])
             if dev == target_device or target_device in (devs if isinstance(devs, list) else []):
+                event = dict(event)
+                # Personal events without a location must be indexed under the device
+                # location so EventStore.events_on() can find them (it queries by location).
+                if _is_locationless(event.get("location")):
+                    event["location"] = target_location
                 filtered_events.append(event)
             continue
         if _match_location(loc, target_location):
@@ -332,12 +360,52 @@ def _append_personal_event_local(
     event_bus.notify_events_changed()
     return local_id
 
-def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Fetch events from MongoDB with location and device filtering.
+def fetch_events_from_api(device_name: Optional[str] = None, location_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Fetch events from the backend HTTP API.
 
-    Included event subsets:
-    - Public events (`audience='all'`) for current location.
-    - Personal events (`audience='device'`) for current location and device.
+    This is the preferred source for furniture devices that do not have
+    direct MongoDB access (MONGO_URI not configured).
+
+    Returns:
+        List[Dict[str, Any]]: Normalized events, or raises on failure.
+    """
+    url = _get_events_api_url()
+    if not url:
+        raise RuntimeError("events_api_url not configured")
+
+    target_device = device_name or _current_device_name()
+    target_location = location_name or _current_location_name()
+    api_key = _get_api_key()
+
+    params: Dict[str, str] = {"device_id": target_device}
+    if target_location:
+        params["location"] = target_location
+
+    services_cfg = load_section("services", {})
+    timeout = float(services_cfg.get("http_timeout", 8) or 8)
+
+    headers = {}
+    if api_key:
+        headers["X-API-KEY"] = api_key
+
+    resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    body = resp.json()
+    if not body.get("ok"):
+        raise RuntimeError(f"API returned error: {body.get('error', 'unknown')}")
+
+    events = body.get("events") or []
+    print(f"[EVENTS] {len(events)} eventos cargados desde API HTTP (device='{target_device}', location='{target_location}').")
+    return events
+
+
+def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Fetch events with location and device filtering.
+
+    Tries sources in priority order:
+    1. Backend HTTP API  (works on all furniture, no MONGO_URI needed)
+    2. MongoDB direct    (if MONGO_URI is configured)
+    3. Local JSON cache  (offline fallback)
 
     Args:
         device_name: Target device identifier for personal events.
@@ -351,21 +419,24 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
     Examples:
         >>> events = fetch_events_from_mongo(device_name="CoBien1")
     """
+    target_device = device_name or _current_device_name()
+    target_location = location_name or _current_location_name()
+
+    # ── 1. Try HTTP API (preferred: works without MONGO_URI) ─────────────────
     try:
-        target_device = device_name or _current_device_name()
-        target_location = location_name or _current_location_name()
+        eventos = fetch_events_from_api(device_name=target_device, location_name=target_location)
+        guardar_eventos_localmente(eventos)
+        return eventos
+    except Exception as api_err:
+        print(f"[EVENTS] HTTP API unavailable ({api_err}), falling back to MongoDB.")
+
+    # ── 2. Try MongoDB direct ────────────────────────────────────────────────
+    try:
         event_preferences = _device_event_preferences(target_device, target_location)
         client = get_mongo_client()
-
         db = client["LabasAppDB"]
         collection = db["eventos"]
 
-        # Fetch all global events here and let the frontend-side preference
-        # filter decide whether a public event is visible for this device.
-        # This preserves three supported cases in the furniture calendar:
-        # - global events without location
-        # - global events matching the device location/regions
-        # - device-specific events targeting this furniture
         query = {
             "$or": [
                 {
@@ -387,25 +458,23 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
 
         eventos_raw = list(collection.find(query))
         eventos = []
-        print(f"{len(eventos_raw)} eventos cargados desde MongoDB (device='{target_device}', location='{target_location}').")
+        print(f"[EVENTS] {len(eventos_raw)} eventos cargados desde MongoDB (device='{target_device}', location='{target_location}').")
 
         for event in eventos_raw:
             fecha_str = _formatea_fecha(event.get("date") or event.get("fecha_inicio"))
             audience = _normalize_audience(event.get("audience"))
             color = _audience_color(audience)
             raw_loc = event.get("location")
-            loc = _safe_str(raw_loc, target_location if audience == "all" else "Sin localización")
+            loc = _safe_str(raw_loc, target_location)
 
-            # Permite eventos generales sin localización explícita como fallback global.
-            if audience == "all" and _is_locationless(raw_loc):
+            if _is_locationless(raw_loc):
                 loc = target_location
             elif audience == "all":
                 if not _public_event_matches_preferences(raw_loc, event_preferences, target_location):
                     continue
-            # Device events are already filtered by device name in the MongoDB query — no location check needed.
 
             eventos.append({
-                "id": str(event.get("_id") or ""),  # necesario para borrar
+                "id": str(event.get("_id") or ""),
                 "date": fecha_str,
                 "title": _safe_str(event.get("title") or event.get("titulo"), "Sin título"),
                 "description": _safe_str(event.get("description") or event.get("descripcion"), "Sin descripción"),
@@ -422,10 +491,12 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
         guardar_eventos_localmente(eventos)
         return eventos
 
-    except Exception as e:
-        print(f"No se pudo conectar a MongoDB: {e}")
-        # Carga desde local con el mismo criterio de ciudad
-        return cargar_eventos_locales(location_name)
+    except Exception as mongo_err:
+        print(f"[EVENTS] MongoDB unavailable ({mongo_err}), falling back to local cache.")
+
+    # ── 3. Local JSON cache ──────────────────────────────────────────────────
+    return cargar_eventos_locales(location_name)
+
 
 # ------------------------
 # MONGO: DELETE
