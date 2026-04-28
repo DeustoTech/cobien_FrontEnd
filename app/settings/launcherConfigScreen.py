@@ -1110,6 +1110,8 @@ class LauncherConfigScreen(Screen):
 
             app = App.get_running_app()
             if app and hasattr(app, "main_ref") and app.main_ref:
+                if hasattr(app.main_ref, "cfg") and app.main_ref.cfg:
+                    app.main_ref.cfg.data = dict(self.cfg.data)
                 app.main_ref.DEVICE_ID = self.cfg.get_device_id()
                 app.main_ref.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
                 app.main_ref.DEVICE_LOCATION = self.cfg.get_device_location()
