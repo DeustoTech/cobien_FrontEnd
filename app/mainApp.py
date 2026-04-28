@@ -531,7 +531,9 @@ KV = r"""
             Widget:
                 size_hint_y: 0.28
 
-        ButtonBehavior:
+        Button:
+            background_normal: ""
+            background_color: 0, 0, 0, 0
             size_hint: None, None
             size: dp(80), dp(80)
             pos_hint: {"x": 0.015, "y": 0.018}
