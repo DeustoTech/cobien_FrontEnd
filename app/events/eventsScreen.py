@@ -817,22 +817,14 @@ class EventsScreen(Screen):
         self._build_calendar()
 
     def refresh_calendar(self) -> None:
-        """Reload store and schedule full calendar rebuild."""
-        try:
-            old_count = len(self.store.events)
-            self.store.reload(
-                device_name=self.cfg.get_device_id(),
-                location_name=self.cfg.get_device_location(),
-            )
-            new_count = len(self.store.events)
-            
-            if new_count > old_count:
-                print(f"[EVENTS] {new_count - old_count} new events loaded")
-        except Exception as e:
-            print(f"[EVENTS] Calendar refresh error: {e}")
-        
-        Clock.schedule_once(lambda *_: self._build_calendar(), 0)
-    
+        """Trigger an async event store reload and schedule a full calendar rebuild.
+
+        Delegates to _reload_store_async() to avoid blocking the UI thread with a
+        MongoDB round-trip. The calendar grid rebuilds automatically when the
+        background thread completes.
+        """
+        self._reload_store_async()
+
     def setup_mqtt_listener(self) -> None:
         """Configure MQTT listener for remote calendar refresh commands.
 
