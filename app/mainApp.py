@@ -1685,21 +1685,56 @@ class MainScreen(Screen):
             title = data.get("title") or _("Nuevo evento")
             date_str = data.get("date", "")
             location = data.get("location", "")
-            
-            # ✅ FILTRER PAR VILLE (CASE-SENSITIVE)
-            if location:
-                # Normaliser (minuscules, sans espaces superflus)
-                location_normalized = location.lower().strip()
-                configured_normalized = self.DEVICE_LOCATION.lower().strip()
-                
-                # Si l'événement n'est pas pour notre ville, ignorer
+            audience = data.get("audience", "")  # "all" | "device" | ""
+
+            # Location filter: only applies to public events (audience="all").
+            # - Events without a location are always global → show notification.
+            # - Personal events (audience="device") already passed the recipient
+            #   check above → always show notification.
+            # - Public events with a location: apply case-insensitive match
+            #   against device location ONLY as a quick pre-filter. The full
+            #   region-aware filter (event_visibility_scope / event_regions)
+            #   is authoritative and runs inside loadEvents.fetch_events_from_mongo
+            #   when the calendar reloads. We must NOT drop events here that could
+            #   be visible via the region list, so we only skip when it is clearly
+            #   a different-city public event AND we have no region-scope configured.
+            if location and audience not in {"device"}:
+                location_normalized = location.strip().casefold()
+                configured_normalized = self.DEVICE_LOCATION.strip().casefold()
                 if location_normalized != configured_normalized:
-                    print(f"[BACKEND_NOTIF] Event ignored for location '{location}'")
-                    return
-            
-            print(f"[BACKEND_NOTIF] Event '{title}' scheduled for {date_str} ({location})")
-            
+                    # Do not silently drop: the device may have event_regions that
+                    # include this location. Let the calendar reload decide.
+                    print(
+                        f"[BACKEND_NOTIF] Event location '{location}' differs from "
+                        f"device location '{self.DEVICE_LOCATION}'; "
+                        "calendar will reload to apply region filter."
+                    )
+
+            print(f"[BACKEND_NOTIF] New event: '{title}' for {date_str} (location='{location}')")
+
+            # Show visual notification.
             self.notification_manager.show_event_notification(title, date_str)
+
+            # Trigger an async calendar reload so the new event appears
+            # immediately without waiting for the next 5-minute poll cycle.
+            # event_bus.notify_events_changed() wakes up EventsScreen.refresh_calendar.
+            def _reload_events_async(_dt=None):
+                from events.loadEvents import fetch_events_from_mongo, guardar_eventos_localmente
+                from events.event_bus import event_bus as _event_bus
+                import threading
+                def _worker():
+                    try:
+                        events = fetch_events_from_mongo(
+                            device_name=self.DEVICE_ID,
+                            location_name=self.DEVICE_LOCATION,
+                        )
+                        guardar_eventos_localmente(events)
+                    except Exception as exc:
+                        print(f"[BACKEND_NOTIF] Event reload error: {exc}")
+                    Clock.schedule_once(lambda *_: _event_bus.notify_events_changed(), 0)
+                threading.Thread(target=_worker, daemon=True).start()
+
+            Clock.schedule_once(_reload_events_async, 0)
             return
 
         # ✅ CONTACTS UPDATED
