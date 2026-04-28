@@ -666,19 +666,25 @@ class BoardScreen(Screen):
             print("[BOARD] Current message has no id; cannot delete")
             return
 
-        try:
-            ok = delete_board_item(post_id, source="device")
-            if not ok:
-                print(f"[BOARD] Could not delete message {post_id}")
-                return
-            print(f"[BOARD] ✅ Message deleted: {post_id}")
-            del self.items[self.idx]
-            if self.idx >= len(self.items):
-                self.idx = max(0, len(self.items) - 1)
-            self._render_current()
-            Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
-        except Exception as e:
-            print(f"[BOARD] Error deleting message {post_id}: {e}")
+        # Remove from local list immediately so the UI doesn't hang
+        del self.items[self.idx]
+        if self.idx >= len(self.items):
+            self.idx = max(0, len(self.items) - 1)
+        self._render_current()
+
+        def _do_delete():
+            try:
+                ok = delete_board_item(post_id, source="device")
+                if ok:
+                    print(f"[BOARD] ✅ Message deleted: {post_id}")
+                else:
+                    print(f"[BOARD] Could not delete message {post_id}")
+                Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
+            except Exception as e:
+                print(f"[BOARD] Error deleting message {post_id}: {e}")
+                Clock.schedule_once(lambda *_: self.refresh_from_mongo(), 0)
+
+        threading.Thread(target=_do_delete, daemon=True).start()
 
     def confirm_delete_current(self) -> None:
         """Open a confirmation popup before deleting the current message.
