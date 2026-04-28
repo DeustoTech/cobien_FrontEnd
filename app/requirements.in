@@ -1,5 +1,6 @@
 # Direct runtime dependencies for the Ubuntu furniture frontend.
 beautifulsoup4==4.13.4
+chess==1.10.0
 arcade>=2.6.17
 joblib==1.4.2
 Kivy==2.3.1

@@ -63,6 +63,13 @@ from device_log_sync_service import schedule_device_log_sync
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from config_store import load_section
 
+# -- CHESS --
+try:
+    from games.chess.board import ChessScreen
+except ImportError as e:
+    print(f"Failed to import ChessScreen: {e}")
+    ChessScreen = None
+
 # Logs ICSO
 from icso_data.navigation_logger import log_navigation
 from icso_data.videocall_logger import log_call_request
@@ -554,6 +561,35 @@ KV = r"""
                     rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
             Image:
                 source: "data/images/card.png"
+                size_hint: None, None
+                size: dp(50), dp(50)
+                pos: self.parent.x + dp(15), self.parent.y + dp(15)
+                allow_stretch: True
+                keep_ratio: True
+                mipmap: True
+
+        Button:
+            background_normal: ""
+            background_color: 0, 0, 0, 0
+            size_hint: None, None
+            size: dp(80), dp(80)
+            pos_hint: {"x": 0.12, "y": 0.018}
+            on_release: app.root.current = 'chess' if 'chess' in app.root.screen_names else 'main'
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 0.7
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(16), dp(16), dp(16), dp(16)]
+                Color:
+                    rgba: 0, 0, 0, 0.2
+                Line:
+                    width: 1.2
+                    rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
+            Image:
+                # We will just use the white knight image as icon
+                source: "games/chess/images/wN.png"
                 size_hint: None, None
                 size: dp(50), dp(50)
                 pos: self.parent.x + dp(15), self.parent.y + dp(15)
@@ -1968,24 +2004,7 @@ class MainScreen(Screen):
         popup.add_widget(card)
         popup.open()
         Clock.schedule_once(lambda *_: popup.dismiss(), 5)
-    """
-    def start_assistant(self):
-        # Configuration to wakeup the app if needed
-        app = App.get_running_app()
-        if (
-            app
-            and getattr(app, "black_overlay", None)
-            and app.black_overlay.parent
-        ):
-            print("[WAKEUP] Wakeup via MQTT")
-            app.black_overlay.dismiss()
-            app._on_wakeup()
-        log_navigation("vocal_assistant", "assistant_triggered")
-        #AssistantOrchestrator(self).start()
-        self.assistant = AssistantOrchestrator(self)
-        self.assistant.start()
-    """
-    ### SIMONA
+    
     def start_assistant(self):
         # Configuration to wakeup the app if needed
         app = App.get_running_app()
@@ -2028,51 +2047,6 @@ class MainScreen(Screen):
             except Exception as exc:
                 print(f"[ASR] Cancel failed: {exc}")
         self.set_assistant_overlay(False, "")
-
-    # SIMONA
-    # Méthode relais pour pouvoir appeler la méthode _speak définie dans l'assistant virtuel
-    """
-    def speak(self, text: str):
-        #Relais vers le TTS de l'assistant
-        if hasattr(self, "assistant") and self.assistant:
-            self.assistant._speak(text)
-        else:
-            print("[WARN] Assistant not initialized, TTS ignored")
-    """
-    """
-    def speak(self, text: str):
-        #Relais vers le TTS de l'assistant (NON BLOQUANT UI)
-        
-        if not hasattr(self, "assistant") or not self.assistant:
-            print("[WARN] Assistant not initialized, TTS ignored")
-            return
-
-        import threading
-        threading.Thread(
-            target=self.assistant._speak,
-            args=(text,),
-            daemon=True
-        ).start()
-    """
-
-    """
-    def speak(self, text: str):
-        #TTS global, toujours disponible si possible
-        try:
-            if not hasattr(self, "assistant") or self.assistant is None:
-                from virtual_assistant.assistant_orchestrator import AssistantOrchestrator
-                self.assistant = AssistantOrchestrator(self)
-
-            import threading
-            threading.Thread(
-                target=self.assistant._speak,
-                args=(text,),
-                daemon=True
-            ).start()
-
-        except Exception as e:
-            print(f"[WARN] Assistant unavailable, TTS ignored: {e}")
-    """
 
     def speak(self, text: str):
         app = App.get_running_app()
@@ -2865,6 +2839,10 @@ class MyApp(App):
             name='settings_logs_icso',
         )
         sm.add_widget(logs_icso)
+
+        if ChessScreen:
+            sm.add_widget(ChessScreen(sm, name='chess'))
+
         launcher_settings_screen = LauncherConfigScreen(sm, self.cfg, name='settings_launcher')
         sm.add_widget(launcher_settings_screen)
         sm.add_widget(Screen(name='joke_category'))
