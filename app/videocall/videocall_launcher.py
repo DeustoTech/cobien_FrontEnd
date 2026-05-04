@@ -553,11 +553,15 @@ class MainWindow(QMainWindow):
 
     def _quit_app(self) -> None:
         """Close app and persist call-duration log entry."""
+        # Hide immediately so any pending JS navigation (e.g. fallback window.location.replace)
+        # never becomes visible to the user while Qt is shutting down.
+        self.hide()
+
         if hasattr(self, "_call_start_time") and self._call_start_time:
             duration = int((datetime.datetime.now() - self._call_start_time).total_seconds())
             print(f"[VIDEOCALL] Call duration: {duration}s")
             log_call_end(duration)
-        
+
         QApplication.instance().quit()
 
     def resizeEvent(self, event: Any) -> None:
