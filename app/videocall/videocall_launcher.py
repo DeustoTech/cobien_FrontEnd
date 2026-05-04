@@ -527,9 +527,16 @@ class MainWindow(QMainWindow):
 
         # Kiosk-style window mode.
         self.setWindowFlag(Qt.FramelessWindowHint, True)
-        
+
         # Render fullscreen.
         self.showFullScreen()
+
+        # Signal to Kivy that this window is now visible so it can dismiss its
+        # "please wait" overlay without relying on an arbitrary fixed timeout.
+        try:
+            open("/tmp/cobien_vc_ready", "w").close()
+        except Exception:
+            pass
 
         # Load portal URL.
         self._load_videocall()
@@ -657,11 +664,17 @@ def main() -> None:
         print(f"[VIDEOCALL] Warning: could not apply audio devices: {_ae}")
 
     config, room_name, device_name = resolve_runtime_config()
-    session_data = request_device_session(room_name, device_name)
     print(f"[VIDEOCALL] Configuration: room='{room_name}', device='{device_name}'")
-    app = QApplication(sys.argv)
-    # Escala HiDPI correcta en Mac
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+
+    # Request the device session and initialise QApplication in parallel so
+    # the HTTP round-trip does not block Qt startup.
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
+        _session_future = _pool.submit(request_device_session, room_name, device_name)
+        app = QApplication(sys.argv)
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        session_data = _session_future.result()
+
     window = MainWindow(room_name, device_name, session_data=session_data)
     sys.exit(app.exec_())
 

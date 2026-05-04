@@ -1086,10 +1086,18 @@ class NotificationManager:
 
                 self._show_videocall_launching_popup(caller)
                 self._prepare_runtime_for_videocall()
+
+                _vc_ready_flag = "/tmp/cobien_vc_ready"
+                try:
+                    if os.path.exists(_vc_ready_flag):
+                        os.remove(_vc_ready_flag)
+                except Exception:
+                    pass
+
                 self.active_call_process = subprocess.Popen([sys.executable, launcher_path, config_file])
                 self._cleanup_videocall_temp_file_later(config_file, self.active_call_process)
-                Clock.schedule_once(lambda _dt: self._dismiss_videocall_launching_popup(), 1.8)
-                
+                self._start_videocall_ready_monitor(_vc_ready_flag)
+
                 print(f"[NOTIF] ✅ Videocall launcher started")
                 log_call_start()
                 
@@ -1107,6 +1115,37 @@ class NotificationManager:
             caller = data.get('caller', 'Unknown')
             room = data.get('room', 'Unknown')
             print(f"[NOTIF] Call expired from '{caller}' (room='{room}')")
+
+    def _start_videocall_ready_monitor(self, ready_flag: str, max_wait: float = 25.0) -> None:
+        """Poll for the ready flag written by the launcher and dismiss the popup.
+
+        The launcher writes *ready_flag* after showFullScreen() so we know the
+        Qt window is visible.  Falls back to dismissing after *max_wait* seconds
+        to avoid an eternal popup if the launcher crashes before writing the flag.
+        """
+        import time as _time
+        _start = _time.time()
+        _event: list = [None]
+
+        def _check(_dt: float) -> None:
+            if os.path.exists(ready_flag):
+                try:
+                    os.remove(ready_flag)
+                except Exception:
+                    pass
+                self._dismiss_videocall_launching_popup()
+                if _event[0]:
+                    _event[0].cancel()
+                    _event[0] = None
+                return
+            if _time.time() - _start > max_wait:
+                print("[NOTIF] ⚠️ Videocall ready flag not received within timeout; dismissing popup")
+                self._dismiss_videocall_launching_popup()
+                if _event[0]:
+                    _event[0].cancel()
+                    _event[0] = None
+
+        _event[0] = Clock.schedule_interval(_check, 0.3)
 
     def _cleanup_videocall_temp_file_later(self, temp_path: str, process: Any) -> None:
         """Remove temporary launcher config once the call process finishes."""
