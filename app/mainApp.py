@@ -759,6 +759,59 @@ class MainScreen(Screen):
             pass
         self.footer_meta_text = f"{visible_name} · v{version_text}"
 
+    def apply_runtime_settings(self):
+        """Apply runtime-derived configuration to the main screen.
+
+        This is a defensive implementation kept intentionally small: it
+        ensures `cfg` exists, refreshes device identifiers, updates the
+        footer and translated labels, and applies a configured primary
+        weather city if present. It must not raise.
+        """
+        try:
+            if not hasattr(self, "cfg") or not self.cfg:
+                self.cfg = AppConfig()
+
+            # Refresh identity/location values
+            try:
+                self.DEVICE_ID = self.cfg.get_device_id()
+            except Exception:
+                self.DEVICE_ID = getattr(self, "DEVICE_ID", "")
+            try:
+                self.VIDEOCALL_ROOM = self.cfg.get_videocall_room()
+            except Exception:
+                self.VIDEOCALL_ROOM = getattr(self, "VIDEOCALL_ROOM", "")
+            try:
+                self.DEVICE_LOCATION = self.cfg.get_device_location()
+            except Exception:
+                self.DEVICE_LOCATION = getattr(self, "DEVICE_LOCATION", "")
+
+            # Update footer and translated labels where safe
+            try:
+                self._update_footer_meta()
+            except Exception:
+                pass
+            try:
+                if hasattr(self, "update_labels"):
+                    self.update_labels()
+            except Exception:
+                pass
+
+            # Apply configured primary weather city if available
+            try:
+                configured_primary_city = (self.cfg.data.get("weather_primary_city", "") or "").strip()
+                if WEATHER_CITIES_GEO and configured_primary_city:
+                    selected = next((c for c in WEATHER_CITIES_GEO if c.get("name") == configured_primary_city), None)
+                    if selected:
+                        self.weather_city = selected["name"]
+                        self.weather_lat = selected["lat"]
+                        self.weather_lon = selected["lon"]
+                        self.weather_tz = selected.get("tz", "UTC")
+            except Exception:
+                pass
+
+        except Exception as e:
+            print(f"[MAIN] apply_runtime_settings failed: {e}")
+
        
     def _maybe_refresh_joke(self, force=False):
         """✅ Rafraîchir blague si jour, langue OU catégorie changent"""
