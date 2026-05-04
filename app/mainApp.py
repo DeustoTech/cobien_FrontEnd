@@ -63,13 +63,6 @@ from device_log_sync_service import schedule_device_log_sync
 from popup_style import wrap_popup_content, popup_theme_kwargs
 from config_store import load_section
 
-# -- CHESS --
-try:
-    from games.chess.board import ChessScreen
-except ImportError as e:
-    print(f"Failed to import ChessScreen: {e}")
-    ChessScreen = None
-
 # Logs ICSO
 from icso_data.navigation_logger import log_navigation
 from icso_data.videocall_logger import log_call_request
@@ -538,67 +531,6 @@ KV = r"""
             Widget:
                 size_hint_y: 0.28
 
-        Button:
-            background_normal: ""
-            background_color: 0, 0, 0, 0
-            size_hint: None, None
-            size: dp(80), dp(80)
-            pos_hint: {"x": 0.015, "y": 0.018}
-            opacity: 1 if root.solitaire_enabled else 0
-            disabled: not root.solitaire_enabled
-            on_release: root.launch_solitaire()
-            canvas.before:
-                Color:
-                    rgba: 1, 1, 1, 0.7
-                RoundedRectangle:
-                    pos: self.pos
-                    size: self.size
-                    radius: [dp(16), dp(16), dp(16), dp(16)]
-                Color:
-                    rgba: 0, 0, 0, 0.2
-                Line:
-                    width: 1.2
-                    rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
-            Image:
-                source: "data/images/card.png"
-                size_hint: None, None
-                size: dp(50), dp(50)
-                pos: self.parent.x + dp(15), self.parent.y + dp(15)
-                allow_stretch: True
-                keep_ratio: True
-                mipmap: True
-
-        Button:
-            background_normal: ""
-            background_color: 0, 0, 0, 0
-            size_hint: None, None
-            size: dp(80), dp(80)
-            pos_hint: {"x": 0.12, "y": 0.018}
-            opacity: 1 if root.chess_enabled else 0
-            disabled: not root.chess_enabled
-            on_release: app.root.current = 'chess' if 'chess' in app.root.screen_names else 'main'
-            canvas.before:
-                Color:
-                    rgba: 1, 1, 1, 0.7
-                RoundedRectangle:
-                    pos: self.pos
-                    size: self.size
-                    radius: [dp(16), dp(16), dp(16), dp(16)]
-                Color:
-                    rgba: 0, 0, 0, 0.2
-                Line:
-                    width: 1.2
-                    rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
-            Image:
-                # We will just use the white knight image as icon
-                source: "games/chess/images/wN.png"
-                size_hint: None, None
-                size: dp(50), dp(50)
-                pos: self.parent.x + dp(15), self.parent.y + dp(15)
-                allow_stretch: True
-                keep_ratio: True
-                mipmap: True
-
         BoxLayout:
             orientation: "vertical"
             size_hint: None, None
@@ -666,39 +598,6 @@ class MainScreen(Screen):
     btn_pizarra_texto = StringProperty("Pizarra")
     btn_llamame_texto = StringProperty("Llámame")
     footer_meta_text = StringProperty("")
-    solitaire_enabled = BooleanProperty(False)
-    chess_enabled = BooleanProperty(False)
-
-    def apply_runtime_settings(self):
-        self.solitaire_enabled = self.cfg.get_solitaire_enabled()
-        self.chess_enabled = self.cfg.get_chess_enabled()
-
-    def launch_solitaire(self):
-        import subprocess
-        import sys
-        import os
-        if not self.solitaire_enabled:
-            print("[MAIN] Solitaire launch blocked by furniture administration setting")
-            self._show_nav_reason_popup(_("El juego de solitario está oculto por la administración del mueble."))
-            return
-        print("[MAIN] Lanzando juego de Solitario...")
-        script_path = os.path.join(os.path.dirname(__file__), "games", "solitaire", "main.py")
-        try:
-            import arcade  # noqa: F401
-        except Exception as e:
-            print(f"[MAIN] Solitaire dependency missing: {e}")
-            self._show_nav_reason_popup(_("El juego de solitario no está disponible en este momento."))
-            return
-        if os.path.exists(script_path):
-            try:
-                subprocess.Popen([sys.executable, script_path])
-            except Exception as e:
-                print(f"[MAIN] Error lanzando solitario: {e}")
-                self._show_nav_reason_popup(_("No se pudo abrir el juego de solitario."))
-        else:
-            print(f"[MAIN] Archivo de juego no encontrado: {script_path}")
-            self._show_nav_reason_popup(_("El juego de solitario no está instalado."))
-
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
         self.sm = sm
@@ -2866,9 +2765,6 @@ class MyApp(App):
             name='settings_logs_icso',
         )
         sm.add_widget(logs_icso)
-
-        if ChessScreen:
-            sm.add_widget(ChessScreen(sm, name='chess'))
 
         launcher_settings_screen = LauncherConfigScreen(sm, self.cfg, name='settings_launcher')
         sm.add_widget(launcher_settings_screen)
