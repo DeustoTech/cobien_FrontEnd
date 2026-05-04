@@ -12,6 +12,7 @@ import copy
 import json
 import os
 import re
+import threading
 from datetime import datetime
 from typing import Any, Dict
 
@@ -28,6 +29,11 @@ SENSITIVE_CONFIG = {
         "settings_pin": {"env": "COBIEN_SETTINGS_PIN"},
         "restart_pin": {"env": "COBIEN_RESTART_PIN"},
     },
+    "settings": {
+        "device_id": {"env": "COBIEN_DEVICE_ID"},
+        "videocall_room": {"env": "COBIEN_VIDEOCALL_ROOM"},
+        "device_location": {"env": "COBIEN_DEVICE_LOCATION"},
+    },
     "services": {
         "owm_api_key": {"env": "OWM_API_KEY"},
         "news_api_key": {"env": "NEWS_API_KEY"},
@@ -36,6 +42,10 @@ SENSITIVE_CONFIG = {
         "videocall_device_api_key": {"env": "COBIEN_VIDEOCALL_DEVICE_API_KEY"},
     },
 }
+
+_CONFIG_LOCK = threading.Lock()
+_CACHE: Dict[str, Any] | None = None
+_CACHE_MTIME: float = 0
 
 DEFAULT_WEATHER_CITIES = ["Bilbao", "Toulouse", "Logroño"]
 _INVALID_CITY_PATTERNS = (
@@ -83,8 +93,28 @@ def _read_json(path: str) -> Dict[str, Any]:
 
 def _write_json(path: str, data: Dict[str, Any]) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=4, ensure_ascii=False)
+    new_content = json.dumps(data, indent=4, ensure_ascii=False)
+    
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                if fh.read() == new_content:
+                    return
+        except Exception:
+            pass
+
+    tmp_path = f"{path}.tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            fh.write(new_content)
+        os.replace(tmp_path, path)
+    except Exception as e:
+        print(f"[CONFIG] Error writing {path}: {e}")
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 def _load_local_config() -> Dict[str, Any]:
@@ -225,18 +255,45 @@ def get_default_section(section_name: str, default: Any = None) -> Any:
 
 def load_config() -> Dict[str, Any]:
     """Load, normalize, persist, and return the active unified config."""
-    normalized = _ensure_schema(_load_local_config())
-    _persist_extracted_secrets_to_local_config(normalized)
-    _write_json(LOCAL_CONFIG_PATH, normalized)
-    return _apply_env_overrides(copy.deepcopy(normalized))
+    global _CACHE, _CACHE_MTIME
+    with _CONFIG_LOCK:
+        current_mtime = 0
+        if LOCAL_CONFIG_PATH and os.path.exists(LOCAL_CONFIG_PATH):
+            current_mtime = os.path.getmtime(LOCAL_CONFIG_PATH)
+
+        if _CACHE is not None and current_mtime <= _CACHE_MTIME:
+            return _apply_env_overrides(copy.deepcopy(_CACHE))
+
+        # Reload from disk
+        raw = _load_local_config()
+        normalized = _ensure_schema(raw)
+        
+        # Apply overrides so they can be persisted if missing from disk
+        overridden = _apply_env_overrides(normalized)
+        
+        # Verify if we need to persist secrets from env back to local config
+        # (useful for first-boot seeding)
+        _persist_extracted_secrets_to_local_config(overridden)
+        
+        _CACHE = overridden
+        _CACHE_MTIME = current_mtime
+        # Note: _apply_env_overrides here is now redundant but kept for consistency
+        return _apply_env_overrides(copy.deepcopy(_CACHE))
 
 
 def save_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize and persist the active unified config."""
-    normalized = _ensure_schema(config)
-    _persist_extracted_secrets_to_local_config(normalized)
-    _write_json(LOCAL_CONFIG_PATH, normalized)
-    return _apply_env_overrides(copy.deepcopy(normalized))
+    global _CACHE, _CACHE_MTIME
+    with _CONFIG_LOCK:
+        normalized = _ensure_schema(config)
+        _persist_extracted_secrets_to_local_config(normalized)
+        _write_json(LOCAL_CONFIG_PATH, normalized)
+        
+        _CACHE = normalized
+        if LOCAL_CONFIG_PATH and os.path.exists(LOCAL_CONFIG_PATH):
+            _CACHE_MTIME = os.path.getmtime(LOCAL_CONFIG_PATH)
+            
+        return _apply_env_overrides(copy.deepcopy(_CACHE))
 
 
 def load_section(section_name: str, default: Any = None) -> Any:
