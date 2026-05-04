@@ -59,6 +59,9 @@ def send_device_heartbeat(screen_name="", extra_payload=None):
     }
 
     try:
+        # Debug log for remote support
+        print(f"[HEARTBEAT] Sending payload to {cfg['url']}: {json.dumps(payload, ensure_ascii=False)}")
+        
         response = requests.post(cfg["url"], json=payload, headers=headers, timeout=cfg["timeout"])
         response.raise_for_status()
         print(f"[HEARTBEAT] Sent for {cfg['device_id']} screen={payload.get('screen', '')}")

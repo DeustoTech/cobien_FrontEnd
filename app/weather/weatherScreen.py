@@ -17,6 +17,7 @@ from kivy.uix.widget import Widget
 from kivy.animation import Animation
 from datetime import datetime, timedelta
 import threading
+import time
 import requests
 import os
 import json
@@ -26,6 +27,7 @@ import paho.mqtt.client as mqtt
 from app_config import MQTT_LOCAL_BROKER, MQTT_LOCAL_PORT
 from weather.weather_data import daily_icon_path, fetch_weather_bundle, map_icon_openmeteo, map_icon_owm
 from config_store import load_section
+from tts_service import tts_service
 
 KV = r"""
 #:import dp kivy.metrics.dp
@@ -660,66 +662,51 @@ class WeatherScreenWidget(BoxLayout):
 
     def speak_window_info(self):
         """Speak concise current-weather summary."""
+        app = App.get_running_app()
+        lang = app.cfg.data.get("language", "es") if hasattr(app, "cfg") else "es"
+        if tts_service.get_runtime_backend_info(lang).get("backend") == "piper-missing":
+            prev = self.current_desc
+            self.current_desc = _("Audio no disponible")
+            Clock.schedule_once(lambda dt: setattr(self, "current_desc", prev), 3)
+            return
+
         texto = (
             f"{self.current_desc}. {_('Temperatura actual')} "
             f"{self.current_temp.replace('°', ' ' + _('grados'))}. "
-            #f"{self.today_minmax_left.replace('°', ' ' + _('grados'))} {_('y')} "
-            #f"{self.today_minmax_right.replace('°', ' ' + _('grados'))}."
         )
         print(texto)
         if hasattr(self, "main_ref"):
             self.main_ref.speak(texto)
-        else:
-            app = App.get_running_app()
-            if hasattr(app, "speak"):
-                app.speak(texto)
+        elif hasattr(app, "speak"):
+            app.speak(texto)
 
     def _fetch_all_and_render(self, request_seq, city_snapshot):
         """Fetch weather bundle and schedule UI rendering on main thread."""
-        try:
-            print(f"[WEATHER] Fetching weather for {city_snapshot['city']} ({city_snapshot['api_lang']})")
-            bundle = fetch_weather_bundle(
-                city_name=city_snapshot["city"],
-                lat=city_snapshot["lat"],
-                lon=city_snapshot["lon"],
-                tz_name=city_snapshot["tz_name"],
-                api_lang=city_snapshot["api_lang"],
-                owm_api_key=self.owm_api_key,
-                forecast_days=7,
-            )
-            days = []
-            daily = bundle["daily"]
-            for i in range(1, 7):
-                d_dt = datetime.fromisoformat(daily["time"][i])
-                code_val = int(daily["weathercode"][i])
-                pop_list = daily.get("precipitation_probability_max", [None] * len(daily["time"]))
-                days.append(
-                    dict(
-                        name=_weekday_name(d_dt),
-                        code=code_val,
-                        tmin=round(daily["temperature_2m_min"][i]),
-                        tmax=round(daily["temperature_2m_max"][i]),
-                        pop=pop_list[i] if i < len(pop_list) else None,
-                    )
+        bundle = None
+        last_exc = None
+        for attempt in range(2):
+            label = f" (retry)" if attempt else ""
+            print(f"[WEATHER] Fetching weather for {city_snapshot['city']} ({city_snapshot['api_lang']}){label}")
+            try:
+                bundle = fetch_weather_bundle(
+                    city_name=city_snapshot["city"],
+                    lat=city_snapshot["lat"],
+                    lon=city_snapshot["lon"],
+                    tz_name=city_snapshot["tz_name"],
+                    api_lang=city_snapshot["api_lang"],
+                    owm_api_key=self.owm_api_key,
+                    forecast_days=7,
                 )
+                break
+            except Exception as e:
+                last_exc = e
+                if attempt == 0:
+                    print(f"[WEATHER] Fetch failed, retrying in 3s: {e}")
+                    time.sleep(3)
 
-            def _apply(_dt):
-                if request_seq != self._refresh_seq:
-                    print(f"[WEATHER] Ignoring stale weather response for {city_snapshot['city']}")
-                    return
-                self.current_temp = f"{bundle['temp']}°"
-                self.current_desc = bundle["description"]
-                self.today_minmax_left = f"{_('Min')} {bundle['temp_min']}°"
-                self.today_minmax_right = f"{_('Max')} {bundle['temp_max']}°"
-                if os.path.exists(bundle["icon"]):
-                    self.current_icon = bundle["icon"]
-                self._render_hourly(bundle["hourly_items"])
-                self._render_daily(days)
+        if bundle is None:
+            print(f"[WEATHER] Error after retries: {last_exc}")
 
-            Clock.schedule_once(_apply)
-
-        except Exception as e:
-            print(f"[WEATHER] Error: {e}")
             def _apply_error(_dt):
                 if request_seq != self._refresh_seq:
                     return
@@ -735,6 +722,38 @@ class WeatherScreenWidget(BoxLayout):
                         self.ids.daily_row.clear_widgets()
 
             Clock.schedule_once(_apply_error)
+            return
+
+        days = []
+        daily = bundle["daily"]
+        for i in range(1, 7):
+            d_dt = datetime.fromisoformat(daily["time"][i])
+            code_val = int(daily["weathercode"][i])
+            pop_list = daily.get("precipitation_probability_max", [None] * len(daily["time"]))
+            days.append(
+                dict(
+                    name=_weekday_name(d_dt),
+                    code=code_val,
+                    tmin=round(daily["temperature_2m_min"][i]),
+                    tmax=round(daily["temperature_2m_max"][i]),
+                    pop=pop_list[i] if i < len(pop_list) else None,
+                )
+            )
+
+        def _apply(_dt):
+            if request_seq != self._refresh_seq:
+                print(f"[WEATHER] Ignoring stale weather response for {city_snapshot['city']}")
+                return
+            self.current_temp = f"{bundle['temp']}°"
+            self.current_desc = bundle["description"]
+            self.today_minmax_left = f"{_('Min')} {bundle['temp_min']}°"
+            self.today_minmax_right = f"{_('Max')} {bundle['temp_max']}°"
+            if os.path.exists(bundle["icon"]):
+                self.current_icon = bundle["icon"]
+            self._render_hourly(bundle["hourly_items"])
+            self._render_daily(days)
+
+        Clock.schedule_once(_apply)
 
     def _load_cached_summary(self):
         """Show cached summary immediately while the full refresh runs in background."""
