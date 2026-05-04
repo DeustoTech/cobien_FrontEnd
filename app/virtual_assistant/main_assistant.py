@@ -26,21 +26,17 @@ class AssistantOrchestrator:
         Args:
             app_reference: Main app object exposing navigation and UI callbacks.
         """
-        # Assistant components
         self.recognizer = None
         self.app = app_reference
         self._recognizer_path = self._get_model_path()
         self._recognizer_language = self.app.cfg.data.get("language", "es")
         self._stop_event = threading.Event()
+        self._recognizer_lock = threading.Lock()
 
-        # Preload the recognizer in the background immediately
         threading.Thread(target=self._preload_model, daemon=True).start()
 
-        # Avoid loading Vosk models synchronously at startup
-        #self.recognizer = SpeechRecognizer(app_path)
         self.executor = ActionExecutor(app_reference)
 
-        # Fallback TTS engine state
         self._running = False
         self._listening = False
 
@@ -53,24 +49,25 @@ class AssistantOrchestrator:
 
     def _ensure_recognizer(self) -> None:
         """Create or refresh recognizer when language/model/device changes."""
-        language = self.app.cfg.data.get("language", "es")
-        desired_path = self._get_model_path()
-        if (
-            self.recognizer is None
-            or self._recognizer_language != language
-            or self._recognizer_path != desired_path
-        ):
-            self._recognizer_path = desired_path
-            self._recognizer_language = language
-            self.recognizer = SpeechRecognizer(
-                desired_path,
-                input_device=self.app.cfg.get_microphone_device(),
-            )
+        with self._recognizer_lock:
+            language = self.app.cfg.data.get("language", "es")
+            desired_path = self._get_model_path()
             if (
-                self.recognizer.input_device_name
-                and self.recognizer.input_device_name != self.app.cfg.get_microphone_device()
+                self.recognizer is None
+                or self._recognizer_language != language
+                or self._recognizer_path != desired_path
             ):
-                self.app.cfg.set_microphone_device(self.recognizer.input_device_name)
+                self._recognizer_path = desired_path
+                self._recognizer_language = language
+                self.recognizer = SpeechRecognizer(
+                    desired_path,
+                    input_device=self.app.cfg.get_microphone_device(),
+                )
+                if (
+                    self.recognizer.input_device_name
+                    and self.recognizer.input_device_name != self.app.cfg.get_microphone_device()
+                ):
+                    self.app.cfg.set_microphone_device(self.recognizer.input_device_name)
 
     def _preload_model(self) -> None:
         """Preload ASR resources asynchronously to reduce first-use latency."""
@@ -169,10 +166,7 @@ class AssistantOrchestrator:
         self._listening = True
         try:
             self._ensure_recognizer()
-            time.sleep(0.2)
-            
-            self.speak(prompt)         
-
+            self.speak(prompt)
             return self.recognizer.listen_and_transcribe(stop_event=self._stop_event)
         finally:
             self._listening = False
@@ -202,18 +196,14 @@ class AssistantOrchestrator:
     """
 
     def _speak(self, text: str) -> None:
-        """Speak a text response using app TTS, with service fallback."""
+        """Speak text and BLOCK until playback is complete.
+
+        Must be synchronous so that listen_and_transcribe() only starts after
+        the prompt has finished playing — otherwise the microphone captures
+        the TTS audio and recognition fails immediately.
+        """
         if not text:
             return
-
-        # Prefer app TTS if available
-        if hasattr(self.app, "speak_text") and callable(self.app.speak_text):
-            try:
-                self.app.speak_text(text)
-                return
-            except Exception:
-                pass
-
         lang = self.app.cfg.data.get("language", "es")
         tts_service.speak_sync(text, language=lang)
 
@@ -327,7 +317,7 @@ class AssistantOrchestrator:
                     self._speak("Je n'ai pas compris")
                 """
                 self._actualizar_label("Comando no reconocido")
-            
+
         except Exception as e:
             print(f"Error en el asistente: {e}")
             self._actualizar_label("Ha ocurrido un error")
