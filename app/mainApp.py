@@ -55,7 +55,7 @@ from settings.rfidActionsScreen import RFIDActionsScreen
 from settings.jokeCategoryScreen import JokeCategoryScreen
 from settings.restartScreen import RestartOnlyScreen
 from settings.audioScreen import AudioScreen
-from audio.audio_devices import apply_system_audio_devices
+from audio.audio_devices import apply_system_audio_devices, pa_adjust_volume, pa_toggle_mute
 from jokes.jokesScreen import JokesScreen
 from settings.pinCodeScreen import PinCodeScreen, PinDisplay, PinButton, PINBACK_BUTTON_KV
 from device_heartbeat_service import send_device_heartbeat_async
@@ -1724,6 +1724,24 @@ class MainScreen(Screen):
         else:
             # ⚠️ Pas de destinataire : afficher quand même (rétro-compatibilité)
             print("[BACKEND_NOTIF] No 'to' field provided; using default display behavior")
+
+        def _schedule_events_reload(_dt=None):
+            from events.loadEvents import fetch_events_from_mongo, guardar_eventos_localmente
+            from events.event_bus import event_bus as _event_bus
+            import threading
+
+            def _worker():
+                try:
+                    events = fetch_events_from_mongo(
+                        device_name=self.DEVICE_ID,
+                        location_name=self.DEVICE_LOCATION,
+                    )
+                    guardar_eventos_localmente(events)
+                except Exception as exc:
+                    print(f"[BACKEND_NOTIF] Event reload error: {exc}")
+                Clock.schedule_once(lambda *_: _event_bus.notify_events_changed(), 0)
+
+            threading.Thread(target=_worker, daemon=True).start()
         
         # ========== TRAITER PAR TYPE ==========
         
@@ -1819,23 +1837,12 @@ class MainScreen(Screen):
             # Trigger an async calendar reload so the new event appears
             # immediately without waiting for the next 5-minute poll cycle.
             # event_bus.notify_events_changed() wakes up EventsScreen.refresh_calendar.
-            def _reload_events_async(_dt=None):
-                from events.loadEvents import fetch_events_from_mongo, guardar_eventos_localmente
-                from events.event_bus import event_bus as _event_bus
-                import threading
-                def _worker():
-                    try:
-                        events = fetch_events_from_mongo(
-                            device_name=self.DEVICE_ID,
-                            location_name=self.DEVICE_LOCATION,
-                        )
-                        guardar_eventos_localmente(events)
-                    except Exception as exc:
-                        print(f"[BACKEND_NOTIF] Event reload error: {exc}")
-                    Clock.schedule_once(lambda *_: _event_bus.notify_events_changed(), 0)
-                threading.Thread(target=_worker, daemon=True).start()
+            Clock.schedule_once(_schedule_events_reload, 0)
+            return
 
-            Clock.schedule_once(_reload_events_async, 0)
+        elif notif_type == "events_reload":
+            print("[BACKEND_NOTIF] Events reload requested")
+            Clock.schedule_once(_schedule_events_reload, 0)
             return
 
         # ✅ CONTACTS UPDATED
@@ -2675,7 +2682,23 @@ class MyApp(App):
                 print(f"[APP] Reboot command failed ({' '.join(cmd)}): {exc}")
         return False
 
+    # XF86AudioRaiseVolume / XF86AudioLowerVolume / XF86AudioMute (X11 keysyms via SDL2/X11)
+    # and SDL2 SDLK_VOLUMEUP / SDLK_VOLUMEDOWN (SDL2-native multimedia keycodes).
+    _VOLUME_UP_KEYS   = frozenset({269025043, 1073741952})  # XF86AudioRaiseVolume, SDLK_VOLUMEUP
+    _VOLUME_DOWN_KEYS = frozenset({269025041, 1073741953})  # XF86AudioLowerVolume, SDLK_VOLUMEDOWN
+    _VOLUME_MUTE_KEYS = frozenset({269025042, 1073741951})  # XF86AudioMute,        SDLK_MUTE
+
     def _handle_key_down(self, *args):
+        keycode = self._extract_window_keycode(*args)
+        if keycode in self._VOLUME_UP_KEYS:
+            pa_adjust_volume(5)
+            return True
+        if keycode in self._VOLUME_DOWN_KEYS:
+            pa_adjust_volume(-5)
+            return True
+        if keycode in self._VOLUME_MUTE_KEYS:
+            pa_toggle_mute()
+            return True
         return self._handle_escape_request(*args)
 
     def _handle_escape_request(self, *args):

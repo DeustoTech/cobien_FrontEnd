@@ -136,6 +136,18 @@ def pa_adjust_volume(step_percent: int = 5) -> None:
         print(f"[AUDIO] pa_adjust_volume failed: {exc}")
 
 
+def pa_toggle_mute() -> None:
+    """Toggle mute on the default PulseAudio sink. Runs non-blocking."""
+    try:
+        subprocess.Popen(
+            ["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as exc:
+        print(f"[AUDIO] pa_toggle_mute failed: {exc}")
+
+
 def apply_system_audio_devices(output_device: str = "", input_device: str = "") -> None:
     """Apply stored audio device preferences to PulseAudio and sounddevice.
 
