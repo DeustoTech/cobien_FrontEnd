@@ -173,8 +173,6 @@ CONFIG_FIELD_METADATA = {
     ("settings", "rfid_actions"): {"label": "Acciones RFID", "help": "Acciones configuradas para las tarjetas RFID."},
     ("settings", "joke_category"): {"label": "Categoría de frases", "help": "Categoría activa para frases o bromas del sistema."},
     ("settings", "idle_timeout_sec"): {"label": "Timeout inactividad (seg)", "help": "Tiempo antes de volver al estado principal por inactividad."},
-    ("settings", "solitaire_enabled"): {"label": "Mostrar solitario", "kind": "choice:true,false", "help": "Permite mostrar u ocultar el acceso al juego de solitario en la pantalla principal."},
-    ("settings", "chess_enabled"): {"label": "Mostrar ajedrez", "kind": "choice:true,false", "help": "Permite mostrar u ocultar el acceso al juego de ajedrez en la pantalla principal."},
     ("security", "settings_pin"): {"label": "PIN administración", "help": "PIN necesario para acceder a la administración."},
     ("security", "restart_pin"): {"label": "PIN reinicio equipo", "help": "PIN alternativo para abrir la pantalla de reinicio completo del equipo."},
     ("services", "backend_base_url"): {"label": "Backend base URL", "help": "URL base del portal web y backend principal."},
@@ -226,8 +224,6 @@ CONFIG_GROUPS = [
             ("settings", "joke_category"),
             ("settings", "button_colors"),
             ("settings", "rfid_actions"),
-            ("settings", "solitaire_enabled"),
-            ("settings", "chess_enabled"),
         ],
     ),
     (
