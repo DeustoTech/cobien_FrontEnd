@@ -27,6 +27,19 @@ from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle, Line
 from app_config import AppConfig
 
+
+def hex_to_rgba(hex_color: str, alpha: float = 1.0) -> list:
+    h = (hex_color or "#6366F1").lstrip('#')
+    if len(h) == 3:
+        h = ''.join(c * 2 for c in h)
+    if len(h) != 6:
+        return [0.388, 0.4, 0.945, alpha]
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return [r / 255, g / 255, b / 255, alpha]
+    except ValueError:
+        return [0.388, 0.4, 0.945, alpha]
+
 # Voz
 #import pyttsx3
 #import pyaudio
@@ -63,6 +76,12 @@ class AddButton(ButtonBehavior, BoxLayout):
     pass
 
 
+class RegionPill(BoxLayout):
+    """Colored pill showing the event region/location."""
+    text = StringProperty("")
+    pill_color = ListProperty([0.388, 0.4, 0.945, 1.0])
+
+
 class EventRow(BoxLayout):
     """Visual row for one event with optional delete action.
 
@@ -72,6 +91,8 @@ class EventRow(BoxLayout):
     description = StringProperty("")
     time_label = StringProperty("")
     venue = StringProperty("")
+    location = StringProperty("")
+    location_pill_color = ListProperty([0.388, 0.4, 0.945, 1.0])
     audience_color = ListProperty([0.15, 0.55, 0.95, 1])
     show_trash = BooleanProperty(False)
     event_id = StringProperty("")
@@ -102,6 +123,29 @@ KV_DAY = r"""
 #:set LEGEND_DOT dp(22)
 #:set GAP_Y dp(18)
 #:set H_HEADER dp(110)
+
+<RegionPill>:
+    size_hint: None, None
+    height: sp(22) + dp(8)
+    width: (_pill_lbl.texture_size[0] + dp(24)) if root.text else 0
+    opacity: 1 if root.text else 0
+    padding: dp(12), dp(4)
+    canvas.before:
+        Color:
+            rgba: root.pill_color if root.text else (0,0,0,0)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(11),]
+    Label:
+        id: _pill_lbl
+        text: root.text
+        font_size: sp(18)
+        color: 1,1,1,1
+        halign: "center"
+        valign: "middle"
+        size_hint: 1, 1
+        text_size: None, None
 
 <LegendDot>:
     size_hint: None, None
@@ -225,15 +269,29 @@ KV_DAY = r"""
             height: sp(22) + dp(4) if root.venue else 0
             opacity: 1 if root.venue else 0
             text_size: self.width, None
-        Label:
-            text: root.description
-            font_size: sp(22)
-            color: C_MUTED
-            halign: "left"
-            valign: "top"
+        BoxLayout:
+            orientation: "horizontal"
             size_hint_y: None
-            height: sp(22) + dp(8)
-            text_size: self.width, None
+            height: (sp(22) + dp(8)) if (root.description or root.location) else 0
+            spacing: dp(8)
+            Label:
+                text: root.description
+                font_size: sp(22)
+                color: C_MUTED
+                halign: "left"
+                valign: "middle"
+                size_hint_y: 1
+                opacity: 1 if root.description else 0
+                text_size: self.width, None
+            AnchorLayout:
+                size_hint: None, 1
+                width: _rpill.width
+                anchor_x: "right"
+                anchor_y: "center"
+                RegionPill:
+                    id: _rpill
+                    text: root.location
+                    pill_color: root.location_pill_color
     # Papelera: solo ocupa espacio cuando está activa
     AnchorLayout:
         size_hint: None, 1
@@ -991,9 +1049,11 @@ class DayEventsScreen(Screen):
                 t_label = ""
             row = EventRow(
                 title=e.get("title", _("Sin título")),
-                description=e.get("description", _("Sin descripción")),
+                description=e.get("description", ""),
                 time_label=t_label,
                 venue=e.get("venue", ""),
+                location=e.get("location", ""),
+                location_pill_color=hex_to_rgba(e.get("location_color", "#6366F1")),
                 audience_color=color,
                 show_trash=(aud=="device"),
                 event_id=str(e.get("id") or "")
