@@ -613,7 +613,11 @@ class MainScreen(Screen):
             f"room='{self.VIDEOCALL_ROOM}', location='{self.DEVICE_LOCATION}'"
         )
 
-        self.apply_runtime_settings()
+        try:
+            # Defensive call: avoid crashing if the method is missing or raises
+            self.apply_runtime_settings()
+        except Exception as e:
+            print(f"[MAIN] apply_runtime_settings call failed: {e}")
         self._update_footer_meta()
 
         # ✅ ÉTAPE 7 : Charger traduction au démarrage
