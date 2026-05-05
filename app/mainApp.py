@@ -23,6 +23,7 @@ from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 from kivy.uix.widget import Widget
+from kivy.uix.slider import Slider
 from kivy.graphics import Color, RoundedRectangle
 
 
@@ -288,6 +289,29 @@ KV = r"""
             rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
     RoundedBadgeImage:
         source: app.settings_icon
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+
+<ControlBadge@ButtonBehavior+BoxLayout>:
+    size_hint: None, None
+    size: dp(100), dp(100)
+    padding: dp(6)
+    icon_source: ""
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, BUTTON_ALPHA
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(16), dp(16), dp(16), dp(16)]
+        Color:
+            rgba: 0, 0, 0, BORDER_ALPHA
+        Line:
+            width: 2.2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(16))
+    RoundedBadgeImage:
+        source: root.icon_source
         allow_stretch: True
         keep_ratio: True
         mipmap: True
@@ -560,6 +584,20 @@ KV = r"""
                 bold: True
                 halign: "center"
                 valign: "middle"
+
+        BoxLayout:
+            orientation: "horizontal"
+            size_hint: None, None
+            size: dp(220), dp(108)
+            spacing: dp(12)
+            pos_hint: {"x": 0.015, "y": 0.012}
+
+            ControlBadge:
+                icon_source: app.volume_icon
+                on_release: root.open_volume_popup()
+            ControlBadge:
+                icon_source: app.brightness_icon
+                on_release: root.open_brightness_popup()
 """
 
 #----------------------- CONTACT NAME --------------------------
@@ -2034,8 +2072,98 @@ class MainScreen(Screen):
     def update_assistant_audio_level(self, level: float):
         self._assistant_overlay.set_level(level)
 
+    def open_volume_popup(self):
+        try:
+            result = subprocess.run(
+                ["pactl", "get-sink-volume", "@DEFAULT_SINK@"],
+                capture_output=True, text=True, timeout=2
+            )
+            import re
+            match = re.search(r'(\d+)%', result.stdout)
+            current_vol = int(match.group(1)) if match else 50
+        except Exception:
+            current_vol = 50
 
-    
+        slider = Slider(min=0, max=100, value=current_vol, step=1, size_hint=(1, None), height=dp(60))
+
+        def _on_vol(instance, value):
+            try:
+                subprocess.Popen(
+                    ["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{int(value)}%"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            except Exception as exc:
+                print(f"[VOLUME] set failed: {exc}")
+
+        slider.bind(value=_on_vol)
+
+        inner = BoxLayout(orientation="vertical", spacing=dp(16))
+        inner.add_widget(Label(
+            text="Volumen", font_size=sp(34), bold=True,
+            color=(0, 0, 0, 1), size_hint=(1, None), height=dp(48),
+            halign="center", valign="middle",
+        ))
+        inner.add_widget(slider)
+        inner.add_widget(Button(
+            text="Cerrar", size_hint=(1, None), height=dp(56),
+            font_size=sp(28), background_color=(0.24, 0.52, 0.96, 1),
+            color=(1, 1, 1, 1), on_release=lambda *_: mv.dismiss()
+        ))
+
+        mv = ModalView(size_hint=(0.55, None), height=dp(280), auto_dismiss=True)
+        mv.add_widget(wrap_popup_content(inner))
+        mv.open()
+
+    def open_brightness_popup(self):
+        try:
+            result = subprocess.run(
+                ["xrandr", "--verbose"],
+                capture_output=True, text=True, timeout=2
+            )
+            import re
+            match = re.search(r'Brightness:\s*([\d.]+)', result.stdout)
+            current_bright = float(match.group(1)) if match else 1.0
+        except Exception:
+            current_bright = 1.0
+
+        slider = Slider(min=0.1, max=1.0, value=current_bright, step=0.01, size_hint=(1, None), height=dp(60))
+
+        def _on_bright(instance, value):
+            try:
+                result = subprocess.run(
+                    ["xrandr", "--listmonitors"], capture_output=True, text=True, timeout=2
+                )
+                import re
+                displays = re.findall(r'\s(\S+)\s*$', result.stdout, re.MULTILINE)
+                for disp in displays:
+                    if disp and not disp.startswith("Monitors"):
+                        subprocess.Popen(
+                            ["xrandr", "--output", disp, "--brightness", f"{value:.2f}"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        )
+            except Exception as exc:
+                print(f"[BRIGHTNESS] set failed: {exc}")
+
+        slider.bind(value=_on_bright)
+
+        inner = BoxLayout(orientation="vertical", spacing=dp(16))
+        inner.add_widget(Label(
+            text="Brillo", font_size=sp(34), bold=True,
+            color=(0, 0, 0, 1), size_hint=(1, None), height=dp(48),
+            halign="center", valign="middle",
+        ))
+        inner.add_widget(slider)
+        inner.add_widget(Button(
+            text="Cerrar", size_hint=(1, None), height=dp(56),
+            font_size=sp(28), background_color=(0.24, 0.52, 0.96, 1),
+            color=(1, 1, 1, 1), on_release=lambda *_: mv.dismiss()
+        ))
+
+        mv = ModalView(size_hint=(0.55, None), height=dp(280), auto_dismiss=True)
+        mv.add_widget(wrap_popup_content(inner))
+        mv.open()
+
+
 class Root(ScreenManager):
     pass
 
@@ -2148,6 +2276,8 @@ class MyApp(App):
     weather_icon = StringProperty("data/images/sol.png")
     mic_icon = StringProperty("data/images/voice.png")
     settings_icon = StringProperty("data/images/settings.png")
+    volume_icon = StringProperty("data/images/volume.png")
+    brightness_icon = StringProperty("data/images/brightness.png")
     SETTINGS_BADGE_LONG_PRESS_SEC = 1.2
     def _acquire_app_singleton(self):
         os.makedirs(RUNTIME_STATE_DIR, exist_ok=True)
