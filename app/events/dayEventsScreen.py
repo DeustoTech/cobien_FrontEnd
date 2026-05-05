@@ -834,14 +834,16 @@ class DayEventsScreen(Screen):
             self._voice_flow_card_bg.size = widget.size
     
     def _after_event_added(self) -> None:
-        """Finalize successful event creation: speak, reload, rebuild, notify."""
+        """Finalize successful event creation: speak, reload (background), rebuild, notify."""
         self.speak(_("Evento añadido."))
 
-        if hasattr(self.store, "reload"):
-            self.store.reload()
+        def _reload_and_refresh():
+            if hasattr(self.store, "reload"):
+                self.store.reload()
+            Clock.schedule_once(lambda dt: self._build_list())
+            Clock.schedule_once(lambda dt: self._notify_refresh())
 
-        self._build_list()
-        self._notify_refresh()
+        threading.Thread(target=_reload_and_refresh, daemon=True).start()
 
 
 
