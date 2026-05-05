@@ -744,13 +744,18 @@ class DayEventsScreen(Screen):
         desc = (desc_voice or "").strip() or _("Sin descripción")
         Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Descripción detectada:") + f"\n{desc}"))
 
-        ok = add_personal_event_mongo(
-            day_date=self.current_day,
-            title=title,
-            description=desc,
-            location=self.current_location,
-            device_name=self.cfg.get_device_id()
-        )
+        try:
+            ok = add_personal_event_mongo(
+                day_date=self.current_day,
+                title=title,
+                description=desc,
+                location=self.current_location,
+                device_name=self.cfg.get_device_id()
+            )
+            print(f"[VOICE] add_personal_event_mongo returned: {ok}")
+        except Exception as e:
+            print(f"[VOICE] Exception adding personal event: {e}")
+            ok = None
 
         if ok:
             Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Guardando evento…")))
