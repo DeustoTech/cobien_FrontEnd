@@ -71,6 +71,7 @@ class EventRow(BoxLayout):
     title = StringProperty("")
     description = StringProperty("")
     time_label = StringProperty("")
+    venue = StringProperty("")
     audience_color = ListProperty([0.15, 0.55, 0.95, 1])
     show_trash = BooleanProperty(False)
     event_id = StringProperty("")
@@ -162,7 +163,7 @@ KV_DAY = r"""
 
 <EventRow>:
     padding: dp(16), dp(14)
-    spacing: dp(16)
+    spacing: dp(14)
     size_hint_y: None
     height: max(dp(80), txt_col.height + dp(28))
     canvas.before:
@@ -180,21 +181,21 @@ KV_DAY = r"""
     # Columna del punto
     BoxLayout:
         size_hint_x: None
-        width: dp(84)
-        padding: dp(4)
+        width: dp(68)
         AnchorLayout:
             anchor_x: "center"
             anchor_y: "center"
             LegendDot:
                 rgba: root.audience_color
-                size: dp(48), dp(48)
-    # Texto (título + hora + descripción)
+                size: dp(40), dp(40)
+    # Texto (título + hora + venue + descripción) — ocupa todo el espacio restante
     BoxLayout:
         id: txt_col
         orientation: "vertical"
+        size_hint_x: 1
         size_hint_y: None
         height: self.minimum_height
-        spacing: dp(4)
+        spacing: dp(5)
         Label:
             text: root.title
             font_size: sp(24)
@@ -206,13 +207,23 @@ KV_DAY = r"""
             text_size: self.width, None
         Label:
             text: root.time_label
+            font_size: sp(26)
+            color: C_BLACK
+            halign: "left"
+            valign: "top"
+            size_hint_y: None
+            height: sp(26) + dp(4) if root.time_label else 0
+            opacity: 1 if root.time_label else 0
+            text_size: self.width, None
+        Label:
+            text: root.venue
             font_size: sp(22)
             color: C_MUTED
             halign: "left"
             valign: "top"
             size_hint_y: None
-            height: sp(22) + dp(4) if root.time_label else 0
-            opacity: 1 if root.time_label else 0
+            height: sp(22) + dp(4) if root.venue else 0
+            opacity: 1 if root.venue else 0
             text_size: self.width, None
         Label:
             text: root.description
@@ -223,17 +234,16 @@ KV_DAY = r"""
             size_hint_y: None
             height: sp(22) + dp(8)
             text_size: self.width, None
-    Widget:
-    # Papelera centrada verticalmente (solo para personales)
+    # Papelera: solo ocupa espacio cuando está activa
     AnchorLayout:
         size_hint: None, 1
-        width: dp(86)
+        width: dp(72) if root.show_trash else 0
         anchor_x: "center"
         anchor_y: "center"
         IconBadge:
             id: trash_btn
             size_hint: None, None
-            size: dp(72), dp(72)
+            size: dp(64), dp(64)
             icon_source: "data/images/trash.png"
             opacity: 1 if root.show_trash else 0
             disabled: not root.show_trash
@@ -983,6 +993,7 @@ class DayEventsScreen(Screen):
                 title=e.get("title", _("Sin título")),
                 description=e.get("description", _("Sin descripción")),
                 time_label=t_label,
+                venue=e.get("venue", ""),
                 audience_color=color,
                 show_trash=(aud=="device"),
                 event_id=str(e.get("id") or "")
