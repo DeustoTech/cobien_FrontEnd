@@ -312,8 +312,7 @@ KV = r"""
                     anchor_y: "center"
                     BoxLayout:
                         orientation: "horizontal"
-                        size_hint: 1, None
-                        height: max(dp(620), self.minimum_height)
+                        size_hint: 1, 1
                         spacing: dp(24)
                         padding: [dp(24), dp(32), dp(24), dp(32)]
                         canvas.before:
@@ -356,12 +355,13 @@ KV = r"""
                                         halign: "left"
                                         valign: "middle"
                                         text_size: self.size
-                            # Body text with independent scroll
+                            # Body text — scrollable, takes all remaining space
                             ScrollView:
                                 size_hint_y: 1
                                 do_scroll_x: False
                                 bar_width: dp(6)
                                 bar_color: 0.7, 0.7, 0.7, 0.8
+                                effect_cls: "ScrollEffect"
                                 Label:
                                     id: lbl_body
                                     text: ""
@@ -372,19 +372,19 @@ KV = r"""
                                     size_hint_y: None
                                     height: self.texture_size[1]
                                     text_size: self.width, None
-                            # Quick-reply buttons with independent scroll (collapses when empty)
-                            ScrollView:
+                            # "Contestar" button — only visible when quick replies exist
+                            Button:
+                                id: btn_reply
+                                text: ""
+                                font_size: sp(28)
                                 size_hint_y: None
-                                height: min(quick_replies_box.minimum_height, dp(300))
-                                do_scroll_x: False
-                                bar_width: dp(6)
-                                bar_color: 0.7, 0.7, 0.7, 0.8
-                                BoxLayout:
-                                    id: quick_replies_box
-                                    orientation: "vertical"
-                                    size_hint_y: None
-                                    height: self.minimum_height
-                                    spacing: dp(10)
+                                height: dp(76) if self.opacity else 0
+                                opacity: 0
+                                disabled: True
+                                background_normal: ""
+                                background_color: 0.15, 0.55, 0.95, 1
+                                color: 1, 1, 1, 1
+                                on_release: root.parent_widget.open_quick_reply_popup()
                 
                         # Image
                         AnchorLayout:
@@ -630,48 +630,86 @@ class BoardScreen(Screen):
         self._update_main_screen_unread()
 
     def _render_quick_replies(self, item: Dict) -> None:
+        """Show/hide the reply button depending on quick-reply state."""
         try:
             ids = self.root_view.ids
         except Exception:
             return
-        qr_box = ids.get("quick_replies_box")
-        if qr_box is None:
+        btn_reply = ids.get("btn_reply")
+        if btn_reply is None:
             return
-        qr_box.clear_widgets()
 
         selected = item.get("quick_reply_selected")
         if selected:
             reply_text = selected.get("text", str(selected)) if isinstance(selected, dict) else str(selected)
-            lbl = Label(
-                text=f"✓ {_('Ya has respondido')}: {reply_text}",
-                font_size=sp(26),
-                color=(0.1, 0.65, 0.3, 1),
-                size_hint_y=None,
-                height=sp(38),
-                halign="left",
-                valign="middle",
-            )
-            lbl.bind(size=lambda w, s: setattr(w, "text_size", s))
-            qr_box.add_widget(lbl)
+            btn_reply.text = f"✓ {_('Respondido')}: {reply_text}"
+            btn_reply.background_color = (0.1, 0.65, 0.3, 1)
+            btn_reply.disabled = True
+            btn_reply.opacity = 1
             return
 
+        quick_replies = list(item.get("quick_replies") or [])
+        if not quick_replies:
+            btn_reply.opacity = 0
+            btn_reply.disabled = True
+            btn_reply.text = ""
+            return
+
+        btn_reply.text = _("Contestar mensaje")
+        btn_reply.background_color = (0.15, 0.55, 0.95, 1)
+        btn_reply.disabled = False
+        btn_reply.opacity = 1
+
+    def open_quick_reply_popup(self) -> None:
+        """Open a popup with quick-reply options for the current message."""
+        if not self.items:
+            return
+        item = self.items[self.idx]
         quick_replies = list(item.get("quick_replies") or [])
         if not quick_replies:
             return
 
         post_id = item.get("id", "")
+        content = BoxLayout(orientation="vertical", spacing=dp(16), padding=dp(24))
+
+        title_lbl = Label(
+            text=_("Elige una respuesta"),
+            font_size=sp(32),
+            bold=True,
+            color=(0, 0, 0, 1),
+            size_hint_y=None,
+            height=dp(52),
+            halign="center",
+            valign="middle",
+        )
+        title_lbl.bind(size=lambda w, s: setattr(w, "text_size", s))
+        content.add_widget(title_lbl)
+
+        popup = Popup(
+            title="",
+            content=wrap_popup_content(content),
+            auto_dismiss=True,
+            size_hint=(0.65, None),
+            height=dp(120) + len(quick_replies) * dp(88),
+            **popup_theme_kwargs(),
+        )
+
         for reply_text in quick_replies:
             btn = Button(
                 text=reply_text,
-                font_size=sp(28),
+                font_size=sp(30),
                 size_hint_y=None,
                 height=dp(76),
                 background_normal="",
                 background_color=(0.93, 0.96, 1.0, 1),
                 color=(0.1, 0.3, 0.8, 1),
             )
-            btn.bind(on_release=lambda b, rt=reply_text, pid=post_id, it=item: self._on_quick_reply(b, pid, rt, it))
-            qr_box.add_widget(btn)
+            btn.bind(on_release=lambda b, rt=reply_text, pid=post_id, it=item, p=popup: (
+                p.dismiss(), self._on_quick_reply(b, pid, rt, it)
+            ))
+            content.add_widget(btn)
+
+        popup.open()
 
     def _on_quick_reply(self, btn, post_id: str, reply_text: str, item: Dict) -> None:
         item["quick_reply_selected"] = {"text": reply_text}
