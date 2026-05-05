@@ -18,6 +18,7 @@ from kivy.factory import Factory
 from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
+from kivy.uix.modalview import ModalView
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.image import Image
@@ -685,14 +686,14 @@ class BoardScreen(Screen):
         title_lbl.bind(size=lambda w, s: setattr(w, "text_size", s))
         content.add_widget(title_lbl)
 
-        popup = Popup(
-            title="",
-            content=wrap_popup_content(content),
+        modal = ModalView(
             auto_dismiss=True,
             size_hint=(0.65, None),
-            height=dp(120) + len(quick_replies) * dp(88),
-            **popup_theme_kwargs(),
+            height=dp(52) + dp(48) + len(quick_replies) * dp(92),
+            background="",
+            background_color=(0, 0, 0, 0.48),
         )
+        modal.add_widget(wrap_popup_content(content))
 
         for reply_text in quick_replies:
             btn = Button(
@@ -704,12 +705,12 @@ class BoardScreen(Screen):
                 background_color=(0.93, 0.96, 1.0, 1),
                 color=(0.1, 0.3, 0.8, 1),
             )
-            btn.bind(on_release=lambda b, rt=reply_text, pid=post_id, it=item, p=popup: (
-                p.dismiss(), self._on_quick_reply(b, pid, rt, it)
+            btn.bind(on_release=lambda b, rt=reply_text, pid=post_id, it=item, m=modal: (
+                m.dismiss(), self._on_quick_reply(b, pid, rt, it)
             ))
             content.add_widget(btn)
 
-        popup.open()
+        modal.open()
 
     def _on_quick_reply(self, btn, post_id: str, reply_text: str, item: Dict) -> None:
         item["quick_reply_selected"] = {"text": reply_text}
