@@ -232,7 +232,8 @@ KV_DAY = r"""
             halign: "left"
             valign: "top"
             size_hint_y: None
-            height: sp(22) + dp(8)
+            height: sp(22) + dp(4) if root.description else 0
+            opacity: 1 if root.description else 0
             text_size: self.width, None
     # Papelera: solo ocupa espacio cuando está activa
     AnchorLayout:
@@ -991,7 +992,7 @@ class DayEventsScreen(Screen):
                 t_label = ""
             row = EventRow(
                 title=e.get("title", _("Sin título")),
-                description=e.get("description", _("Sin descripción")),
+                description=e.get("description", ""),
                 time_label=t_label,
                 venue=e.get("venue", ""),
                 audience_color=color,
