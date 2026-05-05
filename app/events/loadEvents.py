@@ -479,6 +479,7 @@ def fetch_events_from_mongo(device_name: Optional[str] = None, location_name: Op
                 "title": _safe_str(event.get("title") or event.get("titulo"), "Sin título"),
                 "description": _safe_str(event.get("description") or event.get("descripcion"), ""),
                 "location": loc,
+                "location_color": str(event.get("location_color") or "#6366F1"),
                 "audience": audience,
                 "color": color,
                 "venue": str(event.get("venue") or ""),
