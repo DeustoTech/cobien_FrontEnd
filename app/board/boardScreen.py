@@ -299,6 +299,7 @@ KV = r"""
                             orientation: "vertical"
                             size_hint_x: 0.45
                             spacing: dp(12)
+                            # Header: avatar + sender/date (fixed height)
                             BoxLayout:
                                 size_hint_y: None
                                 height: dp(94)
@@ -325,20 +326,36 @@ KV = r"""
                                         halign: "left"
                                         valign: "middle"
                                         text_size: self.size
-                            Label:
-                                id: lbl_body
-                                text: ""
-                                font_size: sp(28)
-                                color: C_BLACK
-                                halign: "left"
-                                valign: "top"
-                                text_size: self.size
-                            BoxLayout:
-                                id: quick_replies_box
-                                orientation: "vertical"
+                            # Body text with independent scroll
+                            ScrollView:
+                                size_hint_y: 1
+                                do_scroll_x: False
+                                bar_width: dp(6)
+                                bar_color: 0.7, 0.7, 0.7, 0.8
+                                Label:
+                                    id: lbl_body
+                                    text: ""
+                                    font_size: sp(28)
+                                    color: C_BLACK
+                                    halign: "left"
+                                    valign: "top"
+                                    size_hint_y: None
+                                    height: self.texture_size[1]
+                                    text_size: self.width, None
+                            # Quick-reply buttons with independent scroll (collapses when empty)
+                            ScrollView:
                                 size_hint_y: None
-                                height: self.minimum_height
-                                spacing: dp(10)
+                                height: min(quick_replies_box.minimum_height, dp(300))
+                                do_scroll_x: False
+                                bar_width: dp(6)
+                                bar_color: 0.7, 0.7, 0.7, 0.8
+                                BoxLayout:
+                                    id: quick_replies_box
+                                    orientation: "vertical"
+                                    size_hint_y: None
+                                    height: self.minimum_height
+                                    spacing: dp(10)
+                            # Trash button pinned at bottom
                             AnchorLayout:
                                 anchor_x: "right"
                                 anchor_y: "bottom"
