@@ -44,6 +44,12 @@ class IconBadge(ButtonBehavior, AnchorLayout):
 
     icon_source = StringProperty("")
 
+
+class DangerIconBadge(ButtonBehavior, AnchorLayout):
+    """Icon badge with red border for destructive actions."""
+
+    icon_source = StringProperty("")
+
 class ImageButton(ButtonBehavior, AnchorLayout):
     """Clickable image button used for board navigation controls."""
 
@@ -157,6 +163,30 @@ KV = r"""
         halign: "center"
         valign: "middle"
         text_size: self.size
+
+<DangerIconBadge>:
+    size_hint: None, None
+    size: dp(80), dp(80)
+    padding: dp(6)
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [R_BTN,]
+        Color:
+            rgba: 1, 0.18, 0.18, 0.9
+        Line:
+            width: 2.5
+            rounded_rectangle: (self.x, self.y, self.width, self.height, R_BTN)
+    Image:
+        source: root.icon_source
+        allow_stretch: True
+        keep_ratio: True
+        mipmap: True
+        size_hint: None, None
+        size: dp(56), dp(56)
 
 <BoardRoot@FloatLayout>:
     canvas.before:
@@ -355,20 +385,7 @@ KV = r"""
                                     size_hint_y: None
                                     height: self.minimum_height
                                     spacing: dp(10)
-                            # Trash button pinned at bottom
-                            AnchorLayout:
-                                anchor_x: "right"
-                                anchor_y: "bottom"
-                                size_hint_y: None
-                                height: dp(72)
-                                IconBadge:
-                                    id: btn_delete
-                                    size: dp(58), dp(58)
-                                    icon_source: "data/images/trash.png"
-                                    opacity: 0.4
-                                    disabled: True
-                                    on_release: root.parent_widget.confirm_delete_current()
-
+                
                         # Image
                         AnchorLayout:
                             size_hint_x: 0.55
@@ -393,6 +410,20 @@ KV = r"""
                         opacity: 1
                         disabled: False
                         on_release: root.parent_widget.goto_next()
+
+    # Delete button overlay — bottom-right corner outside the message card
+    AnchorLayout:
+        size_hint: None, None
+        size: dp(96), dp(96)
+        pos_hint: {"right": 0.97, "y": 0.02}
+        anchor_x: "center"
+        anchor_y: "center"
+        DangerIconBadge:
+            id: btn_delete
+            icon_source: "data/images/trash.png"
+            opacity: 0.4
+            disabled: True
+            on_release: root.parent_widget.confirm_delete_current()
 """
 
 
