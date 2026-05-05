@@ -22,6 +22,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from kivy.clock import Clock
+
 from events.event_bus import event_bus
 
 from pymongo import MongoClient
@@ -357,7 +359,7 @@ def _append_personal_event_local(
         "created_by": "local_fallback",
     })
     guardar_eventos_localmente(local_events)
-    event_bus.notify_events_changed()
+    Clock.schedule_once(lambda dt: event_bus.notify_events_changed())
     return local_id
 
 def fetch_events_from_api(device_name: Optional[str] = None, location_name: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -524,7 +526,7 @@ def delete_event_mongo(event_id: str) -> bool:
             if len(new_events) == len(local_events):
                 return False
             guardar_eventos_localmente(new_events)
-            event_bus.notify_events_changed()
+            Clock.schedule_once(lambda dt: event_bus.notify_events_changed())
             return True
         except Exception as e:
             print(f"[DELETE] Error borrando evento local {event_id}: {e}")
@@ -539,7 +541,7 @@ def delete_event_mongo(event_id: str) -> bool:
             try:
                 eventos = fetch_events_from_mongo(device_name=_current_device_name(), location_name=_current_location_name())
                 guardar_eventos_localmente(eventos)
-                event_bus.notify_events_changed()
+                Clock.schedule_once(lambda dt: event_bus.notify_events_changed())
             except Exception as e:
                 print(f"[WARN] No se pudo refrescar cache local tras borrar: {e}")
         return ok
@@ -597,7 +599,7 @@ def add_personal_event_mongo(
             guardar_eventos_localmente(eventos)
         except Exception as cache_error:
             print(f"[MONGO] Could not refresh local cache after insert: {cache_error}")
-        event_bus.notify_events_changed()
+        Clock.schedule_once(lambda dt: event_bus.notify_events_changed())
         return str(res.inserted_id)
     except Exception as e:
         print(f"[MONGO] Error insertando evento personal: {e}")
