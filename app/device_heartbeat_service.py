@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import threading
 from datetime import datetime
 
@@ -36,6 +37,36 @@ def _load_runtime_config():
     }
 
 
+def _get_services_status():
+    try:
+        mosquitto = subprocess.run(
+            ["pgrep", "-x", "mosquitto"], capture_output=True, check=False, timeout=3
+        ).returncode == 0
+    except Exception:
+        mosquitto = False
+
+    try:
+        mqtt_can_bridge = subprocess.run(
+            ["pgrep", "-f", "cobien_bridge"], capture_output=True, check=False, timeout=3
+        ).returncode == 0
+    except Exception:
+        mqtt_can_bridge = False
+
+    try:
+        with open("/sys/class/net/can0/operstate") as f:
+            can_interface = f.read().strip() == "up"
+    except Exception:
+        can_interface = False
+
+    return {
+        "app": True,
+        "mosquitto": mosquitto,
+        "mqtt_can_bridge": mqtt_can_bridge,
+        "can_interface": can_interface,
+        "checked_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+
 def send_device_heartbeat(screen_name="", extra_payload=None):
     cfg = _load_runtime_config()
     if not cfg["url"] or not cfg["device_id"] or not cfg["api_key"]:
@@ -69,6 +100,7 @@ def send_device_heartbeat(screen_name="", extra_payload=None):
         except Exception:
             # best-effort only; do not break heartbeat on parsing errors
             pass
+    payload["services_status"] = _get_services_status()
     if isinstance(extra_payload, dict):
         payload.update(extra_payload)
 
