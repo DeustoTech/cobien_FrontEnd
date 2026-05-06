@@ -51,6 +51,24 @@ def send_device_heartbeat(screen_name="", extra_payload=None):
     hardware_payload = get_heartbeat_hardware_payload()
     if hardware_payload:
         payload.update(hardware_payload)
+        # Extract a compact CAN status summary (if available) to include in every heartbeat
+        try:
+            # inventory shape: { 'hardware_inventory': { ... 'can': { ... } }, 'hardware_summary': ... }
+            inv = hardware_payload.get("hardware_inventory") or {}
+            can_info = inv.get("can") or hardware_payload.get("can") or {}
+            if can_info:
+                payload["can_status"] = {
+                    "present": bool(can_info.get("present")),
+                    "operstate": str(can_info.get("operstate") or ""),
+                    "carrier": str(can_info.get("carrier") or ""),
+                    "rx_packets": int(can_info.get("rx_packets") or 0),
+                    "tx_packets": int(can_info.get("tx_packets") or 0),
+                    "rx_errors": int(can_info.get("rx_errors") or 0),
+                    "tx_errors": int(can_info.get("tx_errors") or 0),
+                }
+        except Exception:
+            # best-effort only; do not break heartbeat on parsing errors
+            pass
     if isinstance(extra_payload, dict):
         payload.update(extra_payload)
 
