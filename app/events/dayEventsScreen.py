@@ -741,8 +741,31 @@ class DayEventsScreen(Screen):
         desc_prompt = _("Di la descripción del evento")
         Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, desc_prompt))
         desc_voice = self.listen(desc_prompt)
-        desc = (desc_voice or "").strip() or _("Sin descripción")
+        desc = (desc_voice or "").strip()
+        if not desc:
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("No he entendido la descripción.")))
+            Clock.schedule_once(lambda dt: self.speak(_("No he entendido la descripción.")))
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(False, ""))
+            return
         Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Descripción detectada:") + f"\n{desc}"))
+
+        # Confirmación fuerte: no se guarda nada sin un "sí" explícito.
+        summary = (
+            _("Vas a guardar este evento de todo el día.")
+            + "\n"
+            + _("Título detectado:")
+            + f"\n{title}\n"
+            + _("Descripción detectada:")
+            + f"\n{desc}"
+        )
+        Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, summary))
+        confirm_prompt = _("¿Confirmas guardar el evento? Responde sí o no.")
+        confirm_voice = self.listen(confirm_prompt)
+        if not self._is_strong_affirmative(confirm_voice):
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(True, _("Guardado cancelado. No se creó el evento.")))
+            Clock.schedule_once(lambda dt: self.speak(_("Guardado cancelado. No se creó el evento.")))
+            Clock.schedule_once(lambda dt: self._set_voice_flow_popup(False, ""), 1.0)
+            return
 
         try:
             ok = add_personal_event_mongo(
@@ -765,6 +788,21 @@ class DayEventsScreen(Screen):
             Clock.schedule_once(lambda dt: self.speak(_("Ha ocurrido un error al añadir el evento.")))
 
         Clock.schedule_once(lambda dt: self._set_voice_flow_popup(False, ""), 1.0)
+
+    @staticmethod
+    def _is_strong_affirmative(raw_text: Optional[str]) -> bool:
+        """Return True only for explicit affirmative answers."""
+        text = (raw_text or "").strip().lower()
+        if not text:
+            return False
+        strong_yes = {
+            "si", "sí", "claro", "confirmo", "confirmar", "vale",
+            "ok", "okay", "de acuerdo", "afirmativo",
+        }
+        strong_no = {"no", "cancelar", "cancela", "negativo"}
+        if text in strong_no:
+            return False
+        return text in strong_yes
 
     def _set_voice_flow_popup(self, active: bool, message: str) -> None:
         """Show/hide/update voice flow status popup.
