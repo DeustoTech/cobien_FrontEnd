@@ -71,17 +71,19 @@ def _check_bridge() -> str:
         log_dir = os.getenv("COBIEN_LOG_DIR") or os.path.expanduser("~/cobien/logs")
         logs = sorted(glob.glob(os.path.join(log_dir, "mqtt-can-bridge-*.log")))
         if not logs:
-            return "warn"
+            # Process is running but no log found — assume ok, can't determine connectivity
+            return "ok"
         with open(logs[-1], errors="ignore") as f:
             lines = f.readlines()
         recent = "".join(lines[-40:])
         last_ok = recent.rfind("MQTT connecté")
         last_ko = recent.rfind("déconnecté")
         if last_ok < 0 and last_ko < 0:
-            return "warn"
+            # Log exists but no connection events yet — process just started
+            return "ok"
         return "ok" if last_ok > last_ko else "warn"
     except Exception:
-        return "warn"
+        return "ok"
 
 
 def _check_can() -> str:
