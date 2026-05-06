@@ -68,7 +68,8 @@ def _check_bridge() -> str:
         return "error"
     try:
         import glob
-        log_dir = os.getenv("COBIEN_LOG_DIR") or os.path.expanduser("~/cobien/logs")
+        log_dir = (os.getenv("COBIEN_LOG_DIR")
+                   or os.path.expanduser("~/.local/state/cobien/logs"))
         logs = sorted(glob.glob(os.path.join(log_dir, "mqtt-can-bridge-*.log")))
         if not logs:
             # Process is running but no log found — assume ok, can't determine connectivity
