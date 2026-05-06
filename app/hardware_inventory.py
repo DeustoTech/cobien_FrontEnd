@@ -203,6 +203,60 @@ def _collect_display_info() -> Dict[str, Any]:
     }
 
 
+def _collect_can_status() -> Dict[str, Any]:
+    """Collect basic CAN interface status if `can0` exists.
+
+    This is best-effort: read sysfs counters and operstate if present.
+    """
+    can_if = "/sys/class/net/can0"
+    if not os.path.exists(can_if):
+        return {"present": False}
+
+    def _read(path: str) -> str:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+                return fh.read().strip()
+        except Exception:
+            return ""
+
+    stats_base = os.path.join(can_if, "statistics")
+    def _read_int(p):
+        try:
+            return int(_read(p) or 0)
+        except Exception:
+            return 0
+
+    operstate = _read(os.path.join(can_if, "operstate"))
+    carrier = _read(os.path.join(can_if, "carrier"))
+
+    rx_packets = _read_int(os.path.join(stats_base, "rx_packets"))
+    tx_packets = _read_int(os.path.join(stats_base, "tx_packets"))
+    rx_errors = _read_int(os.path.join(stats_base, "rx_errors"))
+    tx_errors = _read_int(os.path.join(stats_base, "tx_errors"))
+
+    # include a short ip link dump for diagnostics if ip is available
+    ip_link = ""
+    try:
+        from shutil import which
+
+        if which("ip"):
+            proc = subprocess.run(["ip", "-s", "-d", "link", "show", "can0"], capture_output=True, text=True, timeout=3)
+            ip_link = (proc.stdout or "").strip()
+    except Exception:
+        ip_link = ""
+
+    return {
+        "present": True,
+        "operstate": operstate,
+        "carrier": carrier,
+        "rx_packets": rx_packets,
+        "tx_packets": tx_packets,
+        "rx_errors": rx_errors,
+        "tx_errors": tx_errors,
+        "ip_link_raw": ip_link,
+    }
+
+
 def _collect_graphics_info() -> Dict[str, Any]:
     return {
         "controllers": _filter_lspci_devices(["vga compatible controller", "3d controller", "display controller"]),
@@ -271,6 +325,7 @@ def collect_hardware_inventory() -> Dict[str, Any]:
         "audio": _collect_audio_info(),
         "camera": _collect_camera_info(),
         "display": _collect_display_info(),
+        "can": _collect_can_status(),
     }
     payload["summary"] = _build_summary_sections(payload)
     payload["fingerprint"] = hashlib.sha256(
