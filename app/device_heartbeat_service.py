@@ -37,32 +37,75 @@ def _load_runtime_config():
     }
 
 
-def _get_services_status():
+def _check_mosquitto() -> str:
+    """ok = process running + TCP port accepts; warn = process up but port closed; error = not running."""
     try:
-        mosquitto = subprocess.run(
+        running = subprocess.run(
             ["pgrep", "-x", "mosquitto"], capture_output=True, check=False, timeout=3
         ).returncode == 0
     except Exception:
-        mosquitto = False
-
+        return "unknown"
+    if not running:
+        return "error"
     try:
-        mqtt_can_bridge = subprocess.run(
+        import socket
+        s = socket.create_connection(("localhost", 1883), timeout=2)
+        s.close()
+        return "ok"
+    except Exception:
+        return "warn"
+
+
+def _check_bridge() -> str:
+    """ok = process running + log shows connected; warn = process up but log shows disconnected; error = not running."""
+    try:
+        running = subprocess.run(
             ["pgrep", "-f", "cobien_bridge"], capture_output=True, check=False, timeout=3
         ).returncode == 0
     except Exception:
-        mqtt_can_bridge = False
+        return "unknown"
+    if not running:
+        return "error"
+    try:
+        import glob
+        log_dir = os.getenv("COBIEN_LOG_DIR") or os.path.expanduser("~/cobien/logs")
+        logs = sorted(glob.glob(os.path.join(log_dir, "mqtt-can-bridge-*.log")))
+        if not logs:
+            return "warn"
+        with open(logs[-1], errors="ignore") as f:
+            lines = f.readlines()
+        recent = "".join(lines[-40:])
+        last_ok = recent.rfind("MQTT connecté")
+        last_ko = recent.rfind("déconnecté")
+        if last_ok < 0 and last_ko < 0:
+            return "warn"
+        return "ok" if last_ok > last_ko else "warn"
+    except Exception:
+        return "warn"
 
+
+def _check_can() -> str:
+    """ok = up + has packets; warn = up but 0 packets; error = down or absent."""
     try:
         with open("/sys/class/net/can0/operstate") as f:
-            can_interface = f.read().strip() == "up"
+            if f.read().strip() != "up":
+                return "error"
     except Exception:
-        can_interface = False
+        return "error"
+    try:
+        rx = int(open("/sys/class/net/can0/statistics/rx_packets").read().strip())
+        tx = int(open("/sys/class/net/can0/statistics/tx_packets").read().strip())
+        return "ok" if (rx + tx) > 0 else "warn"
+    except Exception:
+        return "warn"
 
+
+def _get_services_status():
     return {
-        "app": True,
-        "mosquitto": mosquitto,
-        "mqtt_can_bridge": mqtt_can_bridge,
-        "can_interface": can_interface,
+        "app": "ok",
+        "mosquitto": _check_mosquitto(),
+        "mqtt_can_bridge": _check_bridge(),
+        "can_interface": _check_can(),
         "checked_at": datetime.utcnow().isoformat() + "Z",
     }
 
