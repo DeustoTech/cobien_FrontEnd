@@ -1452,6 +1452,14 @@ class NotificationManager:
             except:
                 pass
             self.active_videocall_popup = None
+        
+        # ========== STOP SOUND AND LEDS ==========
+        try:
+            stop_ringtone()
+            turn_off_leds()
+        except Exception as e:
+            print(f"[NOTIF] Error turning off ringtone/leds: {e}")
+
         if self.active_call_process and self.active_call_process.poll() is not None:
             self.active_call_process = None
 

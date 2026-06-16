@@ -1706,13 +1706,13 @@ class MainScreen(Screen):
             
             # ✅ CAS 2 : Liste de destinataires (CASE-SENSITIVE)
             elif isinstance(recipient, list):
-                if self.DEVICE_ID not in recipient:  # ✅ Comparaison EXACTE
+                if self.DEVICE_ID not in recipient and self.VIDEOCALL_ROOM not in recipient:  # ✅ Comparaison EXACTE
                     print("[BACKEND_NOTIF] Message ignored (device not in recipient list)")
                     return
             
             # ✅ CAS 3 : Destinataire unique (CASE-SENSITIVE STRICT)
             else:
-                if recipient != self.DEVICE_ID:  # ✅ Comparaison EXACTE (pas de .lower())
+                if recipient != self.DEVICE_ID and recipient != self.VIDEOCALL_ROOM:  # ✅ Comparaison EXACTE (pas de .lower())
                     print("[BACKEND_NOTIF] Message ignored (different recipient)")
                     return
         else:
